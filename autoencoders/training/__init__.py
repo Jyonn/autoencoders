@@ -1,7 +1,10 @@
 """Training utilities for autoencoder-family models."""
 
 from .trainer import (
+    AdversarialAutoencoderTrainer,
+    AdversarialAutoencoderTrainingArguments,
     AutoencoderTrainer,
+    ContractiveAutoencoderTrainer,
     QuantizedAutoencoderTrainer,
     QuantizedAutoencoderTrainingArguments,
     TrainerDisplayConfig,
@@ -13,7 +16,10 @@ from .trainer import (
 )
 
 __all__ = [
+    "AdversarialAutoencoderTrainer",
+    "AdversarialAutoencoderTrainingArguments",
     "AutoencoderTrainer",
+    "ContractiveAutoencoderTrainer",
     "QuantizedAutoencoderTrainer",
     "QuantizedAutoencoderTrainingArguments",
     "TrainerDisplayConfig",

@@ -12,7 +12,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from autoencoders import (
+    AdversarialAutoencoderTrainer,
+    AdversarialAutoencoderTrainingArguments,
     AutoencoderTrainer,
+    ContractiveAutoencoderTrainer,
     QuantizedAutoencoderTrainer,
     QuantizedAutoencoderTrainingArguments,
     TrainingArguments,
@@ -27,7 +30,12 @@ from autoencoders import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="glove", choices=["glove"], help="Dataset name.")
-    parser.add_argument("--model", default="ae", choices=["ae", "dae", "sae", "vae", "betavae", "vqvae"], help="Model name.")
+    parser.add_argument(
+        "--model",
+        default="ae",
+        choices=["ae", "dae", "cae", "sae", "vae", "betavae", "wae", "aae", "vqvae"],
+        help="Model name.",
+    )
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
 
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
@@ -40,9 +48,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
+    parser.add_argument("--contractive-weight", type=float, default=1e-2, help="Contractive-AE Jacobian penalty weight.")
     parser.add_argument("--sparsity-weight", type=float, default=1e-3, help="Sparse-AE latent L1 regularization weight.")
     parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
     parser.add_argument("--beta", type=float, default=4.0, help="Beta-VAE KL multiplier.")
+    parser.add_argument("--mmd-weight", type=float, default=10.0, help="WAE MMD regularization weight.")
+    parser.add_argument("--mmd-bandwidths", type=float, nargs="+", default=[0.1, 0.2, 0.5, 1.0, 2.0], help="WAE MMD kernel bandwidths.")
+    parser.add_argument("--adversarial-weight", type=float, default=1.0, help="AAE adversarial regularization weight.")
+    parser.add_argument("--discriminator-hidden-dims", type=int, nargs="+", default=[128, 64], help="AAE discriminator hidden dims.")
     parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
     parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
@@ -88,6 +101,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Adam learning rate.")
+    parser.add_argument("--generator-learning-rate", type=float, default=None, help="Optional AAE encoder adversarial optimizer learning rate.")
+    parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional AAE discriminator optimizer learning rate.")
+    parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of AAE discriminator updates per batch.")
     parser.add_argument("--device", default="auto", help="Training device: auto, cpu, cuda, mps.")
     parser.add_argument(
         "--show-only-best-epochs",
@@ -124,6 +140,12 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "apply_noise_in_eval": args.apply_noise_in_eval,
             }
         )
+    if args.model == "cae":
+        model_kwargs.update(
+            {
+                "contractive_weight": args.contractive_weight,
+            }
+        )
     if args.model == "sae":
         model_kwargs.update(
             {
@@ -140,6 +162,20 @@ def build_model(args: argparse.Namespace, input_dim: int):
         model_kwargs.update(
             {
                 "beta": args.beta,
+            }
+        )
+    if args.model == "wae":
+        model_kwargs.update(
+            {
+                "mmd_weight": args.mmd_weight,
+                "mmd_bandwidths": list(args.mmd_bandwidths),
+            }
+        )
+    if args.model == "aae":
+        model_kwargs.update(
+            {
+                "adversarial_weight": args.adversarial_weight,
+                "discriminator_hidden_dims": list(args.discriminator_hidden_dims),
             }
         )
     if args.model == "vqvae":
@@ -177,6 +213,17 @@ def build_trainer(args: argparse.Namespace, model):
             **common_kwargs,
         )
         return VAETrainer(model=model, args=training_args)
+    if args.model == "cae":
+        training_args = TrainingArguments(**common_kwargs)
+        return ContractiveAutoencoderTrainer(model=model, args=training_args)
+    if args.model == "aae":
+        training_args = AdversarialAutoencoderTrainingArguments(
+            discriminator_learning_rate=args.discriminator_learning_rate,
+            generator_learning_rate=args.generator_learning_rate,
+            discriminator_steps=args.discriminator_steps,
+            **common_kwargs,
+        )
+        return AdversarialAutoencoderTrainer(model=model, args=training_args)
     if args.model == "vqvae":
         training_args = QuantizedAutoencoderTrainingArguments(
             dead_code_reset=args.dead_code_reset,

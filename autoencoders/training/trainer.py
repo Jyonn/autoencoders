@@ -153,6 +153,24 @@ class QuantizedAutoencoderTrainingArguments(TrainingArguments):
 
 
 @dataclass
+class AdversarialAutoencoderTrainingArguments(TrainingArguments):
+    """Training settings specific to adversarial autoencoders."""
+
+    discriminator_learning_rate: float | None = None
+    generator_learning_rate: float | None = None
+    discriminator_steps: int = 1
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.discriminator_learning_rate is not None and self.discriminator_learning_rate <= 0:
+            raise ValueError("discriminator_learning_rate must be greater than 0 when provided.")
+        if self.generator_learning_rate is not None and self.generator_learning_rate <= 0:
+            raise ValueError("generator_learning_rate must be greater than 0 when provided.")
+        if self.discriminator_steps <= 0:
+            raise ValueError("discriminator_steps must be greater than 0.")
+
+
+@dataclass
 class TrainerDisplayConfig:
     """Terminal display settings for trainer logs."""
 
@@ -180,7 +198,11 @@ class TrainerDisplayConfig:
     recon_value_fg: str = "green"
     kl_value_fg: str = "magenta"
     sparse_value_fg: str = "yellow"
+    contractive_value_fg: str = "blue"
     free_kl_value_fg: str = "blue"
+    mmd_value_fg: str = "yellow"
+    adversarial_value_fg: str = "magenta"
+    discriminator_value_fg: str = "red"
     commitment_value_fg: str = "cyan"
     codebook_value_fg: str = "red"
     meta_value_fg: str = "yellow"
@@ -209,7 +231,11 @@ class TrainerDisplayConfig:
             self.recon_value_fg,
             self.kl_value_fg,
             self.sparse_value_fg,
+            self.contractive_value_fg,
             self.free_kl_value_fg,
+            self.mmd_value_fg,
+            self.adversarial_value_fg,
+            self.discriminator_value_fg,
             self.commitment_value_fg,
             self.codebook_value_fg,
             self.meta_value_fg,
@@ -404,6 +430,14 @@ class AutoencoderTrainer:
             parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in metrics:
             parts.append(self._format_metric("sparse", f"{metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "contractive_loss" in metrics:
+            parts.append(self._format_metric("contract", f"{metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg))
+        if "mmd_loss" in metrics:
+            parts.append(self._format_metric("mmd", f"{metrics['mmd_loss']:.4f}", value_fg=self.display.mmd_value_fg))
+        if "adversarial_loss" in metrics:
+            parts.append(self._format_metric("adv", f"{metrics['adversarial_loss']:.4f}", value_fg=self.display.adversarial_value_fg))
+        if "discriminator_loss" in metrics:
+            parts.append(self._format_metric("disc", f"{metrics['discriminator_loss']:.4f}", value_fg=self.display.discriminator_value_fg))
         if "commitment_loss" in metrics:
             parts.append(self._format_metric("commit", f"{metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
         if "codebook_loss" in metrics:
@@ -439,6 +473,38 @@ class AutoencoderTrainer:
                     "sparse",
                     f"{float(epoch_metrics['train_sparsity_loss']):.4f}/{float(epoch_metrics['validation_sparsity_loss']):.4f}",
                     value_fg=self.display.sparse_value_fg,
+                )
+            )
+        if "train_contractive_loss" in epoch_metrics and "validation_contractive_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "contract",
+                    f"{float(epoch_metrics['train_contractive_loss']):.4f}/{float(epoch_metrics['validation_contractive_loss']):.4f}",
+                    value_fg=self.display.contractive_value_fg,
+                )
+            )
+        if "train_mmd_loss" in epoch_metrics and "validation_mmd_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "mmd",
+                    f"{float(epoch_metrics['train_mmd_loss']):.4f}/{float(epoch_metrics['validation_mmd_loss']):.4f}",
+                    value_fg=self.display.mmd_value_fg,
+                )
+            )
+        if "train_adversarial_loss" in epoch_metrics and "validation_adversarial_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "adv",
+                    f"{float(epoch_metrics['train_adversarial_loss']):.4f}/{float(epoch_metrics['validation_adversarial_loss']):.4f}",
+                    value_fg=self.display.adversarial_value_fg,
+                )
+            )
+        if "train_discriminator_loss" in epoch_metrics and "validation_discriminator_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "disc",
+                    f"{float(epoch_metrics['train_discriminator_loss']):.4f}/{float(epoch_metrics['validation_discriminator_loss']):.4f}",
+                    value_fg=self.display.discriminator_value_fg,
                 )
             )
         if "train_commitment_loss" in epoch_metrics and "validation_commitment_loss" in epoch_metrics:
@@ -525,6 +591,34 @@ class AutoencoderTrainer:
             parts.append(
                 self._format_metric("sparse", f"{float(epoch_metrics['validation_sparsity_loss']):.4f}", value_fg=self.display.sparse_value_fg)
             )
+        if "validation_contractive_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "contract",
+                    f"{float(epoch_metrics['validation_contractive_loss']):.4f}",
+                    value_fg=self.display.contractive_value_fg,
+                )
+            )
+        if "validation_mmd_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric("mmd", f"{float(epoch_metrics['validation_mmd_loss']):.4f}", value_fg=self.display.mmd_value_fg)
+            )
+        if "validation_adversarial_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "adv",
+                    f"{float(epoch_metrics['validation_adversarial_loss']):.4f}",
+                    value_fg=self.display.adversarial_value_fg,
+                )
+            )
+        if "validation_discriminator_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "disc",
+                    f"{float(epoch_metrics['validation_discriminator_loss']):.4f}",
+                    value_fg=self.display.discriminator_value_fg,
+                )
+            )
         if "validation_commitment_loss" in epoch_metrics:
             parts.append(
                 self._format_metric("commit", f"{float(epoch_metrics['validation_commitment_loss']):.4f}", value_fg=self.display.commitment_value_fg)
@@ -590,6 +684,20 @@ class AutoencoderTrainer:
             summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in test_metrics:
             summary_parts.append(self._format_metric("sparse", f"{test_metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "contractive_loss" in test_metrics:
+            summary_parts.append(
+                self._format_metric("contract", f"{test_metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg)
+            )
+        if "mmd_loss" in test_metrics:
+            summary_parts.append(self._format_metric("mmd", f"{test_metrics['mmd_loss']:.4f}", value_fg=self.display.mmd_value_fg))
+        if "adversarial_loss" in test_metrics:
+            summary_parts.append(
+                self._format_metric("adv", f"{test_metrics['adversarial_loss']:.4f}", value_fg=self.display.adversarial_value_fg)
+            )
+        if "discriminator_loss" in test_metrics:
+            summary_parts.append(
+                self._format_metric("disc", f"{test_metrics['discriminator_loss']:.4f}", value_fg=self.display.discriminator_value_fg)
+            )
         if "commitment_loss" in test_metrics:
             summary_parts.append(self._format_metric("commit", f"{test_metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
         if "codebook_loss" in test_metrics:
@@ -723,6 +831,14 @@ class VAETrainer(AutoencoderTrainer):
         return metrics
 
 
+class ContractiveAutoencoderTrainer(AutoencoderTrainer):
+    """Trainer that keeps gradients enabled during evaluation for contractive penalties."""
+
+    def evaluate(self, dataloader) -> dict[str, float]:
+        self.model.eval()
+        return self._run_epoch(dataloader, training=False)
+
+
 class QuantizedAutoencoderTrainer(AutoencoderTrainer):
     """Trainer with codebook-usage evaluation hooks for quantized autoencoders."""
 
@@ -820,3 +936,81 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
             "dead_code_ratio": dead_code_ratio,
             "codebook_perplexity": perplexity,
         }
+
+
+class AdversarialAutoencoderTrainer(AutoencoderTrainer):
+    """Trainer with alternating reconstruction, discriminator, and encoder-adversarial updates."""
+
+    def __init__(
+        self,
+        model,
+        args: AdversarialAutoencoderTrainingArguments,
+        optimizer: torch.optim.Optimizer | None = None,
+        display: TrainerDisplayConfig | None = None,
+    ) -> None:
+        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
+        autoencoder_parameters = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
+        self.optimizer = optimizer or torch.optim.Adam(
+            autoencoder_parameters,
+            lr=args.learning_rate,
+        )
+        generator_learning_rate = args.generator_learning_rate or args.learning_rate
+        discriminator_learning_rate = args.discriminator_learning_rate or args.learning_rate
+        self.generator_optimizer = torch.optim.Adam(self.model.encoder.parameters(), lr=generator_learning_rate)
+        self.discriminator_optimizer = torch.optim.Adam(
+            self.model.discriminator.parameters(),
+            lr=discriminator_learning_rate,
+        )
+
+    @property
+    def adversarial_args(self) -> AdversarialAutoencoderTrainingArguments:
+        return self.args
+
+    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        total_examples = 0
+        total_batches = len(dataloader)
+
+        for batch_index, batch in enumerate(dataloader, start=1):
+            batch = batch.to(self.device)
+
+            if training:
+                self.optimizer.zero_grad()
+                latents = self.model.encode(batch)
+                reconstruction = self.model.decode(latents)
+                reconstruction_loss = self.model.compute_loss(reconstruction, batch)
+                reconstruction_loss.backward()
+                self.optimizer.step()
+
+                for _ in range(self.adversarial_args.discriminator_steps):
+                    self.discriminator_optimizer.zero_grad()
+                    with torch.no_grad():
+                        detached_latents = self.model.encode(batch)
+                    prior_samples = self.model.sample_prior(
+                        batch.shape[0],
+                        device=batch.device,
+                        dtype=batch.dtype,
+                    )
+                    discriminator_loss = self.model.compute_discriminator_loss(detached_latents, prior_samples)
+                    discriminator_loss.backward()
+                    self.discriminator_optimizer.step()
+
+                self.generator_optimizer.zero_grad()
+                adversarial_latents = self.model.encode(batch)
+                adversarial_loss = self.model.compute_adversarial_loss(adversarial_latents)
+                (self.model.config.adversarial_weight * adversarial_loss).backward()
+                self.generator_optimizer.step()
+
+            with torch.no_grad():
+                outputs = self.model(inputs=batch)
+
+            batch_size = batch.shape[0]
+            total_examples += batch_size
+            batch_metrics = self._extract_batch_metrics(outputs, loss=outputs.loss, training=training)
+            for name, value in batch_metrics.items():
+                totals[name] = totals.get(name, 0.0) + value * batch_size
+            if training:
+                running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
+                self._log_batch_progress(batch_index, total_batches, running_metrics)
+
+        return {name: total / max(total_examples, 1) for name, total in totals.items()}

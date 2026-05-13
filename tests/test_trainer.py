@@ -10,9 +10,16 @@ from pathlib import Path
 import torch
 
 from autoencoders import (
+    AdversarialAutoencoderConfig,
+    AdversarialAutoencoderModel,
+    AdversarialAutoencoderTrainer,
+    AdversarialAutoencoderTrainingArguments,
     AutoencoderConfig,
     AutoencoderModel,
     AutoencoderTrainer,
+    ContractiveAutoencoderConfig,
+    ContractiveAutoencoderModel,
+    ContractiveAutoencoderTrainer,
     QuantizedAutoencoderTrainer,
     QuantizedAutoencoderTrainingArguments,
     TrainerDisplayConfig,
@@ -23,6 +30,8 @@ from autoencoders import (
     VariationalAutoencoderModel,
     VectorQuantizedAutoencoderConfig,
     VectorQuantizedAutoencoderModel,
+    WassersteinAutoencoderConfig,
+    WassersteinAutoencoderModel,
 )
 from autoencoders.data import DatasetLoaders, EmbeddingMatrix, EmbeddingTensorDataset
 
@@ -204,6 +213,82 @@ class AutoencoderTrainerTest(unittest.TestCase):
         effective_kl_loss = trainer.compute_free_bits_kl_loss(outputs)
 
         self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
+
+    def test_contractive_trainer_tracks_contractive_loss_in_eval(self) -> None:
+        config = ContractiveAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            contractive_weight=0.1,
+        )
+        model = ContractiveAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
+            trainer = ContractiveAutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertIn("validation_contractive_loss", metrics["history"][0])
+            self.assertGreaterEqual(metrics["history"][0]["validation_contractive_loss"], 0.0)
+
+    def test_wasserstein_model_trains_with_base_trainer(self) -> None:
+        config = WassersteinAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            mmd_weight=2.0,
+        )
+        model = WassersteinAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
+            trainer = AutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertIn("train_mmd_loss", metrics["history"][0])
+            self.assertIn("validation_mmd_loss", metrics["history"][0])
+
+    def test_adversarial_training_arguments_validate_fields(self) -> None:
+        defaults = AdversarialAutoencoderTrainingArguments(output_dir="unused")
+        self.assertEqual(defaults.discriminator_steps, 1)
+        self.assertIsNone(defaults.generator_learning_rate)
+        self.assertIsNone(defaults.discriminator_learning_rate)
+
+        with self.assertRaisesRegex(ValueError, "generator_learning_rate"):
+            AdversarialAutoencoderTrainingArguments(output_dir="unused", generator_learning_rate=0.0)
+        with self.assertRaisesRegex(ValueError, "discriminator_learning_rate"):
+            AdversarialAutoencoderTrainingArguments(output_dir="unused", discriminator_learning_rate=0.0)
+        with self.assertRaisesRegex(ValueError, "discriminator_steps"):
+            AdversarialAutoencoderTrainingArguments(output_dir="unused", discriminator_steps=0)
+
+    def test_adversarial_trainer_tracks_generator_and_discriminator_metrics(self) -> None:
+        config = AdversarialAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            discriminator_hidden_dims=[5],
+            adversarial_weight=0.25,
+        )
+        model = AdversarialAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = AdversarialAutoencoderTrainingArguments(
+                output_dir=tmpdir,
+                epochs=1,
+                device="cpu",
+            )
+            trainer = AdversarialAutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertIn("train_adversarial_loss", metrics["history"][0])
+            self.assertIn("train_discriminator_loss", metrics["history"][0])
+            self.assertIn("validation_adversarial_loss", metrics["history"][0])
+            self.assertIn("validation_discriminator_loss", metrics["history"][0])
+            self.assertIn("adversarial_loss", metrics["final_test_metrics"])
+            self.assertIn("discriminator_loss", metrics["final_test_metrics"])
 
     def test_quantized_trainer_tracks_codebook_metrics(self) -> None:
         config = VectorQuantizedAutoencoderConfig(
