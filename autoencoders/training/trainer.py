@@ -53,6 +53,21 @@ class TrainingArguments:
             raise ValueError("patience must be provided when epochs is set to 0.")
 
 
+@dataclass
+class VAETrainingArguments(TrainingArguments):
+    """Training settings specific to variational autoencoders."""
+
+    kl_warmup_epochs: int = 0
+    kl_start_weight: float = 0.0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.kl_warmup_epochs < 0:
+            raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
+        if self.kl_start_weight < 0:
+            raise ValueError("kl_start_weight must be non-negative.")
+
+
 class AutoencoderTrainer:
     """A small trainer for autoencoder-family models."""
 
@@ -64,6 +79,7 @@ class AutoencoderTrainer:
     ) -> None:
         self.model = model
         self.args = args
+        self.current_epoch = 0
         self.device = resolve_device(args.device)
         self.model.to(self.device)
         self.optimizer = optimizer or torch.optim.Adam(
@@ -95,10 +111,12 @@ class AutoencoderTrainer:
         max_epochs = self.args.epochs if self.args.epochs > 0 else None
 
         while max_epochs is None or epoch < max_epochs:
+            epoch += 1
+            self.on_epoch_start(epoch)
             train_metrics = self.train_epoch(dataloaders.train)
             validation_metrics = self.evaluate(dataloaders.validation)
-            epoch += 1
             epoch_metrics: dict[str, float | int] = {"epoch": epoch}
+            epoch_metrics.update(self.get_epoch_metrics())
             epoch_metrics.update({f"train_{name}": value for name, value in train_metrics.items()})
             epoch_metrics.update({f"validation_{name}": value for name, value in validation_metrics.items()})
             history.append(epoch_metrics)
@@ -142,6 +160,12 @@ class AutoencoderTrainer:
         print(f"Saved metrics to {metrics_path}")
         return metrics
 
+    def on_epoch_start(self, epoch: int) -> None:
+        self.current_epoch = epoch
+
+    def get_epoch_metrics(self) -> dict[str, float | int]:
+        return {}
+
     def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
         total_examples = 0
@@ -150,25 +174,31 @@ class AutoencoderTrainer:
             batch = batch.to(self.device)
             if training:
                 self.optimizer.zero_grad()
-            outputs = self.model(inputs=batch)
+            outputs = self.forward_batch(batch, training=training)
+            loss = self.compute_batch_loss(outputs, training=training)
             if training:
-                outputs.loss.backward()
+                loss.backward()
                 self.optimizer.step()
 
             batch_size = batch.shape[0]
             total_examples += batch_size
-            batch_metrics = self._extract_batch_metrics(outputs)
+            batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
 
         return {name: total / max(total_examples, 1) for name, total in totals.items()}
 
-    @staticmethod
-    def _extract_batch_metrics(outputs) -> dict[str, float]:
-        metrics: dict[str, float] = {"loss": float(outputs.loss.detach().item())}
+    def forward_batch(self, batch: torch.Tensor, *, training: bool):
+        return self.model(inputs=batch)
+
+    def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
+        return outputs.loss
+
+    def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
+        metrics: dict[str, float] = {"loss": float(loss.detach().item())}
         for name, value in outputs.loss_dict.items():
             if name == "loss":
-                metrics["loss"] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
+                continue
             else:
                 metrics[name] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
         return metrics
@@ -186,3 +216,47 @@ class AutoencoderTrainer:
     def _format_metric_line(prefix: str, metrics: dict[str, float]) -> str:
         parts = [f"{prefix}_{name}={value:.6f}" for name, value in metrics.items()]
         return " ".join(parts)
+
+
+class VAETrainer(AutoencoderTrainer):
+    """Trainer with VAE-specific objective scheduling hooks."""
+
+    def __init__(
+        self,
+        model,
+        args: VAETrainingArguments,
+        optimizer: torch.optim.Optimizer | None = None,
+    ) -> None:
+        super().__init__(model=model, args=args, optimizer=optimizer)
+
+    @property
+    def vae_args(self) -> VAETrainingArguments:
+        return self.args
+
+    def get_current_kl_weight(self) -> float:
+        target_weight = float(self.model.config.kl_weight)
+        warmup_epochs = self.vae_args.kl_warmup_epochs
+        start_weight = self.vae_args.kl_start_weight
+
+        if warmup_epochs <= 0:
+            return target_weight
+        if warmup_epochs == 1:
+            return target_weight
+        if self.current_epoch <= 1:
+            return start_weight
+
+        progress = min((self.current_epoch - 1) / (warmup_epochs - 1), 1.0)
+        return start_weight + progress * (target_weight - start_weight)
+
+    def get_epoch_metrics(self) -> dict[str, float | int]:
+        return {"kl_weight": self.get_current_kl_weight()}
+
+    def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
+        if outputs.reconstruction_loss is None or outputs.kl_loss is None:
+            raise ValueError("VAETrainer requires outputs with reconstruction_loss and kl_loss.")
+        return outputs.reconstruction_loss + self.get_current_kl_weight() * outputs.kl_loss
+
+    def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
+        metrics = super()._extract_batch_metrics(outputs, loss=loss, training=training)
+        metrics["effective_kl_weight"] = self.get_current_kl_weight()
+        return metrics

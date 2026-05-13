@@ -11,7 +11,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from autoencoders import AutoencoderTrainer, TrainingArguments, load_dataset, load_model, set_seed
+from autoencoders import (
+    AutoencoderTrainer,
+    TrainingArguments,
+    VAETrainer,
+    VAETrainingArguments,
+    load_dataset,
+    load_model,
+    set_seed,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +39,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
     parser.add_argument("--kl-weight", type=float, default=1.0, help="VAE KL loss weight.")
+    parser.add_argument("--kl-warmup-epochs", type=int, default=0, help="Number of epochs for VAE KL warmup.")
+    parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
 
     parser.add_argument("--noise-type", default="gaussian", help="DAE noise type.")
     parser.add_argument("--noise-std", type=float, default=0.1, help="DAE gaussian noise std.")
@@ -95,6 +105,30 @@ def build_model(args: argparse.Namespace, input_dim: int):
     return load_model(args.model, **model_kwargs)
 
 
+def build_trainer(args: argparse.Namespace, model):
+    normalized_model_name = args.model.strip().lower()
+    common_kwargs = {
+        "output_dir": args.output_dir,
+        "epochs": args.epochs,
+        "patience": args.patience,
+        "learning_rate": args.learning_rate,
+        "batch_size": args.batch_size,
+        "device": args.device,
+        "seed": args.seed,
+    }
+
+    if normalized_model_name in {"vae", "variational_autoencoder", "variational-autoencoder"}:
+        training_args = VAETrainingArguments(
+            kl_warmup_epochs=args.kl_warmup_epochs,
+            kl_start_weight=args.kl_start_weight,
+            **common_kwargs,
+        )
+        return VAETrainer(model=model, args=training_args)
+
+    training_args = TrainingArguments(**common_kwargs)
+    return AutoencoderTrainer(model=model, args=training_args)
+
+
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
@@ -108,16 +142,7 @@ def main() -> None:
     )
     embedding_matrix = dataset.load_embedding_matrix()
     model = build_model(args, input_dim=embedding_matrix.embedding_dim)
-    training_args = TrainingArguments(
-        output_dir=args.output_dir,
-        epochs=args.epochs,
-        patience=args.patience,
-        learning_rate=args.learning_rate,
-        batch_size=args.batch_size,
-        device=args.device,
-        seed=args.seed,
-    )
-    trainer = AutoencoderTrainer(model=model, args=training_args)
+    trainer = build_trainer(args, model)
     trainer.fit(
         dataloaders,
         metadata={

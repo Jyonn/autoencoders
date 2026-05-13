@@ -9,7 +9,16 @@ from pathlib import Path
 
 import torch
 
-from autoencoders import AutoencoderConfig, AutoencoderModel, AutoencoderTrainer, TrainingArguments
+from autoencoders import (
+    AutoencoderConfig,
+    AutoencoderModel,
+    AutoencoderTrainer,
+    TrainingArguments,
+    VAETrainer,
+    VAETrainingArguments,
+    VariationalAutoencoderConfig,
+    VariationalAutoencoderModel,
+)
 from autoencoders.data import DatasetLoaders, EmbeddingMatrix, EmbeddingTensorDataset
 
 
@@ -114,6 +123,46 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(metrics["epochs_completed"], 4)
             self.assertEqual(len(metrics["history"]), 4)
             self.assertEqual(metrics["final_test_loss"], 3.5)
+
+    def test_vae_training_arguments_validate_warmup_fields(self) -> None:
+        with self.assertRaisesRegex(ValueError, "kl_warmup_epochs"):
+            VAETrainingArguments(output_dir="unused", kl_warmup_epochs=-1)
+        with self.assertRaisesRegex(ValueError, "kl_start_weight"):
+            VAETrainingArguments(output_dir="unused", kl_start_weight=-0.1)
+
+    def test_vae_trainer_tracks_effective_kl_weight(self) -> None:
+        config = VariationalAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            kl_weight=0.8,
+        )
+        model = VariationalAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = VAETrainingArguments(
+                output_dir=tmpdir,
+                epochs=3,
+                patience=None,
+                learning_rate=1e-3,
+                batch_size=6,
+                device="cpu",
+                seed=123,
+                kl_warmup_epochs=3,
+                kl_start_weight=0.0,
+            )
+            trainer = VAETrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            history = metrics["history"]
+            self.assertEqual(len(history), 3)
+            self.assertAlmostEqual(history[0]["kl_weight"], 0.0, places=6)
+            self.assertAlmostEqual(history[1]["kl_weight"], 0.4, places=6)
+            self.assertAlmostEqual(history[2]["kl_weight"], 0.8, places=6)
+            self.assertAlmostEqual(history[0]["train_effective_kl_weight"], 0.0, places=6)
+            self.assertAlmostEqual(history[1]["train_effective_kl_weight"], 0.4, places=6)
+            self.assertAlmostEqual(history[2]["train_effective_kl_weight"], 0.8, places=6)
 
 
 if __name__ == "__main__":

@@ -37,7 +37,14 @@ try:
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
     from .models.loading import load_model
     from .models.vae.modeling_vae import VariationalAutoencoderModel
-    from .training import AutoencoderTrainer, TrainingArguments, resolve_device, set_seed
+    from .training import (
+        AutoencoderTrainer,
+        TrainingArguments,
+        VAETrainer,
+        VAETrainingArguments,
+        resolve_device,
+        set_seed,
+    )
 except ModuleNotFoundError as exc:
     if exc.name != "torch":
         raise
@@ -57,6 +64,8 @@ else:
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
             "TrainingArguments",
+            "VAETrainer",
+            "VAETrainingArguments",
             "VariationalAutoencoderModel",
             "create_dataloaders",
             "load_dataset",
