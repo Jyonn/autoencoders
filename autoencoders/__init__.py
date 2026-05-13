@@ -39,6 +39,7 @@ try:
     from .models.vae.modeling_vae import VariationalAutoencoderModel
     from .training import (
         AutoencoderTrainer,
+        TrainerDisplayConfig,
         TrainingArguments,
         VAETrainer,
         VAETrainingArguments,
@@ -63,6 +64,7 @@ else:
             "EmbeddingTensorDataset",
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
+            "TrainerDisplayConfig",
             "TrainingArguments",
             "VAETrainer",
             "VAETrainingArguments",

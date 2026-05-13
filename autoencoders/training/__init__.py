@@ -2,6 +2,7 @@
 
 from .trainer import (
     AutoencoderTrainer,
+    TrainerDisplayConfig,
     TrainingArguments,
     VAETrainer,
     VAETrainingArguments,
@@ -11,6 +12,7 @@ from .trainer import (
 
 __all__ = [
     "AutoencoderTrainer",
+    "TrainerDisplayConfig",
     "TrainingArguments",
     "VAETrainer",
     "VAETrainingArguments",

@@ -139,6 +139,66 @@ class VAETrainingArguments(TrainingArguments):
             raise ValueError("free_bits must be non-negative.")
 
 
+@dataclass
+class TrainerDisplayConfig:
+    """Terminal display settings for trainer logs."""
+
+    separator: str = " • "
+    progress_width: int = 18
+    progress_fill: str = "█"
+    progress_empty: str = "·"
+    run_label_fg: str = "white"
+    run_label_bg: str = "blue"
+    best_label_fg: str = "white"
+    best_label_bg: str = "green"
+    epoch_label_fg: str = "white"
+    epoch_label_bg: str = "cyan"
+    final_label_fg: str = "white"
+    final_label_bg: str = "magenta"
+    save_label_fg: str = "black"
+    save_label_bg: str = "yellow"
+    phase_fg: str = "white"
+    phase_bg: str = "cyan"
+    epoch_index_fg: str = "yellow"
+    batch_index_fg: str = "blue"
+    progress_fg: str = "green"
+    metric_name_fg: str = "cyan"
+    metric_value_fg: str = "white"
+    recon_value_fg: str = "green"
+    kl_value_fg: str = "magenta"
+    free_kl_value_fg: str = "blue"
+    meta_value_fg: str = "yellow"
+
+    def __post_init__(self) -> None:
+        if self.progress_width <= 0:
+            raise ValueError("progress_width must be greater than 0.")
+        for color_name in (
+            self.run_label_fg,
+            self.run_label_bg,
+            self.best_label_fg,
+            self.best_label_bg,
+            self.epoch_label_fg,
+            self.epoch_label_bg,
+            self.final_label_fg,
+            self.final_label_bg,
+            self.save_label_fg,
+            self.save_label_bg,
+            self.phase_fg,
+            self.phase_bg,
+            self.epoch_index_fg,
+            self.batch_index_fg,
+            self.progress_fg,
+            self.metric_name_fg,
+            self.metric_value_fg,
+            self.recon_value_fg,
+            self.kl_value_fg,
+            self.free_kl_value_fg,
+            self.meta_value_fg,
+        ):
+            if color_name not in FG and color_name not in BG:
+                raise ValueError(f"Unsupported display color: {color_name}")
+
+
 class AutoencoderTrainer:
     """A small trainer for autoencoder-family models."""
 
@@ -147,9 +207,11 @@ class AutoencoderTrainer:
         model,
         args: TrainingArguments,
         optimizer: torch.optim.Optimizer | None = None,
+        display: TrainerDisplayConfig | None = None,
     ) -> None:
         self.model = model
         self.args = args
+        self.display = display or TrainerDisplayConfig()
         self.current_epoch = 0
         self.max_epochs: int | None = None
         self._last_live_line_length = 0
@@ -298,32 +360,32 @@ class AutoencoderTrainer:
         epoch_budget = "early-stop" if max_epochs is None else str(max_epochs)
         self._print_log(
             "RUN",
-            _join_segments(
-                _format_metric("model", model_name, value_fg="white"),
-                _format_metric("dataset", dataset_name, value_fg="white"),
-                _format_metric("device", str(self.device), value_fg="yellow"),
-                _format_metric("epochs", epoch_budget, value_fg="green"),
+            self._join_segments(
+                self._format_metric("model", model_name, value_fg=self.display.metric_value_fg),
+                self._format_metric("dataset", dataset_name, value_fg=self.display.metric_value_fg),
+                self._format_metric("device", str(self.device), value_fg=self.display.meta_value_fg),
+                self._format_metric("epochs", epoch_budget, value_fg=self.display.progress_fg),
             ),
-            fg="white",
-            bg="blue",
+            fg=self.display.run_label_fg,
+            bg=self.display.run_label_bg,
         )
 
     def _log_batch_progress(self, batch_index: int, total_batches: int, metrics: dict[str, float]) -> None:
-        progress_width = 18
+        progress_width = self.display.progress_width
         filled = int(progress_width * batch_index / max(total_batches, 1))
-        bar = "█" * filled + "·" * (progress_width - filled)
+        bar = self.display.progress_fill * filled + self.display.progress_empty * (progress_width - filled)
         parts = [
-            _style(self._format_epoch_label(), fg="yellow", bold=True),
-            _style(self._current_phase().upper(), fg="white", bg="cyan", bold=True),
-            _style(f"{batch_index:>3}/{total_batches:<3}", fg="blue", bold=True),
-            _style(bar, fg="green", bold=True),
-            _format_metric("loss", f"{metrics['loss']:.4f}", value_fg="white"),
+            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
+            _style(self._current_phase().upper(), fg=self.display.phase_fg, bg=self.display.phase_bg, bold=True),
+            _style(f"{batch_index:>3}/{total_batches:<3}", fg=self.display.batch_index_fg, bold=True),
+            _style(bar, fg=self.display.progress_fg, bold=True),
+            self._format_metric("loss", f"{metrics['loss']:.4f}", value_fg=self.display.metric_value_fg),
         ]
         if "reconstruction_loss" in metrics:
-            parts.append(_format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg="green"))
+            parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "kl_loss" in metrics:
-            parts.append(_format_metric("kl", f"{metrics['kl_loss']:.4f}", value_fg="magenta"))
-        self._write_live_line(_join_segments(*parts))
+            parts.append(self._format_metric("kl", f"{metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
+        self._write_live_line(self._join_segments(*parts))
 
     def _log_epoch_summary(
         self,
@@ -332,63 +394,63 @@ class AutoencoderTrainer:
         persist: bool,
     ) -> None:
         summary_parts = [
-            _style(self._format_epoch_label(), fg="yellow", bold=True),
-            _style("EVAL", fg="white", bg="cyan", bold=True),
-            _format_metric("train", f"{float(epoch_metrics['train_loss']):.4f}", value_fg="white"),
-            _format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg="white"),
+            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
+            _style("EVAL", fg=self.display.phase_fg, bg=self.display.phase_bg, bold=True),
+            self._format_metric("train", f"{float(epoch_metrics['train_loss']):.4f}", value_fg=self.display.metric_value_fg),
+            self._format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg=self.display.metric_value_fg),
         ]
 
         if "train_reconstruction_loss" in epoch_metrics and "validation_reconstruction_loss" in epoch_metrics:
             summary_parts.append(
-                _format_metric(
+                self._format_metric(
                     "recon",
                     f"{float(epoch_metrics['train_reconstruction_loss']):.4f}/{float(epoch_metrics['validation_reconstruction_loss']):.4f}",
-                    value_fg="green",
+                    value_fg=self.display.recon_value_fg,
                 )
             )
         if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
             summary_parts.append(
-                _format_metric(
+                self._format_metric(
                     "kl",
                     f"{float(epoch_metrics['train_kl_loss']):.4f}/{float(epoch_metrics['validation_kl_loss']):.4f}",
-                    value_fg="magenta",
+                    value_fg=self.display.kl_value_fg,
                 )
             )
         if "train_free_bits_kl_loss" in epoch_metrics and "validation_free_bits_kl_loss" in epoch_metrics:
             summary_parts.append(
-                _format_metric(
+                self._format_metric(
                     "free-kl",
                     f"{float(epoch_metrics['train_free_bits_kl_loss']):.4f}/{float(epoch_metrics['validation_free_bits_kl_loss']):.4f}",
-                    value_fg="blue",
+                    value_fg=self.display.free_kl_value_fg,
                 )
             )
 
-        line = _join_segments(*summary_parts)
+        line = self._join_segments(*summary_parts)
         if persist:
-            self._print_log("EPOCH", line, fg="white", bg="cyan")
+            self._print_log("EPOCH", line, fg=self.display.epoch_label_fg, bg=self.display.epoch_label_bg)
         else:
             self._write_live_line(line)
 
     def _log_best_epoch(self, epoch_metrics: dict[str, float | int]) -> None:
         parts = [
-            _style(self._format_epoch_label(), fg="yellow", bold=True),
-            _format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg="white"),
+            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
+            self._format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg=self.display.metric_value_fg),
         ]
         if "validation_reconstruction_loss" in epoch_metrics:
             parts.append(
-                _format_metric("recon", f"{float(epoch_metrics['validation_reconstruction_loss']):.4f}", value_fg="green")
+                self._format_metric("recon", f"{float(epoch_metrics['validation_reconstruction_loss']):.4f}", value_fg=self.display.recon_value_fg)
             )
         if "validation_kl_loss" in epoch_metrics:
-            parts.append(_format_metric("kl", f"{float(epoch_metrics['validation_kl_loss']):.4f}", value_fg="magenta"))
+            parts.append(self._format_metric("kl", f"{float(epoch_metrics['validation_kl_loss']):.4f}", value_fg=self.display.kl_value_fg))
         if "validation_free_bits_kl_loss" in epoch_metrics:
             parts.append(
-                _format_metric(
+                self._format_metric(
                     "free-kl",
                     f"{float(epoch_metrics['validation_free_bits_kl_loss']):.4f}",
-                    value_fg="blue",
+                    value_fg=self.display.free_kl_value_fg,
                 )
             )
-        self._print_log("BEST", _join_segments(*parts), fg="white", bg="green")
+        self._print_log("BEST", self._join_segments(*parts), fg=self.display.best_label_fg, bg=self.display.best_label_bg)
 
     def _log_run_end(
         self,
@@ -398,21 +460,21 @@ class AutoencoderTrainer:
         stopped_early: bool,
         best_epoch: int | None,
     ) -> None:
-        summary_parts = [_format_metric("test", f"{test_metrics['loss']:.4f}", value_fg="white")]
+        summary_parts = [self._format_metric("test", f"{test_metrics['loss']:.4f}", value_fg=self.display.metric_value_fg)]
         if "reconstruction_loss" in test_metrics:
-            summary_parts.append(_format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg="green"))
+            summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "kl_loss" in test_metrics:
-            summary_parts.append(_format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg="magenta"))
+            summary_parts.append(self._format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         if "free_bits_kl_loss" in test_metrics:
-            summary_parts.append(_format_metric("free-kl", f"{test_metrics['free_bits_kl_loss']:.4f}", value_fg="blue"))
+            summary_parts.append(self._format_metric("free-kl", f"{test_metrics['free_bits_kl_loss']:.4f}", value_fg=self.display.free_kl_value_fg))
         if stopped_early and best_epoch is not None:
-            summary_parts.append(_format_metric("best", str(best_epoch), value_fg="yellow"))
-            summary_parts.append(_format_metric("stopped", str(self.current_epoch), value_fg="yellow"))
+            summary_parts.append(self._format_metric("best", str(best_epoch), value_fg=self.display.meta_value_fg))
+            summary_parts.append(self._format_metric("stopped", str(self.current_epoch), value_fg=self.display.meta_value_fg))
         self._clear_live_line()
-        self._print_log("FINAL", _join_segments(*summary_parts), fg="white", bg="magenta")
-        self._print_log("SAVE", f"best -> {output_dir / 'best'}", fg="black", bg="yellow")
-        self._print_log("SAVE", f"final -> {output_dir / 'final'}", fg="black", bg="yellow")
-        self._print_log("SAVE", f"metrics -> {metrics_path}", fg="black", bg="yellow")
+        self._print_log("FINAL", self._join_segments(*summary_parts), fg=self.display.final_label_fg, bg=self.display.final_label_bg)
+        self._print_log("SAVE", f"best -> {output_dir / 'best'}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
+        self._print_log("SAVE", f"final -> {output_dir / 'final'}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
+        self._print_log("SAVE", f"metrics -> {metrics_path}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
 
     def _format_epoch_label(self) -> str:
         if self.max_epochs is None:
@@ -440,6 +502,13 @@ class AutoencoderTrainer:
     def _print_log(label: str, text: str, *, fg: str, bg: str) -> None:
         print(f"{_format_label(label, fg=fg, bg=bg)} {text}")
 
+    def _format_metric(self, name: str, value: str, *, value_fg: str) -> str:
+        return f"{_style(name, fg=self.display.metric_name_fg, dim=True)} {_style(value, fg=value_fg, bold=True)}"
+
+    def _join_segments(self, *segments: str) -> str:
+        separator = _style(self.display.separator, fg="magenta", dim=True)
+        return separator.join(segment for segment in segments if segment)
+
 
 class VAETrainer(AutoencoderTrainer):
     """Trainer with VAE-specific objective scheduling hooks."""
@@ -449,8 +518,9 @@ class VAETrainer(AutoencoderTrainer):
         model,
         args: VAETrainingArguments,
         optimizer: torch.optim.Optimizer | None = None,
+        display: TrainerDisplayConfig | None = None,
     ) -> None:
-        super().__init__(model=model, args=args, optimizer=optimizer)
+        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
 
     @property
     def vae_args(self) -> VAETrainingArguments:

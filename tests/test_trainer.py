@@ -13,6 +13,7 @@ from autoencoders import (
     AutoencoderConfig,
     AutoencoderModel,
     AutoencoderTrainer,
+    TrainerDisplayConfig,
     TrainingArguments,
     VAETrainer,
     VAETrainingArguments,
@@ -136,6 +137,14 @@ class AutoencoderTrainerTest(unittest.TestCase):
             VAETrainingArguments(output_dir="unused", kl_start_weight=-0.1)
         with self.assertRaisesRegex(ValueError, "free_bits"):
             VAETrainingArguments(output_dir="unused", free_bits=-0.1)
+
+    def test_trainer_display_config_validates_progress_width(self) -> None:
+        display = TrainerDisplayConfig()
+        self.assertEqual(display.progress_width, 18)
+        self.assertEqual(display.separator, " • ")
+
+        with self.assertRaisesRegex(ValueError, "progress_width"):
+            TrainerDisplayConfig(progress_width=0)
 
     def test_vae_trainer_tracks_effective_kl_weight(self) -> None:
         config = VariationalAutoencoderConfig(
