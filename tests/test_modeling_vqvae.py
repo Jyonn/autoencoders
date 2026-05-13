@@ -47,13 +47,31 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
 
     def test_export_includes_codebook_artifacts(self) -> None:
         model = VectorQuantizedAutoencoderModel(self.config)
-        artifact = model.export(self.inputs)
+        artifact = model.export(self.inputs, metadata={"split": "test"})
 
         self.assertEqual(artifact.model_type, "vector_quantized_autoencoder")
+        self.assertEqual(tuple(artifact.latents.shape), (4, 4))
+        self.assertEqual(tuple(artifact.encoded.shape), (4, 4))
+        self.assertEqual(tuple(artifact.reconstruction.shape), (4, 16))
         self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 4))
         self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
+        self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
+        self.assertEqual(artifact.metadata["input_shape"], [4, 16])
+        self.assertEqual(artifact.metadata["latent_shape"], [4, 4])
+        self.assertEqual(artifact.metadata["split"], "test")
         self.assertEqual(artifact.extras["codebook_size"], 32)
         self.assertEqual(tuple(artifact.extras["codebook"].shape), (32, 4))
+        self.assertIsNot(artifact.extras["codebook"], model.codebook.weight)
+        self.assertTrue(torch.equal(artifact.extras["codebook"], model.codebook.weight.detach()))
+
+    def test_export_can_skip_reconstruction(self) -> None:
+        model = VectorQuantizedAutoencoderModel(self.config)
+
+        artifact = model.export(self.inputs, include_reconstruction=False)
+
+        self.assertIsNone(artifact.reconstruction)
+        self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 4))
+        self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = VectorQuantizedAutoencoderModel(self.config)
