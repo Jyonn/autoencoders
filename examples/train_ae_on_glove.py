@@ -15,27 +15,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from autoencoders import (
     AutoencoderConfig,
     AutoencoderModel,
-    EmbeddingTensorDataset,
-    GloVeDataset,
-    load_embedding_artifact,
+    load_dataset,
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "artifact_dir",
-        nargs="?",
-        default=None,
-        help="Optional path to a processed embedding artifact. If omitted, GloVeDataset will use the global cache.",
-    )
     parser.add_argument("--output-dir", default="artifacts/ae-glove-50d", help="Model output directory.")
-    parser.add_argument("--dim", type=int, default=50, help="GloVe embedding dimension when artifact_dir is omitted.")
+    parser.add_argument("--dim", type=int, default=50, help="GloVe embedding dimension.")
     parser.add_argument(
         "--max-vectors",
         type=int,
         default=None,
-        help="Optional cap for faster experiments when artifact_dir is omitted.",
+        help="Optional cap for faster experiments.",
     )
     parser.add_argument("--latent-dim", type=int, default=16, help="Latent dimensionality.")
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
@@ -47,15 +39,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.artifact_dir is not None:
-        artifact_dir = Path(args.artifact_dir)
-        embedding_matrix = load_embedding_artifact(artifact_dir)
-        dataset = EmbeddingTensorDataset(embedding_matrix)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    else:
-        dataset = GloVeDataset(dim=args.dim, max_vectors=args.max_vectors)
-        dataloader = dataset.get_dataloaders(batch_size=args.batch_size).train
-        embedding_matrix = dataset.load_embedding_matrix()
+    dataset = load_dataset("glove", dim=args.dim, max_vectors=args.max_vectors)
+    dataloaders = dataset.get_dataloaders(batch_size=args.batch_size)
+    dataloader = dataloaders.train
+    embedding_matrix = dataset.load_embedding_matrix()
 
     config = AutoencoderConfig(
         input_dim=embedding_matrix.embedding_dim,

@@ -17,6 +17,7 @@ from .embeddings import (
     save_embedding_artifact,
 )
 from .glove import GloVeDataset
+from .loading import load_dataset
 
 __all__ = [
     "AutoencoderDataset",
@@ -28,6 +29,7 @@ __all__ = [
     "GloVeDataset",
     "create_dataloaders",
     "default_cache_dir",
+    "load_dataset",
     "load_embedding_artifact",
     "load_text_embedding_matrix",
     "save_embedding_artifact",

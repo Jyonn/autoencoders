@@ -10,7 +10,7 @@ from pathlib import Path
 
 import torch
 
-from autoencoders.data import GloVeDataset, create_dataloaders, default_cache_dir, split_dataset
+from autoencoders.data import GloVeDataset, create_dataloaders, default_cache_dir, load_dataset, split_dataset
 
 
 class DatasetUtilitiesTest(unittest.TestCase):
@@ -42,6 +42,12 @@ class DatasetUtilitiesTest(unittest.TestCase):
             artifact_mtime = (artifact_dir / "embeddings.pt").stat().st_mtime
             dataset.ensure_prepared(download=False)
             self.assertEqual((artifact_dir / "embeddings.pt").stat().st_mtime, artifact_mtime)
+
+    def test_load_dataset_returns_glove_dataset(self) -> None:
+        dataset = load_dataset("glove", dim=50, max_vectors=10)
+        self.assertIsInstance(dataset, GloVeDataset)
+        self.assertEqual(dataset.dim, 50)
+        self.assertEqual(dataset.max_vectors, 10)
 
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))

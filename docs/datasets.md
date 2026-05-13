@@ -34,9 +34,9 @@ The repository now includes a reusable dataset layer:
 The intended usage is:
 
 ```python
-from autoencoders.data import GloVeDataset
+from autoencoders.data import load_dataset
 
-dataset = GloVeDataset(dim=50, max_vectors=50000)
+dataset = load_dataset("glove", dim=50, max_vectors=50000)
 loaders = dataset.get_dataloaders(batch_size=256)
 ```
 
@@ -58,32 +58,19 @@ You can override that globally with:
 export AUTOENCODERS_CACHE=/your/cache/path
 ```
 
-## Prepare A Processed Artifact
-
-Use the helper script:
-
-```bash
-/Users/jyonn/Projects/venv/library/bin/python scripts/prepare_glove.py --dim 50 --max-vectors 50000
-```
-
-This will:
+The first call will automatically:
 
 - download `glove.6B.zip` from Stanford
 - extract `glove.6B.50d.txt`
 - convert it into a torch-friendly artifact with `embeddings.pt`, `tokens.txt`, and `metadata.json`
+- cache everything under the global autoencoders cache
 
 ## Train The Basic AE
 
-Once the artifact exists, or if you want the script to prepare the cached dataset automatically:
+The training example follows the same pattern and does not require an explicit prepare step:
 
 ```bash
 /Users/jyonn/Projects/venv/library/bin/python examples/train_ae_on_glove.py --dim 50 --max-vectors 50000
-```
-
-If you already have a prepared artifact directory, you can still pass it explicitly:
-
-```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_ae_on_glove.py ~/.cache/autoencoders/glove/processed/glove-6b-50d-top-50000
 ```
 
 ## Other Good Candidates
