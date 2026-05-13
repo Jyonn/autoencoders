@@ -25,7 +25,7 @@ from autoencoders import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="glove", choices=["glove"], help="Dataset name.")
-    parser.add_argument("--model", default="ae", choices=["ae", "dae", "vae", "betavae"], help="Model name.")
+    parser.add_argument("--model", default="ae", choices=["ae", "dae", "sae", "vae", "betavae"], help="Model name.")
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
 
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
+    parser.add_argument("--sparsity-weight", type=float, default=1e-3, help="Sparse-AE latent L1 regularization weight.")
     parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
     parser.add_argument("--beta", type=float, default=4.0, help="Beta-VAE KL multiplier.")
     parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
@@ -101,6 +102,12 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "noise_std": args.noise_std,
                 "masking_ratio": args.masking_ratio,
                 "apply_noise_in_eval": args.apply_noise_in_eval,
+            }
+        )
+    if args.model == "sae":
+        model_kwargs.update(
+            {
+                "sparsity_weight": args.sparsity_weight,
             }
         )
     if args.model == "vae":

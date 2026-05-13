@@ -166,6 +166,7 @@ class TrainerDisplayConfig:
     metric_value_fg: str = "white"
     recon_value_fg: str = "green"
     kl_value_fg: str = "magenta"
+    sparse_value_fg: str = "yellow"
     free_kl_value_fg: str = "blue"
     meta_value_fg: str = "yellow"
 
@@ -192,6 +193,7 @@ class TrainerDisplayConfig:
             self.metric_value_fg,
             self.recon_value_fg,
             self.kl_value_fg,
+            self.sparse_value_fg,
             self.free_kl_value_fg,
             self.meta_value_fg,
         ):
@@ -383,6 +385,8 @@ class AutoencoderTrainer:
         ]
         if "reconstruction_loss" in metrics:
             parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
+        if "sparsity_loss" in metrics:
+            parts.append(self._format_metric("sparse", f"{metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
         if "kl_loss" in metrics:
             parts.append(self._format_metric("kl", f"{metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         self._write_live_line(self._join_segments(*parts))
@@ -406,6 +410,14 @@ class AutoencoderTrainer:
                     "recon",
                     f"{float(epoch_metrics['train_reconstruction_loss']):.4f}/{float(epoch_metrics['validation_reconstruction_loss']):.4f}",
                     value_fg=self.display.recon_value_fg,
+                )
+            )
+        if "train_sparsity_loss" in epoch_metrics and "validation_sparsity_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "sparse",
+                    f"{float(epoch_metrics['train_sparsity_loss']):.4f}/{float(epoch_metrics['validation_sparsity_loss']):.4f}",
+                    value_fg=self.display.sparse_value_fg,
                 )
             )
         if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
@@ -440,6 +452,10 @@ class AutoencoderTrainer:
             parts.append(
                 self._format_metric("recon", f"{float(epoch_metrics['validation_reconstruction_loss']):.4f}", value_fg=self.display.recon_value_fg)
             )
+        if "validation_sparsity_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric("sparse", f"{float(epoch_metrics['validation_sparsity_loss']):.4f}", value_fg=self.display.sparse_value_fg)
+            )
         if "validation_kl_loss" in epoch_metrics:
             parts.append(self._format_metric("kl", f"{float(epoch_metrics['validation_kl_loss']):.4f}", value_fg=self.display.kl_value_fg))
         if "validation_free_bits_kl_loss" in epoch_metrics:
@@ -463,6 +479,8 @@ class AutoencoderTrainer:
         summary_parts = [self._format_metric("test", f"{test_metrics['loss']:.4f}", value_fg=self.display.metric_value_fg)]
         if "reconstruction_loss" in test_metrics:
             summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
+        if "sparsity_loss" in test_metrics:
+            summary_parts.append(self._format_metric("sparse", f"{test_metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
         if "kl_loss" in test_metrics:
             summary_parts.append(self._format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         if "free_bits_kl_loss" in test_metrics:

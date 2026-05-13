@@ -18,6 +18,7 @@ class AutoencoderOutput:
     posterior_logvar: Any = None
     reconstruction_loss: Any = None
     kl_loss: Any = None
+    sparsity_loss: Any = None
     hidden_states: dict[str, Any] | None = None
     loss_dict: dict[str, Any] = field(default_factory=dict)
 

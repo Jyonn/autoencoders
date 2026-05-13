@@ -6,6 +6,7 @@ from .models.ae.configuration_ae import AutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
 from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConfig
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
+from .models.sae.configuration_sae import SparseAutoencoderConfig
 from .models.vae.configuration_vae import VariationalAutoencoderConfig
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "BetaVariationalAutoencoderConfig",
     "DenoisingAutoencoderConfig",
     "PretrainedConfig",
+    "SparseAutoencoderConfig",
     "VariationalAutoencoderConfig",
 ]
 
@@ -39,6 +41,7 @@ try:
     from .models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
     from .models.loading import load_model
+    from .models.sae.modeling_sae import SparseAutoencoderModel
     from .models.vae.modeling_vae import VariationalAutoencoderModel
     from .training import (
         AutoencoderTrainer,
@@ -68,6 +71,7 @@ else:
             "EmbeddingTensorDataset",
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
+            "SparseAutoencoderModel",
             "TrainerDisplayConfig",
             "TrainingArguments",
             "VAETrainer",
