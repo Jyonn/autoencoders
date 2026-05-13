@@ -19,6 +19,9 @@ class VectorQuantizedAutoencoderModel(AutoencoderModel):
     def __init__(self, config: VectorQuantizedAutoencoderConfig) -> None:
         super().__init__(config)
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
+        self.codebook.weight.requires_grad_(not self.config.use_ema_codebook)
+        self.register_buffer("ema_cluster_size", torch.zeros(self.config.codebook_size))
+        self.register_buffer("ema_weight_sum", torch.zeros(self.config.codebook_size, self.config.latent_dim))
         self._reset_codebook()
 
     def _reset_codebook(self) -> None:
@@ -27,6 +30,52 @@ class VectorQuantizedAutoencoderModel(AutoencoderModel):
             -1.0 / self.config.codebook_size,
             1.0 / self.config.codebook_size,
         )
+        self.ema_cluster_size.fill_(1.0)
+        self.ema_weight_sum.copy_(self.codebook.weight.detach())
+
+    def _update_ema_codebook(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
+        one_hot_assignments = F.one_hot(codebook_indices, num_classes=self.config.codebook_size).to(encoded.dtype)
+        cluster_size_update = one_hot_assignments.sum(dim=0)
+        embedding_sum_update = one_hot_assignments.transpose(0, 1) @ encoded
+
+        self.ema_cluster_size.mul_(self.config.ema_decay).add_(cluster_size_update, alpha=1 - self.config.ema_decay)
+        self.ema_weight_sum.mul_(self.config.ema_decay).add_(embedding_sum_update, alpha=1 - self.config.ema_decay)
+
+        n = self.ema_cluster_size.sum()
+        normalized_cluster_size = (
+            (self.ema_cluster_size + self.config.ema_epsilon)
+            / (n + self.config.codebook_size * self.config.ema_epsilon)
+            * n
+        )
+        normalized_embeddings = self.ema_weight_sum / normalized_cluster_size.unsqueeze(-1)
+        self.codebook.weight.data.copy_(normalized_embeddings)
+
+    def reset_dead_codes(self, dead_code_mask: torch.Tensor, reference_latents: torch.Tensor | None = None) -> int:
+        dead_code_mask = dead_code_mask.to(device=self.codebook.weight.device, dtype=torch.bool)
+        dead_count = int(dead_code_mask.sum().item())
+        if dead_count == 0:
+            return 0
+
+        if reference_latents is not None and reference_latents.numel() > 0:
+            reference_latents = reference_latents.detach().to(self.codebook.weight.device)
+            sample_indices = torch.randint(0, reference_latents.shape[0], (dead_count,), device=self.codebook.weight.device)
+            replacement_embeddings = reference_latents[sample_indices]
+        else:
+            replacement_embeddings = torch.empty(
+                dead_count,
+                self.config.latent_dim,
+                device=self.codebook.weight.device,
+            )
+            replacement_embeddings.uniform_(
+                -1.0 / self.config.codebook_size,
+                1.0 / self.config.codebook_size,
+            )
+
+        self.codebook.weight.data[dead_code_mask] = replacement_embeddings
+        if self.config.use_ema_codebook:
+            self.ema_weight_sum.data[dead_code_mask] = replacement_embeddings
+            self.ema_cluster_size.data[dead_code_mask] = 1.0
+        return dead_count
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         distances = (
@@ -50,12 +99,17 @@ class VectorQuantizedAutoencoderModel(AutoencoderModel):
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         commitment_loss = F.mse_loss(encoded, quantized_latents.detach())
-        codebook_loss = F.mse_loss(quantized_latents, encoded.detach())
-        loss = (
-            reconstruction_loss
-            + self.config.commitment_weight * commitment_loss
-            + self.config.codebook_weight * codebook_loss
-        )
+        if self.training and self.config.use_ema_codebook:
+            self._update_ema_codebook(encoded.detach(), codebook_indices.detach())
+            codebook_loss = torch.zeros_like(commitment_loss)
+            loss = reconstruction_loss + self.config.commitment_weight * commitment_loss
+        else:
+            codebook_loss = F.mse_loss(quantized_latents, encoded.detach())
+            loss = (
+                reconstruction_loss
+                + self.config.commitment_weight * commitment_loss
+                + self.config.codebook_weight * codebook_loss
+            )
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -96,5 +150,6 @@ class VectorQuantizedAutoencoderModel(AutoencoderModel):
         artifact.quantized_latents = outputs.quantized_latents
         artifact.codebook_indices = outputs.codebook_indices
         artifact.extras["codebook_size"] = self.config.codebook_size
+        artifact.extras["use_ema_codebook"] = self.config.use_ema_codebook
         artifact.extras["codebook"] = self.codebook.weight.detach().clone()
         return artifact

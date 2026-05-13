@@ -45,6 +45,28 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
+    def test_ema_codebook_disables_codebook_loss_term(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=16,
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=32,
+            commitment_weight=0.25,
+            codebook_weight=1.0,
+            use_ema_codebook=True,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        model.train()
+        initial_codebook = model.codebook.weight.detach().clone()
+
+        outputs = model(inputs=self.inputs)
+
+        self.assertTrue(torch.allclose(outputs.codebook_loss, torch.zeros_like(outputs.codebook_loss)))
+        expected_loss = outputs.reconstruction_loss + config.commitment_weight * outputs.commitment_loss
+        self.assertTrue(torch.allclose(outputs.loss, expected_loss))
+        self.assertFalse(model.codebook.weight.requires_grad)
+        self.assertFalse(torch.equal(initial_codebook, model.codebook.weight.detach()))
+
     def test_export_includes_codebook_artifacts(self) -> None:
         model = VectorQuantizedAutoencoderModel(self.config)
         artifact = model.export(self.inputs, metadata={"split": "test"})
@@ -88,6 +110,19 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(loaded.config.codebook_weight, 1.0)
         for name, parameter in model.state_dict().items():
             self.assertTrue(torch.equal(parameter, loaded.state_dict()[name]), msg=name)
+
+    def test_reset_dead_codes_reinitializes_selected_embeddings(self) -> None:
+        model = VectorQuantizedAutoencoderModel(self.config)
+        with torch.no_grad():
+            original_codebook = model.codebook.weight.detach().clone()
+            reference_latents = torch.randn(6, 4)
+            dead_code_mask = torch.tensor([False, True, False, True] + [False] * 28)
+
+            reset_count = model.reset_dead_codes(dead_code_mask, reference_latents)
+
+        self.assertEqual(reset_count, 2)
+        self.assertTrue(torch.equal(model.codebook.weight[~dead_code_mask], original_codebook[~dead_code_mask]))
+        self.assertFalse(torch.equal(model.codebook.weight[dead_code_mask], original_codebook[dead_code_mask]))
 
 
 if __name__ == "__main__":

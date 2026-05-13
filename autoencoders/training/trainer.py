@@ -143,6 +143,14 @@ class VAETrainingArguments(TrainingArguments):
 class QuantizedAutoencoderTrainingArguments(TrainingArguments):
     """Training settings specific to quantized autoencoders."""
 
+    dead_code_reset: bool = True
+    dead_code_threshold: int = 0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.dead_code_threshold < 0:
+            raise ValueError("dead_code_threshold must be non-negative.")
+
 
 @dataclass
 class TrainerDisplayConfig:
@@ -737,6 +745,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         total_batches = len(dataloader)
         codebook_size = int(self.model.config.codebook_size)
         code_counts = torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+        encoded_batches: list[torch.Tensor] = []
 
         for batch_index, batch in enumerate(dataloader, start=1):
             batch = batch.to(self.device)
@@ -750,10 +759,14 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
 
             if outputs.codebook_indices is None:
                 raise ValueError("QuantizedAutoencoderTrainer requires outputs with codebook_indices.")
+            if outputs.encoded is None:
+                raise ValueError("QuantizedAutoencoderTrainer requires outputs with encoded latents.")
 
             batch_size = batch.shape[0]
             total_examples += batch_size
             code_counts += torch.bincount(outputs.codebook_indices.reshape(-1), minlength=codebook_size)
+            if training:
+                encoded_batches.append(outputs.encoded.detach())
 
             batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
             for name, value in batch_metrics.items():
@@ -764,7 +777,25 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
 
         metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
         metrics.update(self.compute_codebook_metrics(code_counts))
+        if training:
+            metrics["dead_code_reset_count"] = float(self.reset_dead_codes(code_counts, encoded_batches))
         return metrics
+
+    def reset_dead_codes(self, code_counts: torch.Tensor, encoded_batches: list[torch.Tensor]) -> int:
+        if not self.quantized_args.dead_code_reset:
+            return 0
+        if not hasattr(self.model, "reset_dead_codes"):
+            return 0
+
+        dead_code_mask = code_counts <= self.quantized_args.dead_code_threshold
+        if not bool(dead_code_mask.any()):
+            return 0
+
+        if encoded_batches:
+            reference_latents = torch.cat(encoded_batches, dim=0)
+        else:
+            reference_latents = None
+        return int(self.model.reset_dead_codes(dead_code_mask, reference_latents))
 
     def compute_codebook_metrics(self, code_counts: torch.Tensor) -> dict[str, float]:
         counts = code_counts.detach().to(dtype=torch.float32)

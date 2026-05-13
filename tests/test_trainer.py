@@ -234,6 +234,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertIn("validation_active_codes", history[0])
             self.assertIn("train_codebook_perplexity", history[0])
             self.assertIn("validation_codebook_usage_ratio", history[0])
+            self.assertIn("train_dead_code_reset_count", history[0])
             self.assertLessEqual(history[0]["train_active_codes"], 16.0)
             self.assertLessEqual(history[0]["validation_codebook_usage_ratio"], 1.0)
             self.assertGreaterEqual(history[0]["validation_dead_code_ratio"], 0.0)
@@ -259,6 +260,14 @@ class AutoencoderTrainerTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["codebook_usage_ratio"], 0.5, places=6)
         self.assertAlmostEqual(metrics["dead_code_ratio"], 0.5, places=6)
         self.assertGreater(metrics["codebook_perplexity"], 1.0)
+
+    def test_quantized_training_arguments_validate_dead_code_threshold(self) -> None:
+        defaults = QuantizedAutoencoderTrainingArguments(output_dir="unused")
+        self.assertTrue(defaults.dead_code_reset)
+        self.assertEqual(defaults.dead_code_threshold, 0)
+
+        with self.assertRaisesRegex(ValueError, "dead_code_threshold"):
+            QuantizedAutoencoderTrainingArguments(output_dir="unused", dead_code_threshold=-1)
 
 
 if __name__ == "__main__":
