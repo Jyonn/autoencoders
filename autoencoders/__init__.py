@@ -4,11 +4,13 @@ from .configuration_utils import PretrainedConfig
 from .modeling_outputs import AutoencoderOutput
 from .models.ae.configuration_ae import AutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
+from .models.dae.configuration_dae import DenoisingAutoencoderConfig
 
 __all__ = [
     "AutoencoderConfig",
     "AutoencoderOutput",
     "BaseAutoencoderConfig",
+    "DenoisingAutoencoderConfig",
     "PretrainedConfig",
 ]
 
@@ -30,6 +32,7 @@ try:
     )
     from .models.ae.modeling_ae import AutoencoderModel
     from .models.base.modeling_base import BaseAutoencoderModel
+    from .models.dae.modeling_dae import DenoisingAutoencoderModel
 except ModuleNotFoundError as exc:
     if exc.name != "torch":
         raise
@@ -42,6 +45,7 @@ else:
             "CachedDataset",
             "DatasetLoaders",
             "DatasetSplits",
+            "DenoisingAutoencoderModel",
             "EmbeddingMatrix",
             "EmbeddingTensorDataset",
             "GloVeDataset",
