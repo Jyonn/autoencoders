@@ -6,6 +6,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import sys
+from typing import Callable
+import urllib.request
 
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
@@ -18,6 +21,59 @@ def default_cache_dir() -> Path:
     if cache_dir:
         return Path(cache_dir).expanduser()
     return Path.home() / ".cache" / "autoencoders"
+
+
+def format_num_bytes(num_bytes: int) -> str:
+    """Format a byte count into a compact human-readable string."""
+
+    value = float(num_bytes)
+    units = ["B", "KB", "MB", "GB", "TB"]
+    for unit in units:
+        if value < 1024.0 or unit == units[-1]:
+            return f"{value:.1f}{unit}"
+        value /= 1024.0
+    return f"{num_bytes}B"
+
+
+class DownloadProgressBar:
+    """A small terminal progress bar for dataset downloads."""
+
+    def __init__(self, description: str, total_bytes: int | None, stream=None) -> None:
+        self.description = description
+        self.total_bytes = total_bytes
+        self.stream = sys.stderr if stream is None else stream
+        self.downloaded_bytes = 0
+        self._finished = False
+        self._render()
+
+    def update(self, chunk_size: int) -> None:
+        self.downloaded_bytes += chunk_size
+        self._render()
+
+    def close(self) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        self._render(final=True)
+
+    def _render(self, final: bool = False) -> None:
+        if self.total_bytes is not None and self.total_bytes > 0:
+            ratio = min(self.downloaded_bytes / self.total_bytes, 1.0)
+            filled = int(ratio * 20)
+            bar = "=" * filled + "." * (20 - filled)
+            percent = int(ratio * 100)
+            message = (
+                f"\r{self.description} [{bar}] {percent:3d}% "
+                f"{format_num_bytes(self.downloaded_bytes)}/{format_num_bytes(self.total_bytes)}"
+            )
+        else:
+            message = f"\r{self.description} {format_num_bytes(self.downloaded_bytes)}"
+
+        if final:
+            message += "\n"
+
+        self.stream.write(message)
+        self.stream.flush()
 
 
 class AutoencoderDataset(Dataset[torch.Tensor]):
@@ -68,6 +124,68 @@ class CachedDataset(ABC):
         """Return True when the processed artifact is complete and ready to use."""
 
         return self.artifact_dir.exists()
+
+    def download_to_cache(
+        self,
+        *,
+        url: str,
+        destination: Path,
+        validator: Callable[[Path], bool] | None = None,
+        description: str | None = None,
+        force: bool = False,
+        chunk_size: int = 1024 * 1024,
+    ) -> Path:
+        """Download a file atomically with progress reporting and cache validation."""
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = destination.with_name(f"{destination.name}.tmp")
+        self._cleanup_temp_file(temp_path)
+
+        if destination.exists() and not force:
+            if validator is None or validator(destination):
+                return destination
+            destination.unlink()
+        elif destination.exists():
+            destination.unlink()
+
+        try:
+            with urllib.request.urlopen(url) as response, temp_path.open("wb") as handle:
+                total_bytes = self._response_content_length(response)
+                progress = DownloadProgressBar(description or destination.name, total_bytes)
+                try:
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        handle.write(chunk)
+                        progress.update(len(chunk))
+                finally:
+                    progress.close()
+        except Exception:
+            self._cleanup_temp_file(temp_path)
+            raise
+
+        if validator is not None and not validator(temp_path):
+            self._cleanup_temp_file(temp_path)
+            raise ValueError(f"Downloaded file {temp_path} failed validation.")
+
+        temp_path.replace(destination)
+        return destination
+
+    @staticmethod
+    def _cleanup_temp_file(path: Path) -> None:
+        if path.exists():
+            path.unlink()
+
+    @staticmethod
+    def _response_content_length(response) -> int | None:
+        length = response.headers.get("Content-Length")
+        if length is None:
+            return None
+        try:
+            return int(length)
+        except (TypeError, ValueError):
+            return None
 
     @property
     @abstractmethod

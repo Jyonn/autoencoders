@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -77,25 +75,18 @@ class GloVeDataset(CachedDataset):
         return self.archive_path.exists() or self.vector_path.exists()
 
     def download(self, *, force: bool = False) -> None:
-        self.raw_dir.mkdir(parents=True, exist_ok=True)
-        self._cleanup_temp_archive()
-
-        if self.archive_path.exists() and not force and self._is_valid_archive(self.archive_path):
-            return
-
-        if self.archive_path.exists():
-            self.archive_path.unlink()
-
-        with urllib.request.urlopen(self.base_url) as response, self.archive_temp_path.open("wb") as handle:
-            shutil.copyfileobj(response, handle)
-
-        if not self._is_valid_archive(self.archive_temp_path):
-            self._cleanup_temp_archive()
+        try:
+            self.download_to_cache(
+                url=self.base_url,
+                destination=self.archive_path,
+                validator=self._is_valid_archive,
+                description=f"Downloading {self.archive_name}",
+                force=force,
+            )
+        except ValueError as exc:
             raise zipfile.BadZipFile(
                 f"Downloaded archive {self.archive_temp_path} is not a valid zip file."
-            )
-
-        self.archive_temp_path.replace(self.archive_path)
+            ) from exc
 
     def prepare(self) -> None:
         self.external_dir.mkdir(parents=True, exist_ok=True)
@@ -160,10 +151,6 @@ class GloVeDataset(CachedDataset):
             batch_size=batch_size,
             num_workers=num_workers,
         )
-
-    def _cleanup_temp_archive(self) -> None:
-        if self.archive_temp_path.exists():
-            self.archive_temp_path.unlink()
 
     def _is_valid_archive(self, path: Path) -> bool:
         if not path.exists() or not zipfile.is_zipfile(path):

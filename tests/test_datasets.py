@@ -14,6 +14,28 @@ import torch
 from autoencoders.data import GloVeDataset, create_dataloaders, default_cache_dir, load_dataset, split_dataset
 
 
+class FakeResponse:
+    def __init__(self, payload: bytes, *, content_length: int | None = None, fail_after_reads: int | None = None) -> None:
+        self._buffer = io.BytesIO(payload)
+        self.headers = {}
+        if content_length is not None:
+            self.headers["Content-Length"] = str(content_length)
+        self._read_count = 0
+        self._fail_after_reads = fail_after_reads
+
+    def read(self, size: int = -1) -> bytes:
+        if self._fail_after_reads is not None and self._read_count >= self._fail_after_reads:
+            raise RuntimeError("interrupted download")
+        self._read_count += 1
+        return self._buffer.read(size)
+
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self._buffer.close()
+
+
 class DatasetUtilitiesTest(unittest.TestCase):
     def test_default_cache_dir_uses_environment_override(self) -> None:
         with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": "/tmp/autoencoders-cache"}, clear=False):
@@ -60,14 +82,19 @@ class DatasetUtilitiesTest(unittest.TestCase):
                         "cat " + " ".join(["0.1"] * 50) + "\n"
                         "dog " + " ".join(["0.2"] * 50) + "\n",
                     )
-                valid_zip_bytes.seek(0)
+                payload = valid_zip_bytes.getvalue()
+                response = FakeResponse(payload, content_length=len(payload))
+                progress_stream = io.StringIO()
 
-                with mock.patch("urllib.request.urlopen", return_value=valid_zip_bytes):
-                    dataset.download()
+                with mock.patch("urllib.request.urlopen", return_value=response):
+                    with mock.patch("sys.stderr", progress_stream):
+                        dataset.download()
 
                 self.assertTrue(dataset.archive_path.exists())
                 self.assertFalse(dataset.archive_temp_path.exists())
                 self.assertTrue(dataset._is_valid_archive(dataset.archive_path))
+                self.assertIn("Downloading glove.6B.zip", progress_stream.getvalue())
+                self.assertIn("100%", progress_stream.getvalue())
 
     def test_prepare_raises_clear_error_for_invalid_archive_without_download(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -79,6 +106,22 @@ class DatasetUtilitiesTest(unittest.TestCase):
 
                 with self.assertRaises(zipfile.BadZipFile):
                     dataset.ensure_prepared(download=False)
+
+    def test_download_cleans_up_temp_file_after_interruption(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = GloVeDataset(dim=50, max_vectors=2)
+                response = FakeResponse(b"partial-download", content_length=32, fail_after_reads=1)
+                progress_stream = io.StringIO()
+
+                with mock.patch("urllib.request.urlopen", return_value=response):
+                    with mock.patch("sys.stderr", progress_stream):
+                        with self.assertRaises(RuntimeError):
+                            dataset.download()
+
+                self.assertFalse(dataset.archive_path.exists())
+                self.assertFalse(dataset.archive_temp_path.exists())
 
     def test_load_dataset_returns_glove_dataset(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=10)
