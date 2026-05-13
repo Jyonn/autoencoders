@@ -7,11 +7,20 @@ import tempfile
 import unittest
 from unittest import mock
 import zipfile
+import gzip
 from pathlib import Path
 
 import torch
 
-from autoencoders.data import GloVeDataset, create_dataloaders, default_cache_dir, load_dataset, split_dataset
+from autoencoders.data import (
+    ConceptNetNumberbatchDataset,
+    FastTextEnglishDataset,
+    GloVeDataset,
+    create_dataloaders,
+    default_cache_dir,
+    load_dataset,
+    split_dataset,
+)
 
 
 class FakeResponse:
@@ -128,6 +137,56 @@ class DatasetUtilitiesTest(unittest.TestCase):
         self.assertIsInstance(dataset, GloVeDataset)
         self.assertEqual(dataset.dim, 50)
         self.assertEqual(dataset.max_vectors, 10)
+
+    def test_fasttext_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = FastTextEnglishDataset(max_vectors=2)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+
+                with zipfile.ZipFile(dataset.archive_path, "w") as archive:
+                    archive.writestr(
+                        dataset.vector_filename,
+                        "3 300\n"
+                        "cat " + " ".join(["0.1"] * 300) + "\n"
+                        "dog " + " ".join(["0.2"] * 300) + "\n"
+                        "car " + " ".join(["0.3"] * 300) + "\n",
+                    )
+
+                artifact_dir = dataset.ensure_prepared(download=False)
+                self.assertTrue(artifact_dir.exists())
+                embedding_matrix = dataset.load_embedding_matrix(download=False)
+                self.assertEqual(embedding_matrix.num_embeddings, 2)
+                self.assertEqual(embedding_matrix.embedding_dim, 300)
+
+    def test_numberbatch_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = ConceptNetNumberbatchDataset(max_vectors=2)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+
+                payload = (
+                    "3 300\n"
+                    "/c/en/cat " + " ".join(["0.1"] * 300) + "\n"
+                    "/c/en/dog " + " ".join(["0.2"] * 300) + "\n"
+                    "/c/en/car " + " ".join(["0.3"] * 300) + "\n"
+                ).encode("utf-8")
+                with gzip.open(dataset.archive_path, "wb") as archive:
+                    archive.write(payload)
+
+                artifact_dir = dataset.ensure_prepared(download=False)
+                self.assertTrue(artifact_dir.exists())
+                embedding_matrix = dataset.load_embedding_matrix(download=False)
+                self.assertEqual(embedding_matrix.num_embeddings, 2)
+                self.assertEqual(embedding_matrix.embedding_dim, 300)
+
+    def test_load_dataset_returns_fasttext_and_numberbatch(self) -> None:
+        fasttext = load_dataset("fasttext", dim=300, max_vectors=10)
+        numberbatch = load_dataset("numberbatch", dim=300, max_vectors=10)
+        self.assertIsInstance(fasttext, FastTextEnglishDataset)
+        self.assertIsInstance(numberbatch, ConceptNetNumberbatchDataset)
 
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))

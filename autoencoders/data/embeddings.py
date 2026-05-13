@@ -49,6 +49,7 @@ def load_text_embedding_matrix(
     *,
     max_vectors: int | None = None,
     expected_dim: int | None = None,
+    skip_first_line: bool = False,
     dtype: torch.dtype = torch.float32,
 ) -> EmbeddingMatrix:
     """Load a whitespace-separated embedding text file such as GloVe."""
@@ -59,6 +60,8 @@ def load_text_embedding_matrix(
 
     with file_path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
+            if skip_first_line and line_number == 1:
+                continue
             stripped = line.strip()
             if not stripped:
                 continue

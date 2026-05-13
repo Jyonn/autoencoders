@@ -25,6 +25,9 @@ class AutoencoderOutput:
     mmd_loss: Any = None
     adversarial_loss: Any = None
     discriminator_loss: Any = None
+    topk_sparsity: Any = None
+    kl_sparsity_loss: Any = None
+    hierarchical_kl_loss: Any = None
     commitment_loss: Any = None
     codebook_loss: Any = None
     hidden_states: dict[str, Any] | None = None

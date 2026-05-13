@@ -42,6 +42,16 @@ class EmbeddingMatrixTest(unittest.TestCase):
         self.assertTrue(torch.equal(loaded.matrix, embedding_matrix.matrix))
         self.assertEqual(loaded.embedding_dim, 3)
 
+    def test_load_text_embedding_matrix_can_skip_header(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = Path(tmpdir) / "tiny_fasttext.vec"
+            txt_path.write_text("2 3\ncat 0.1 0.2 0.3\nDog -1.0 0.0 1.5\n", encoding="utf-8")
+
+            embedding_matrix = load_text_embedding_matrix(txt_path, expected_dim=3, skip_first_line=True)
+
+        self.assertEqual(embedding_matrix.tokens, ["cat", "Dog"])
+        self.assertEqual(tuple(embedding_matrix.matrix.shape), (2, 3))
+
     def test_embedding_tensor_dataset_returns_vectors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = Path(tmpdir) / "tiny_glove.txt"

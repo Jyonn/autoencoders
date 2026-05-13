@@ -430,6 +430,10 @@ class AutoencoderTrainer:
             parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in metrics:
             parts.append(self._format_metric("sparse", f"{metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "topk_sparsity" in metrics:
+            parts.append(self._format_metric("topk", f"{metrics['topk_sparsity']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "kl_sparsity_loss" in metrics:
+            parts.append(self._format_metric("kl-sparse", f"{metrics['kl_sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
         if "contractive_loss" in metrics:
             parts.append(self._format_metric("contract", f"{metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg))
         if "mmd_loss" in metrics:
@@ -472,6 +476,22 @@ class AutoencoderTrainer:
                 self._format_metric(
                     "sparse",
                     f"{float(epoch_metrics['train_sparsity_loss']):.4f}/{float(epoch_metrics['validation_sparsity_loss']):.4f}",
+                    value_fg=self.display.sparse_value_fg,
+                )
+            )
+        if "train_topk_sparsity" in epoch_metrics and "validation_topk_sparsity" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "topk",
+                    f"{float(epoch_metrics['train_topk_sparsity']):.4f}/{float(epoch_metrics['validation_topk_sparsity']):.4f}",
+                    value_fg=self.display.sparse_value_fg,
+                )
+            )
+        if "train_kl_sparsity_loss" in epoch_metrics and "validation_kl_sparsity_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "kl-sparse",
+                    f"{float(epoch_metrics['train_kl_sparsity_loss']):.4f}/{float(epoch_metrics['validation_kl_sparsity_loss']):.4f}",
                     value_fg=self.display.sparse_value_fg,
                 )
             )
@@ -591,6 +611,18 @@ class AutoencoderTrainer:
             parts.append(
                 self._format_metric("sparse", f"{float(epoch_metrics['validation_sparsity_loss']):.4f}", value_fg=self.display.sparse_value_fg)
             )
+        if "validation_topk_sparsity" in epoch_metrics:
+            parts.append(
+                self._format_metric("topk", f"{float(epoch_metrics['validation_topk_sparsity']):.4f}", value_fg=self.display.sparse_value_fg)
+            )
+        if "validation_kl_sparsity_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "kl-sparse",
+                    f"{float(epoch_metrics['validation_kl_sparsity_loss']):.4f}",
+                    value_fg=self.display.sparse_value_fg,
+                )
+            )
         if "validation_contractive_loss" in epoch_metrics:
             parts.append(
                 self._format_metric(
@@ -684,6 +716,12 @@ class AutoencoderTrainer:
             summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in test_metrics:
             summary_parts.append(self._format_metric("sparse", f"{test_metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "topk_sparsity" in test_metrics:
+            summary_parts.append(self._format_metric("topk", f"{test_metrics['topk_sparsity']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "kl_sparsity_loss" in test_metrics:
+            summary_parts.append(
+                self._format_metric("kl-sparse", f"{test_metrics['kl_sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg)
+            )
         if "contractive_loss" in test_metrics:
             summary_parts.append(
                 self._format_metric("contract", f"{test_metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg)

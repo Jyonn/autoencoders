@@ -16,8 +16,10 @@ from .embeddings import (
     load_text_embedding_matrix,
     save_embedding_artifact,
 )
+from .fasttext import FastTextEnglishDataset
 from .glove import GloVeDataset
 from .loading import load_dataset
+from .numberbatch import ConceptNetNumberbatchDataset
 
 __all__ = [
     "AutoencoderDataset",
@@ -26,7 +28,9 @@ __all__ = [
     "DatasetSplits",
     "EmbeddingMatrix",
     "EmbeddingTensorDataset",
+    "FastTextEnglishDataset",
     "GloVeDataset",
+    "ConceptNetNumberbatchDataset",
     "create_dataloaders",
     "default_cache_dir",
     "load_dataset",

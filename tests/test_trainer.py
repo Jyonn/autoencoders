@@ -20,6 +20,16 @@ from autoencoders import (
     ContractiveAutoencoderConfig,
     ContractiveAutoencoderModel,
     ContractiveAutoencoderTrainer,
+    DenoisingVariationalAutoencoderConfig,
+    DenoisingVariationalAutoencoderModel,
+    FiniteScalarQuantizedAutoencoderConfig,
+    FiniteScalarQuantizedAutoencoderModel,
+    HierarchicalVariationalAutoencoderConfig,
+    HierarchicalVariationalAutoencoderModel,
+    KLSparseAutoencoderConfig,
+    KLSparseAutoencoderModel,
+    TopKSparseAutoencoderConfig,
+    TopKSparseAutoencoderModel,
     QuantizedAutoencoderTrainer,
     QuantizedAutoencoderTrainingArguments,
     ProductQuantizedAutoencoderConfig,
@@ -253,6 +263,76 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             self.assertIn("train_mmd_loss", metrics["history"][0])
             self.assertIn("validation_mmd_loss", metrics["history"][0])
+
+    def test_topk_and_kl_sparse_models_train_with_base_trainer(self) -> None:
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            topk_model = TopKSparseAutoencoderModel(
+                TopKSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], topk=2)
+            )
+            topk_metrics = AutoencoderTrainer(
+                model=topk_model,
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+            ).fit(dataloaders)
+            self.assertIn("train_topk_sparsity", topk_metrics["history"][0])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            klsae_model = KLSparseAutoencoderModel(
+                KLSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], sparsity_weight=0.1, target_activation=0.05)
+            )
+            klsae_metrics = AutoencoderTrainer(
+                model=klsae_model,
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+            ).fit(dataloaders)
+            self.assertIn("train_kl_sparsity_loss", klsae_metrics["history"][0])
+
+    def test_dvae_and_hvae_train_with_vae_trainer(self) -> None:
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dvae_model = DenoisingVariationalAutoencoderModel(
+                DenoisingVariationalAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], kl_weight=0.5)
+            )
+            dvae_metrics = VAETrainer(
+                model=dvae_model,
+                args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+            ).fit(dataloaders)
+            self.assertIn("train_kl_loss", dvae_metrics["history"][0])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hvae_model = HierarchicalVariationalAutoencoderModel(
+                HierarchicalVariationalAutoencoderConfig(
+                    input_dim=8,
+                    latent_dim=4,
+                    top_latent_dim=3,
+                    hidden_dims=[6],
+                    kl_weight=0.5,
+                )
+            )
+            hvae_metrics = VAETrainer(
+                model=hvae_model,
+                args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+            ).fit(dataloaders)
+            self.assertIn("train_hierarchical_kl_loss", hvae_metrics["history"][0])
+
+    def test_fsq_trains_with_quantized_trainer(self) -> None:
+        config = FiniteScalarQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            num_levels=8,
+        )
+        model = FiniteScalarQuantizedAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = QuantizedAutoencoderTrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
+            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertIn("train_active_codes", metrics["history"][0])
+            self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
 
     def test_adversarial_training_arguments_validate_fields(self) -> None:
         defaults = AdversarialAutoencoderTrainingArguments(output_dir="unused")

@@ -6,14 +6,19 @@ import unittest
 
 from autoencoders import load_dataset, load_model
 from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
-from autoencoders.data import GloVeDataset
+from autoencoders.data import ConceptNetNumberbatchDataset, FastTextEnglishDataset, GloVeDataset
 from autoencoders.models.ae.modeling_ae import AutoencoderModel
 from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
 from autoencoders.models.cae.modeling_cae import ContractiveAutoencoderModel
 from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
+from autoencoders.models.dvae.modeling_dvae import DenoisingVariationalAutoencoderModel
+from autoencoders.models.fsq.modeling_fsq import FiniteScalarQuantizedAutoencoderModel
+from autoencoders.models.hvae.modeling_hvae import HierarchicalVariationalAutoencoderModel
+from autoencoders.models.klsae.modeling_klsae import KLSparseAutoencoderModel
 from autoencoders.models.pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
 from autoencoders.models.rqvae.modeling_rqvae import ResidualQuantizedAutoencoderModel
 from autoencoders.models.sae.modeling_sae import SparseAutoencoderModel
+from autoencoders.models.topksae.modeling_topksae import TopKSparseAutoencoderModel
 from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
 from autoencoders.models.wae.modeling_wae import WassersteinAutoencoderModel
 from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
@@ -23,6 +28,14 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_dataset_returns_glove(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=32)
         self.assertIsInstance(dataset, GloVeDataset)
+
+    def test_load_dataset_returns_fasttext(self) -> None:
+        dataset = load_dataset("fasttext", dim=300, max_vectors=32)
+        self.assertIsInstance(dataset, FastTextEnglishDataset)
+
+    def test_load_dataset_returns_numberbatch(self) -> None:
+        dataset = load_dataset("numberbatch", dim=300, max_vectors=32)
+        self.assertIsInstance(dataset, ConceptNetNumberbatchDataset)
 
     def test_load_model_returns_autoencoder(self) -> None:
         model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8])
@@ -47,13 +60,29 @@ class LoadingHelpersTest(unittest.TestCase):
         model = load_model("sae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01)
         self.assertIsInstance(model, SparseAutoencoderModel)
 
+    def test_load_model_returns_topk_sparse_autoencoder(self) -> None:
+        model = load_model("topksae", input_dim=16, latent_dim=4, hidden_dims=[8], topk=2)
+        self.assertIsInstance(model, TopKSparseAutoencoderModel)
+
+    def test_load_model_returns_kl_sparse_autoencoder(self) -> None:
+        model = load_model("klsae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01, target_activation=0.05)
+        self.assertIsInstance(model, KLSparseAutoencoderModel)
+
     def test_load_model_returns_variational_autoencoder(self) -> None:
         model = load_model("vae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5)
         self.assertIsInstance(model, VariationalAutoencoderModel)
 
+    def test_load_model_returns_denoising_variational_autoencoder(self) -> None:
+        model = load_model("dvae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5)
+        self.assertIsInstance(model, DenoisingVariationalAutoencoderModel)
+
     def test_load_model_returns_beta_variational_autoencoder(self) -> None:
         model = load_model("betavae", input_dim=16, latent_dim=4, hidden_dims=[8], beta=4.0)
         self.assertIsInstance(model, BetaVariationalAutoencoderModel)
+
+    def test_load_model_returns_hierarchical_variational_autoencoder(self) -> None:
+        model = load_model("hvae", input_dim=16, latent_dim=4, hidden_dims=[8], top_latent_dim=2)
+        self.assertIsInstance(model, HierarchicalVariationalAutoencoderModel)
 
     def test_load_model_returns_wasserstein_autoencoder(self) -> None:
         model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)
@@ -73,6 +102,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_vector_quantized_autoencoder(self) -> None:
         model = load_model("vqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32)
         self.assertIsInstance(model, VectorQuantizedAutoencoderModel)
+
+    def test_load_model_returns_finite_scalar_quantized_autoencoder(self) -> None:
+        model = load_model("fsq", input_dim=16, latent_dim=4, hidden_dims=[8], num_levels=8)
+        self.assertIsInstance(model, FiniteScalarQuantizedAutoencoderModel)
 
     def test_load_model_returns_product_quantized_autoencoder(self) -> None:
         model = load_model("pqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_codebooks=2)

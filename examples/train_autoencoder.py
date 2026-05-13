@@ -29,11 +29,11 @@ from autoencoders import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", default="glove", choices=["glove"], help="Dataset name.")
+    parser.add_argument("--dataset", default="glove", choices=["glove", "fasttext", "numberbatch"], help="Dataset name.")
     parser.add_argument(
         "--model",
         default="ae",
-        choices=["ae", "dae", "cae", "sae", "vae", "betavae", "wae", "aae", "vqvae", "pqvae", "rqvae"],
+        choices=["ae", "dae", "cae", "sae", "topksae", "klsae", "vae", "dvae", "betavae", "hvae", "wae", "aae", "vqvae", "fsq", "pqvae", "rqvae"],
         help="Model name.",
     )
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
@@ -50,8 +50,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
     parser.add_argument("--contractive-weight", type=float, default=1e-2, help="Contractive-AE Jacobian penalty weight.")
     parser.add_argument("--sparsity-weight", type=float, default=1e-3, help="Sparse-AE latent L1 regularization weight.")
+    parser.add_argument("--topk", type=int, default=4, help="TopK-SAE number of active latent units per sample.")
+    parser.add_argument("--target-activation", type=float, default=0.05, help="KL-SAE target latent activation probability.")
     parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
     parser.add_argument("--beta", type=float, default=4.0, help="Beta-VAE KL multiplier.")
+    parser.add_argument("--top-latent-dim", type=int, default=None, help="Hierarchical VAE top-level latent dimensionality.")
     parser.add_argument("--mmd-weight", type=float, default=10.0, help="WAE MMD regularization weight.")
     parser.add_argument("--mmd-bandwidths", type=float, nargs="+", default=[0.1, 0.2, 0.5, 1.0, 2.0], help="WAE MMD kernel bandwidths.")
     parser.add_argument("--adversarial-weight", type=float, default=1.0, help="AAE adversarial regularization weight.")
@@ -60,6 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
     parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
     parser.add_argument("--codebook-size", type=int, default=256, help="VQ-VAE codebook size.")
+    parser.add_argument("--num-levels", type=int, default=8, help="FSQ number of scalar quantization levels.")
     parser.add_argument("--num-codebooks", type=int, default=2, help="PQ-VAE number of product codebooks.")
     parser.add_argument("--num-quantizers", type=int, default=2, help="RQ-VAE number of residual quantizers.")
     parser.add_argument("--commitment-weight", type=float, default=0.25, help="VQ-VAE commitment loss weight.")
@@ -117,8 +121,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_dataset(args: argparse.Namespace):
+    dim = args.dim
+    if args.dataset == "fasttext" and dim == 50:
+        dim = 300
+    if args.dataset == "numberbatch" and dim == 50:
+        dim = 300
     dataset_kwargs = {
-        "dim": args.dim,
+        "dim": dim,
         "max_vectors": args.max_vectors,
     }
     return load_dataset(args.dataset, **dataset_kwargs)
@@ -154,16 +163,46 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "sparsity_weight": args.sparsity_weight,
             }
         )
+    if args.model == "topksae":
+        model_kwargs.update(
+            {
+                "topk": args.topk,
+            }
+        )
+    if args.model == "klsae":
+        model_kwargs.update(
+            {
+                "sparsity_weight": args.sparsity_weight,
+                "target_activation": args.target_activation,
+            }
+        )
     if args.model == "vae":
         model_kwargs.update(
             {
                 "kl_weight": args.kl_weight,
             }
         )
+    if args.model == "dvae":
+        model_kwargs.update(
+            {
+                "kl_weight": args.kl_weight,
+                "noise_type": args.noise_type,
+                "noise_std": args.noise_std,
+                "masking_ratio": args.masking_ratio,
+                "apply_noise_in_eval": args.apply_noise_in_eval,
+            }
+        )
     if args.model == "betavae":
         model_kwargs.update(
             {
                 "beta": args.beta,
+            }
+        )
+    if args.model == "hvae":
+        model_kwargs.update(
+            {
+                "kl_weight": args.kl_weight,
+                "top_latent_dim": args.top_latent_dim,
             }
         )
     if args.model == "wae":
@@ -189,6 +228,13 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "use_ema_codebook": args.use_ema_codebook,
                 "ema_decay": args.ema_decay,
                 "ema_epsilon": args.ema_epsilon,
+            }
+        )
+    if args.model == "fsq":
+        model_kwargs.update(
+            {
+                "num_levels": args.num_levels,
+                "commitment_weight": args.commitment_weight,
             }
         )
     if args.model == "pqvae":
@@ -231,7 +277,7 @@ def build_trainer(args: argparse.Namespace, model):
         "show_only_best_epochs": args.show_only_best_epochs,
     }
 
-    if args.model == "vae" or args.model == "betavae":
+    if args.model == "vae" or args.model == "dvae" or args.model == "betavae" or args.model == "hvae":
         training_args = VAETrainingArguments(
             kl_warmup_epochs=args.kl_warmup_epochs,
             kl_start_weight=args.kl_start_weight,
@@ -250,7 +296,7 @@ def build_trainer(args: argparse.Namespace, model):
             **common_kwargs,
         )
         return AdversarialAutoencoderTrainer(model=model, args=training_args)
-    if args.model == "vqvae" or args.model == "pqvae" or args.model == "rqvae":
+    if args.model == "vqvae" or args.model == "fsq" or args.model == "pqvae" or args.model == "rqvae":
         training_args = QuantizedAutoencoderTrainingArguments(
             dead_code_reset=args.dead_code_reset,
             dead_code_threshold=args.dead_code_threshold,
