@@ -125,6 +125,11 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(metrics["final_test_loss"], 3.5)
 
     def test_vae_training_arguments_validate_warmup_fields(self) -> None:
+        defaults = VAETrainingArguments(output_dir="unused")
+        self.assertEqual(defaults.kl_warmup_epochs, 20)
+        self.assertEqual(defaults.kl_start_weight, 0.0)
+        self.assertEqual(defaults.free_bits, 0.02)
+
         with self.assertRaisesRegex(ValueError, "kl_warmup_epochs"):
             VAETrainingArguments(output_dir="unused", kl_warmup_epochs=-1)
         with self.assertRaisesRegex(ValueError, "kl_start_weight"):

@@ -24,8 +24,8 @@ from autoencoders import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", default="glove", help="Dataset name.")
-    parser.add_argument("--model", default="ae", help="Model name, for example 'ae', 'dae', or 'vae'.")
+    parser.add_argument("--dataset", default="glove", choices=["glove"], help="Dataset name.")
+    parser.add_argument("--model", default="ae", choices=["ae", "dae", "vae"], help="Model name.")
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
 
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
@@ -38,10 +38,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
-    parser.add_argument("--kl-weight", type=float, default=1.0, help="VAE KL loss weight.")
-    parser.add_argument("--kl-warmup-epochs", type=int, default=0, help="Number of epochs for VAE KL warmup.")
+    parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
+    parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
-    parser.add_argument("--free-bits", type=float, default=0.0, help="Per-latent-dimension free bits floor for VAE KL.")
+    parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
 
     parser.add_argument("--noise-type", default="gaussian", help="DAE noise type.")
     parser.add_argument("--noise-std", type=float, default=0.1, help="DAE gaussian noise std.")
@@ -87,7 +87,7 @@ def build_model(args: argparse.Namespace, input_dim: int):
         "reconstruction_loss": args.reconstruction_loss,
     }
 
-    if args.model.strip().lower() in {"dae", "denoising_autoencoder", "denoising-autoencoder"}:
+    if args.model == "dae":
         model_kwargs.update(
             {
                 "noise_type": args.noise_type,
@@ -96,7 +96,7 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "apply_noise_in_eval": args.apply_noise_in_eval,
             }
         )
-    if args.model.strip().lower() in {"vae", "variational_autoencoder", "variational-autoencoder"}:
+    if args.model == "vae":
         model_kwargs.update(
             {
                 "kl_weight": args.kl_weight,
@@ -107,7 +107,6 @@ def build_model(args: argparse.Namespace, input_dim: int):
 
 
 def build_trainer(args: argparse.Namespace, model):
-    normalized_model_name = args.model.strip().lower()
     common_kwargs = {
         "output_dir": args.output_dir,
         "epochs": args.epochs,
@@ -118,7 +117,7 @@ def build_trainer(args: argparse.Namespace, model):
         "seed": args.seed,
     }
 
-    if normalized_model_name in {"vae", "variational_autoencoder", "variational-autoencoder"}:
+    if args.model == "vae":
         training_args = VAETrainingArguments(
             kl_warmup_epochs=args.kl_warmup_epochs,
             kl_start_weight=args.kl_start_weight,

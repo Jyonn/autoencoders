@@ -82,8 +82,14 @@ For the denoising autoencoder:
 For the variational autoencoder:
 
 ```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model vae --dim 50 --max-vectors 50000 --kl-weight 1.0
+/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model vae --dim 50 --max-vectors 50000
 ```
+
+The VAE training defaults are tuned to avoid immediate collapse:
+
+- `--kl-weight 0.1`
+- `--kl-warmup-epochs 20`
+- `--free-bits 0.02`
 
 If you only want to inspect the dataset from Python, the direct usage stays simple:
 

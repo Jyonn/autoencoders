@@ -57,9 +57,9 @@ class TrainingArguments:
 class VAETrainingArguments(TrainingArguments):
     """Training settings specific to variational autoencoders."""
 
-    kl_warmup_epochs: int = 0
+    kl_warmup_epochs: int = 20
     kl_start_weight: float = 0.0
-    free_bits: float = 0.0
+    free_bits: float = 0.02
 
     def __post_init__(self) -> None:
         super().__post_init__()

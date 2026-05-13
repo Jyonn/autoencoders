@@ -15,12 +15,11 @@ from .vae.modeling_vae import VariationalAutoencoderModel
 def load_model(name: str, **kwargs: Any):
     """Construct a named autoencoder model from config kwargs."""
 
-    normalized_name = name.strip().lower()
-    if normalized_name in {"ae", "autoencoder"}:
+    if name == "ae":
         return AutoencoderModel(AutoencoderConfig(**kwargs))
-    if normalized_name in {"dae", "denoising_autoencoder", "denoising-autoencoder"}:
+    if name == "dae":
         return DenoisingAutoencoderModel(DenoisingAutoencoderConfig(**kwargs))
-    if normalized_name in {"vae", "variational_autoencoder", "variational-autoencoder"}:
+    if name == "vae":
         return VariationalAutoencoderModel(VariationalAutoencoderConfig(**kwargs))
     raise ValueError(
         f"Unknown model {name!r}. Available models: 'ae', 'dae', 'vae'."
