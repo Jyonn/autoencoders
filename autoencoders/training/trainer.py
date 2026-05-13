@@ -859,8 +859,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         totals: dict[str, float] = {}
         total_examples = 0
         total_batches = len(dataloader)
-        codebook_size = int(self.model.config.codebook_size)
-        code_counts = torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+        code_counts = self.initialize_code_counts()
         encoded_batches: list[torch.Tensor] = []
 
         for batch_index, batch in enumerate(dataloader, start=1):
@@ -880,7 +879,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
 
             batch_size = batch.shape[0]
             total_examples += batch_size
-            code_counts += torch.bincount(outputs.codebook_indices.reshape(-1), minlength=codebook_size)
+            code_counts = self.accumulate_code_counts(code_counts, outputs.codebook_indices)
             if training:
                 encoded_batches.append(outputs.encoded.detach())
 
@@ -896,6 +895,32 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         if training:
             metrics["dead_code_reset_count"] = float(self.reset_dead_codes(code_counts, encoded_batches))
         return metrics
+
+    def initialize_code_counts(self) -> torch.Tensor:
+        codebook_size = int(self.model.config.codebook_size)
+        return torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+
+    def accumulate_code_counts(self, code_counts: torch.Tensor, codebook_indices: torch.Tensor) -> torch.Tensor:
+        if codebook_indices.ndim == 1:
+            code_counts += torch.bincount(codebook_indices.reshape(-1), minlength=code_counts.shape[-1])
+            return code_counts
+
+        if codebook_indices.ndim != 2:
+            raise ValueError("QuantizedAutoencoderTrainer expects codebook_indices with rank 1 or 2.")
+
+        if code_counts.ndim == 1:
+            code_counts = torch.zeros(
+                codebook_indices.shape[1],
+                code_counts.shape[0],
+                dtype=code_counts.dtype,
+                device=code_counts.device,
+            )
+        for codebook_index in range(codebook_indices.shape[1]):
+            code_counts[codebook_index] += torch.bincount(
+                codebook_indices[:, codebook_index].reshape(-1),
+                minlength=code_counts.shape[-1],
+            )
+        return code_counts
 
     def reset_dead_codes(self, code_counts: torch.Tensor, encoded_batches: list[torch.Tensor]) -> int:
         if not self.quantized_args.dead_code_reset:
@@ -914,6 +939,33 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         return int(self.model.reset_dead_codes(dead_code_mask, reference_latents))
 
     def compute_codebook_metrics(self, code_counts: torch.Tensor) -> dict[str, float]:
+        if code_counts.ndim == 2:
+            total_codes = float(code_counts.sum().item())
+            active_counts = (code_counts > 0).sum(dim=1)
+            active_codes = int(active_counts.sum().item())
+            codebook_size = int(code_counts.numel())
+            usage_ratio = active_codes / codebook_size if codebook_size > 0 else 0.0
+            dead_code_ratio = 1.0 - usage_ratio
+
+            perplexities: list[float] = []
+            for counts_for_book in code_counts:
+                total_for_book = float(counts_for_book.sum().item())
+                if total_for_book == 0:
+                    perplexities.append(0.0)
+                    continue
+                probabilities = counts_for_book.to(dtype=torch.float32) / total_for_book
+                used_probabilities = probabilities[probabilities > 0]
+                entropy = -(used_probabilities * used_probabilities.log()).sum()
+                perplexities.append(float(entropy.exp().item()))
+
+            return {
+                "active_codes": float(active_codes),
+                "codebook_size": float(codebook_size),
+                "codebook_usage_ratio": usage_ratio,
+                "dead_code_ratio": dead_code_ratio,
+                "codebook_perplexity": sum(perplexities) / max(len(perplexities), 1),
+            }
+
         counts = code_counts.detach().to(dtype=torch.float32)
         total_codes = float(counts.sum().item())
         active_codes = int((counts > 0).sum().item())

@@ -8,6 +8,8 @@ from .models.cae.configuration_cae import ContractiveAutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
 from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConfig
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
+from .models.pqvae.configuration_pqvae import ProductQuantizedAutoencoderConfig
+from .models.rqvae.configuration_rqvae import ResidualQuantizedAutoencoderConfig
 from .models.sae.configuration_sae import SparseAutoencoderConfig
 from .models.vae.configuration_vae import VariationalAutoencoderConfig
 from .models.wae.configuration_wae import WassersteinAutoencoderConfig
@@ -23,6 +25,8 @@ __all__ = [
     "ContractiveAutoencoderConfig",
     "DenoisingAutoencoderConfig",
     "PretrainedConfig",
+    "ProductQuantizedAutoencoderConfig",
+    "ResidualQuantizedAutoencoderConfig",
     "SparseAutoencoderConfig",
     "VariationalAutoencoderConfig",
     "WassersteinAutoencoderConfig",
@@ -52,6 +56,8 @@ try:
     from .models.cae.modeling_cae import ContractiveAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
     from .models.loading import load_model
+    from .models.pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
+    from .models.rqvae.modeling_rqvae import ResidualQuantizedAutoencoderModel
     from .models.sae.modeling_sae import SparseAutoencoderModel
     from .models.vae.modeling_vae import VariationalAutoencoderModel
     from .models.wae.modeling_wae import WassersteinAutoencoderModel
@@ -94,8 +100,10 @@ else:
             "EmbeddingTensorDataset",
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
+            "ProductQuantizedAutoencoderModel",
             "QuantizedAutoencoderTrainer",
             "QuantizedAutoencoderTrainingArguments",
+            "ResidualQuantizedAutoencoderModel",
             "SparseAutoencoderModel",
             "TrainerDisplayConfig",
             "TrainingArguments",

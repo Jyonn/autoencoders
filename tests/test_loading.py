@@ -11,6 +11,8 @@ from autoencoders.models.ae.modeling_ae import AutoencoderModel
 from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
 from autoencoders.models.cae.modeling_cae import ContractiveAutoencoderModel
 from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
+from autoencoders.models.pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
+from autoencoders.models.rqvae.modeling_rqvae import ResidualQuantizedAutoencoderModel
 from autoencoders.models.sae.modeling_sae import SparseAutoencoderModel
 from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
 from autoencoders.models.wae.modeling_wae import WassersteinAutoencoderModel
@@ -71,6 +73,14 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_vector_quantized_autoencoder(self) -> None:
         model = load_model("vqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32)
         self.assertIsInstance(model, VectorQuantizedAutoencoderModel)
+
+    def test_load_model_returns_product_quantized_autoencoder(self) -> None:
+        model = load_model("pqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_codebooks=2)
+        self.assertIsInstance(model, ProductQuantizedAutoencoderModel)
+
+    def test_load_model_returns_residual_quantized_autoencoder(self) -> None:
+        model = load_model("rqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_quantizers=2)
+        self.assertIsInstance(model, ResidualQuantizedAutoencoderModel)
 
 
 if __name__ == "__main__":

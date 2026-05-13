@@ -14,6 +14,10 @@ from .cae.configuration_cae import ContractiveAutoencoderConfig
 from .cae.modeling_cae import ContractiveAutoencoderModel
 from .dae.configuration_dae import DenoisingAutoencoderConfig
 from .dae.modeling_dae import DenoisingAutoencoderModel
+from .pqvae.configuration_pqvae import ProductQuantizedAutoencoderConfig
+from .pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
+from .rqvae.configuration_rqvae import ResidualQuantizedAutoencoderConfig
+from .rqvae.modeling_rqvae import ResidualQuantizedAutoencoderModel
 from .sae.configuration_sae import SparseAutoencoderConfig
 from .sae.modeling_sae import SparseAutoencoderModel
 from .vae.configuration_vae import VariationalAutoencoderConfig
@@ -45,6 +49,10 @@ def load_model(name: str, **kwargs: Any):
         return AdversarialAutoencoderModel(AdversarialAutoencoderConfig(**kwargs))
     if name == "vqvae":
         return VectorQuantizedAutoencoderModel(VectorQuantizedAutoencoderConfig(**kwargs))
+    if name == "pqvae":
+        return ProductQuantizedAutoencoderModel(ProductQuantizedAutoencoderConfig(**kwargs))
+    if name == "rqvae":
+        return ResidualQuantizedAutoencoderModel(ResidualQuantizedAutoencoderConfig(**kwargs))
     raise ValueError(
-        f"Unknown model {name!r}. Available models: 'ae', 'dae', 'cae', 'sae', 'vae', 'betavae', 'wae', 'aae', 'vqvae'."
+        f"Unknown model {name!r}. Available models: 'ae', 'dae', 'cae', 'sae', 'vae', 'betavae', 'wae', 'aae', 'vqvae', 'pqvae', 'rqvae'."
     )

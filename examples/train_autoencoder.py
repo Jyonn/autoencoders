@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default="ae",
-        choices=["ae", "dae", "cae", "sae", "vae", "betavae", "wae", "aae", "vqvae"],
+        choices=["ae", "dae", "cae", "sae", "vae", "betavae", "wae", "aae", "vqvae", "pqvae", "rqvae"],
         help="Model name.",
     )
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
@@ -60,6 +60,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
     parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
     parser.add_argument("--codebook-size", type=int, default=256, help="VQ-VAE codebook size.")
+    parser.add_argument("--num-codebooks", type=int, default=2, help="PQ-VAE number of product codebooks.")
+    parser.add_argument("--num-quantizers", type=int, default=2, help="RQ-VAE number of residual quantizers.")
     parser.add_argument("--commitment-weight", type=float, default=0.25, help="VQ-VAE commitment loss weight.")
     parser.add_argument("--codebook-weight", type=float, default=1.0, help="VQ-VAE codebook loss weight.")
     parser.add_argument(
@@ -189,6 +191,30 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "ema_epsilon": args.ema_epsilon,
             }
         )
+    if args.model == "pqvae":
+        model_kwargs.update(
+            {
+                "codebook_size": args.codebook_size,
+                "num_codebooks": args.num_codebooks,
+                "commitment_weight": args.commitment_weight,
+                "codebook_weight": args.codebook_weight,
+                "use_ema_codebook": args.use_ema_codebook,
+                "ema_decay": args.ema_decay,
+                "ema_epsilon": args.ema_epsilon,
+            }
+        )
+    if args.model == "rqvae":
+        model_kwargs.update(
+            {
+                "codebook_size": args.codebook_size,
+                "num_quantizers": args.num_quantizers,
+                "commitment_weight": args.commitment_weight,
+                "codebook_weight": args.codebook_weight,
+                "use_ema_codebook": args.use_ema_codebook,
+                "ema_decay": args.ema_decay,
+                "ema_epsilon": args.ema_epsilon,
+            }
+        )
 
     return load_model(args.model, **model_kwargs)
 
@@ -224,7 +250,7 @@ def build_trainer(args: argparse.Namespace, model):
             **common_kwargs,
         )
         return AdversarialAutoencoderTrainer(model=model, args=training_args)
-    if args.model == "vqvae":
+    if args.model == "vqvae" or args.model == "pqvae" or args.model == "rqvae":
         training_args = QuantizedAutoencoderTrainingArguments(
             dead_code_reset=args.dead_code_reset,
             dead_code_threshold=args.dead_code_threshold,

@@ -22,6 +22,10 @@ from autoencoders import (
     ContractiveAutoencoderTrainer,
     QuantizedAutoencoderTrainer,
     QuantizedAutoencoderTrainingArguments,
+    ProductQuantizedAutoencoderConfig,
+    ProductQuantizedAutoencoderModel,
+    ResidualQuantizedAutoencoderConfig,
+    ResidualQuantizedAutoencoderModel,
     TrainerDisplayConfig,
     TrainingArguments,
     VAETrainer,
@@ -345,6 +349,51 @@ class AutoencoderTrainerTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["codebook_usage_ratio"], 0.5, places=6)
         self.assertAlmostEqual(metrics["dead_code_ratio"], 0.5, places=6)
         self.assertGreater(metrics["codebook_perplexity"], 1.0)
+
+    def test_quantized_trainer_computes_multi_codebook_metrics(self) -> None:
+        config = ProductQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=4,
+            num_codebooks=2,
+        )
+        model = ProductQuantizedAutoencoderModel(config)
+        args = QuantizedAutoencoderTrainingArguments(output_dir="unused", device="cpu")
+        trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+
+        counts = torch.tensor([[3, 1, 0, 0], [0, 2, 2, 0]], dtype=torch.long)
+        metrics = trainer.compute_codebook_metrics(counts)
+
+        self.assertEqual(metrics["active_codes"], 4.0)
+        self.assertEqual(metrics["codebook_size"], 8.0)
+        self.assertAlmostEqual(metrics["codebook_usage_ratio"], 0.5, places=6)
+        self.assertAlmostEqual(metrics["dead_code_ratio"], 0.5, places=6)
+        self.assertGreater(metrics["codebook_perplexity"], 1.0)
+
+    def test_quantized_trainer_tracks_multi_codebook_usage(self) -> None:
+        config = ResidualQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=8,
+            num_quantizers=2,
+        )
+        model = ResidualQuantizedAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = QuantizedAutoencoderTrainingArguments(
+                output_dir=tmpdir,
+                epochs=1,
+                device="cpu",
+            )
+            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertIn("train_active_codes", metrics["history"][0])
+            self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
+            self.assertLessEqual(metrics["history"][0]["validation_codebook_usage_ratio"], 1.0)
 
     def test_quantized_training_arguments_validate_dead_code_threshold(self) -> None:
         defaults = QuantizedAutoencoderTrainingArguments(output_dir="unused")
