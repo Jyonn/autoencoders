@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kl-weight", type=float, default=1.0, help="VAE KL loss weight.")
     parser.add_argument("--kl-warmup-epochs", type=int, default=0, help="Number of epochs for VAE KL warmup.")
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
+    parser.add_argument("--free-bits", type=float, default=0.0, help="Per-latent-dimension free bits floor for VAE KL.")
 
     parser.add_argument("--noise-type", default="gaussian", help="DAE noise type.")
     parser.add_argument("--noise-std", type=float, default=0.1, help="DAE gaussian noise std.")
@@ -121,6 +122,7 @@ def build_trainer(args: argparse.Namespace, model):
         training_args = VAETrainingArguments(
             kl_warmup_epochs=args.kl_warmup_epochs,
             kl_start_weight=args.kl_start_weight,
+            free_bits=args.free_bits,
             **common_kwargs,
         )
         return VAETrainer(model=model, args=training_args)

@@ -129,6 +129,8 @@ class AutoencoderTrainerTest(unittest.TestCase):
             VAETrainingArguments(output_dir="unused", kl_warmup_epochs=-1)
         with self.assertRaisesRegex(ValueError, "kl_start_weight"):
             VAETrainingArguments(output_dir="unused", kl_start_weight=-0.1)
+        with self.assertRaisesRegex(ValueError, "free_bits"):
+            VAETrainingArguments(output_dir="unused", free_bits=-0.1)
 
     def test_vae_trainer_tracks_effective_kl_weight(self) -> None:
         config = VariationalAutoencoderConfig(
@@ -163,6 +165,27 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertAlmostEqual(history[0]["train_effective_kl_weight"], 0.0, places=6)
             self.assertAlmostEqual(history[1]["train_effective_kl_weight"], 0.4, places=6)
             self.assertAlmostEqual(history[2]["train_effective_kl_weight"], 0.8, places=6)
+
+    def test_vae_trainer_applies_free_bits_floor(self) -> None:
+        config = VariationalAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            kl_weight=0.5,
+        )
+        model = VariationalAutoencoderModel(config)
+        args = VAETrainingArguments(
+            output_dir="unused",
+            epochs=1,
+            device="cpu",
+            free_bits=0.25,
+        )
+        trainer = VAETrainer(model=model, args=args)
+
+        outputs = model(inputs=torch.zeros(4, 8))
+        effective_kl_loss = trainer.compute_free_bits_kl_loss(outputs)
+
+        self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
 
 
 if __name__ == "__main__":

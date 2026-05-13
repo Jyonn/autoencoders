@@ -59,6 +59,7 @@ class VAETrainingArguments(TrainingArguments):
 
     kl_warmup_epochs: int = 0
     kl_start_weight: float = 0.0
+    free_bits: float = 0.0
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -66,6 +67,8 @@ class VAETrainingArguments(TrainingArguments):
             raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
         if self.kl_start_weight < 0:
             raise ValueError("kl_start_weight must be non-negative.")
+        if self.free_bits < 0:
+            raise ValueError("free_bits must be non-negative.")
 
 
 class AutoencoderTrainer:
@@ -249,14 +252,32 @@ class VAETrainer(AutoencoderTrainer):
         return start_weight + progress * (target_weight - start_weight)
 
     def get_epoch_metrics(self) -> dict[str, float | int]:
-        return {"kl_weight": self.get_current_kl_weight()}
+        return {
+            "free_bits": self.vae_args.free_bits,
+            "kl_weight": self.get_current_kl_weight(),
+        }
+
+    def compute_free_bits_kl_loss(self, outputs) -> torch.Tensor:
+        if outputs.posterior_mean is None or outputs.posterior_logvar is None:
+            raise ValueError("VAETrainer requires outputs with posterior statistics.")
+
+        kl_per_dim = -0.5 * (
+            1
+            + outputs.posterior_logvar
+            - outputs.posterior_mean.pow(2)
+            - outputs.posterior_logvar.exp()
+        )
+        mean_kl_per_dim = kl_per_dim.mean(dim=0)
+        return torch.clamp(mean_kl_per_dim, min=self.vae_args.free_bits).sum()
 
     def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
         if outputs.reconstruction_loss is None or outputs.kl_loss is None:
             raise ValueError("VAETrainer requires outputs with reconstruction_loss and kl_loss.")
-        return outputs.reconstruction_loss + self.get_current_kl_weight() * outputs.kl_loss
+        effective_kl_loss = self.compute_free_bits_kl_loss(outputs)
+        return outputs.reconstruction_loss + self.get_current_kl_weight() * effective_kl_loss
 
     def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
         metrics = super()._extract_batch_metrics(outputs, loss=loss, training=training)
         metrics["effective_kl_weight"] = self.get_current_kl_weight()
+        metrics["free_bits_kl_loss"] = float(self.compute_free_bits_kl_loss(outputs).detach().item())
         return metrics
