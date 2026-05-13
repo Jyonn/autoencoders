@@ -5,18 +5,15 @@ from .modeling_outputs import AutoencoderOutput
 from .models.ae.configuration_ae import AutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
-from .training import AutoencoderTrainer, TrainingArguments, resolve_device, set_seed
+from .models.vae.configuration_vae import VariationalAutoencoderConfig
 
 __all__ = [
     "AutoencoderConfig",
     "AutoencoderOutput",
-    "AutoencoderTrainer",
     "BaseAutoencoderConfig",
     "DenoisingAutoencoderConfig",
     "PretrainedConfig",
-    "TrainingArguments",
-    "resolve_device",
-    "set_seed",
+    "VariationalAutoencoderConfig",
 ]
 
 try:
@@ -39,6 +36,8 @@ try:
     from .models.base.modeling_base import BaseAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
     from .models.loading import load_model
+    from .models.vae.modeling_vae import VariationalAutoencoderModel
+    from .training import AutoencoderTrainer, TrainingArguments, resolve_device, set_seed
 except ModuleNotFoundError as exc:
     if exc.name != "torch":
         raise
@@ -46,6 +45,7 @@ else:
     __all__.extend(
         [
             "AutoencoderModel",
+            "AutoencoderTrainer",
             "AutoencoderDataset",
             "BaseAutoencoderModel",
             "CachedDataset",
@@ -56,11 +56,15 @@ else:
             "EmbeddingTensorDataset",
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
+            "TrainingArguments",
+            "VariationalAutoencoderModel",
             "create_dataloaders",
             "load_dataset",
             "load_model",
             "load_embedding_artifact",
             "load_text_embedding_matrix",
+            "resolve_device",
+            "set_seed",
             "split_dataset",
         ]
     )

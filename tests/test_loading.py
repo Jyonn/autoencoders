@@ -8,6 +8,7 @@ from autoencoders import load_dataset, load_model
 from autoencoders.data import GloVeDataset
 from autoencoders.models.ae.modeling_ae import AutoencoderModel
 from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
+from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
 
 
 class LoadingHelpersTest(unittest.TestCase):
@@ -29,6 +30,10 @@ class LoadingHelpersTest(unittest.TestCase):
             noise_std=0.2,
         )
         self.assertIsInstance(model, DenoisingAutoencoderModel)
+
+    def test_load_model_returns_variational_autoencoder(self) -> None:
+        model = load_model("vae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5)
+        self.assertIsInstance(model, VariationalAutoencoderModel)
 
 
 if __name__ == "__main__":

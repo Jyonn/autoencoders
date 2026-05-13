@@ -14,9 +14,12 @@ class AutoencoderOutput:
     reconstruction: Any = None
     latents: Any = None
     encoded: Any = None
+    posterior_mean: Any = None
+    posterior_logvar: Any = None
+    reconstruction_loss: Any = None
+    kl_loss: Any = None
     hidden_states: dict[str, Any] | None = None
     loss_dict: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-

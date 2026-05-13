@@ -47,9 +47,12 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             self.assertIn("best_validation_loss", metrics)
             self.assertIn("final_test_loss", metrics)
+            self.assertIn("final_test_metrics", metrics)
             self.assertEqual(len(metrics["history"]), 2)
             self.assertEqual(metrics["dataset"], "dummy")
             self.assertEqual(metrics["model"], "ae")
+            self.assertIn("train_loss", metrics["history"][0])
+            self.assertIn("validation_loss", metrics["history"][0])
 
             best_dir = Path(tmpdir) / "best"
             final_dir = Path(tmpdir) / "final"

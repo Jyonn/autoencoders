@@ -62,38 +62,14 @@ class AutoencoderTrainer:
             lr=args.learning_rate,
         )
 
-    def train_epoch(self, dataloader) -> float:
+    def train_epoch(self, dataloader) -> dict[str, float]:
         self.model.train()
-        total_loss = 0.0
-        total_examples = 0
+        return self._run_epoch(dataloader, training=True)
 
-        for batch in dataloader:
-            batch = batch.to(self.device)
-            self.optimizer.zero_grad()
-            outputs = self.model(inputs=batch)
-            outputs.loss.backward()
-            self.optimizer.step()
-
-            batch_size = batch.shape[0]
-            total_loss += outputs.loss.detach().item() * batch_size
-            total_examples += batch_size
-
-        return total_loss / max(total_examples, 1)
-
-    def evaluate(self, dataloader) -> float:
+    def evaluate(self, dataloader) -> dict[str, float]:
         self.model.eval()
-        total_loss = 0.0
-        total_examples = 0
-
         with torch.no_grad():
-            for batch in dataloader:
-                batch = batch.to(self.device)
-                outputs = self.model(inputs=batch)
-                batch_size = batch.shape[0]
-                total_loss += outputs.loss.detach().item() * batch_size
-                total_examples += batch_size
-
-        return total_loss / max(total_examples, 1)
+            return self._run_epoch(dataloader, training=False)
 
     def fit(
         self,
@@ -105,31 +81,26 @@ class AutoencoderTrainer:
         output_dir = Path(self.args.output_dir)
 
         for epoch in range(self.args.epochs):
-            train_loss = self.train_epoch(dataloaders.train)
-            validation_loss = self.evaluate(dataloaders.validation)
-            history.append(
-                {
-                    "epoch": epoch + 1,
-                    "train_loss": train_loss,
-                    "validation_loss": validation_loss,
-                }
-            )
-            print(
-                f"epoch={epoch + 1} train_loss={train_loss:.6f} "
-                f"validation_loss={validation_loss:.6f}"
-            )
+            train_metrics = self.train_epoch(dataloaders.train)
+            validation_metrics = self.evaluate(dataloaders.validation)
+            epoch_metrics: dict[str, float | int] = {"epoch": epoch + 1}
+            epoch_metrics.update({f"train_{name}": value for name, value in train_metrics.items()})
+            epoch_metrics.update({f"validation_{name}": value for name, value in validation_metrics.items()})
+            history.append(epoch_metrics)
+            print(self._format_epoch_metrics(epoch_metrics))
 
-            if validation_loss < best_validation_loss:
-                best_validation_loss = validation_loss
+            if validation_metrics["loss"] < best_validation_loss:
+                best_validation_loss = validation_metrics["loss"]
                 self.model.save_pretrained(output_dir / "best")
 
-        test_loss = self.evaluate(dataloaders.test)
+        test_metrics = self.evaluate(dataloaders.test)
         self.model.save_pretrained(output_dir / "final")
 
         metrics = {
             "device": str(self.device),
             "best_validation_loss": best_validation_loss,
-            "final_test_loss": test_loss,
+            "final_test_loss": test_metrics["loss"],
+            "final_test_metrics": test_metrics,
             "history": history,
             "training_args": asdict(self.args),
         }
@@ -140,9 +111,53 @@ class AutoencoderTrainer:
         metrics_path = output_dir / "metrics.json"
         metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-        print(f"final_test_loss={test_loss:.6f}")
+        print(self._format_metric_line("final_test", test_metrics))
         print(f"Saved final model to {output_dir / 'final'}")
         print(f"Saved best model to {output_dir / 'best'}")
         print(f"Saved metrics to {metrics_path}")
         return metrics
 
+    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        total_examples = 0
+
+        for batch in dataloader:
+            batch = batch.to(self.device)
+            if training:
+                self.optimizer.zero_grad()
+            outputs = self.model(inputs=batch)
+            if training:
+                outputs.loss.backward()
+                self.optimizer.step()
+
+            batch_size = batch.shape[0]
+            total_examples += batch_size
+            batch_metrics = self._extract_batch_metrics(outputs)
+            for name, value in batch_metrics.items():
+                totals[name] = totals.get(name, 0.0) + value * batch_size
+
+        return {name: total / max(total_examples, 1) for name, total in totals.items()}
+
+    @staticmethod
+    def _extract_batch_metrics(outputs) -> dict[str, float]:
+        metrics: dict[str, float] = {"loss": float(outputs.loss.detach().item())}
+        for name, value in outputs.loss_dict.items():
+            if name == "loss":
+                metrics["loss"] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
+            else:
+                metrics[name] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
+        return metrics
+
+    @staticmethod
+    def _format_epoch_metrics(epoch_metrics: dict[str, float | int]) -> str:
+        parts = [f"epoch={epoch_metrics['epoch']}"]
+        for name, value in epoch_metrics.items():
+            if name == "epoch":
+                continue
+            parts.append(f"{name}={float(value):.6f}")
+        return " ".join(parts)
+
+    @staticmethod
+    def _format_metric_line(prefix: str, metrics: dict[str, float]) -> str:
+        parts = [f"{prefix}_{name}={value:.6f}" for name, value in metrics.items()]
+        return " ".join(parts)

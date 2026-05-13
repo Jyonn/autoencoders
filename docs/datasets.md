@@ -79,6 +79,12 @@ For the denoising autoencoder:
 /Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model dae --dim 50 --max-vectors 50000
 ```
 
+For the variational autoencoder:
+
+```bash
+/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model vae --dim 50 --max-vectors 50000 --kl-weight 1.0
+```
+
 If you only want to inspect the dataset from Python, the direct usage stays simple:
 
 ```python

@@ -17,7 +17,7 @@ from autoencoders import AutoencoderTrainer, TrainingArguments, load_dataset, lo
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="glove", help="Dataset name.")
-    parser.add_argument("--model", default="ae", help="Model name, for example 'ae' or 'dae'.")
+    parser.add_argument("--model", default="ae", help="Model name, for example 'ae', 'dae', or 'vae'.")
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
 
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
+    parser.add_argument("--kl-weight", type=float, default=1.0, help="VAE KL loss weight.")
 
     parser.add_argument("--noise-type", default="gaussian", help="DAE noise type.")
     parser.add_argument("--noise-std", type=float, default=0.1, help="DAE gaussian noise std.")
@@ -71,6 +72,12 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "noise_std": args.noise_std,
                 "masking_ratio": args.masking_ratio,
                 "apply_noise_in_eval": args.apply_noise_in_eval,
+            }
+        )
+    if args.model.strip().lower() in {"vae", "variational_autoencoder", "variational-autoencoder"}:
+        model_kwargs.update(
+            {
+                "kl_weight": args.kl_weight,
             }
         )
 
