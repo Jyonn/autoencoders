@@ -79,6 +79,19 @@ For the denoising autoencoder:
 /Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model dae --dim 50 --max-vectors 50000
 ```
 
+If you only want to inspect the dataset from Python, the direct usage stays simple:
+
+```python
+from autoencoders.data import load_dataset
+
+dataset = load_dataset("glove", dim=50, max_vectors=10000)
+loaders = dataset.get_dataloaders(batch_size=128)
+
+train_batch = next(iter(loaders.train))
+validation_batch = next(iter(loaders.validation))
+test_batch = next(iter(loaders.test))
+```
+
 ## Other Good Candidates
 
 Besides GloVe, the next most reasonable datasets for this library are:
