@@ -45,6 +45,10 @@ class GloVeDataset(CachedDataset):
         return self.raw_dir / self.archive_name
 
     @property
+    def archive_temp_path(self) -> Path:
+        return self.raw_dir / f"{self.archive_name}.tmp"
+
+    @property
     def vector_filename(self) -> str:
         return f"glove.6B.{self.dim}d.txt"
 
@@ -61,20 +65,46 @@ class GloVeDataset(CachedDataset):
     def artifact_dir(self) -> Path:
         return self.processed_dir / self.artifact_name
 
+    def is_prepared(self) -> bool:
+        required_files = (
+            self.artifact_dir / "embeddings.pt",
+            self.artifact_dir / "tokens.txt",
+            self.artifact_dir / "metadata.json",
+        )
+        return all(path.exists() for path in required_files)
+
     def has_raw_data(self) -> bool:
         return self.archive_path.exists() or self.vector_path.exists()
 
     def download(self, *, force: bool = False) -> None:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
-        if self.archive_path.exists() and not force:
+        self._cleanup_temp_archive()
+
+        if self.archive_path.exists() and not force and self._is_valid_archive(self.archive_path):
             return
 
-        with urllib.request.urlopen(self.base_url) as response, self.archive_path.open("wb") as handle:
+        if self.archive_path.exists():
+            self.archive_path.unlink()
+
+        with urllib.request.urlopen(self.base_url) as response, self.archive_temp_path.open("wb") as handle:
             shutil.copyfileobj(response, handle)
+
+        if not self._is_valid_archive(self.archive_temp_path):
+            self._cleanup_temp_archive()
+            raise zipfile.BadZipFile(
+                f"Downloaded archive {self.archive_temp_path} is not a valid zip file."
+            )
+
+        self.archive_temp_path.replace(self.archive_path)
 
     def prepare(self) -> None:
         self.external_dir.mkdir(parents=True, exist_ok=True)
         if not self.vector_path.exists():
+            if not self._is_valid_archive(self.archive_path):
+                raise zipfile.BadZipFile(
+                    f"Cached archive {self.archive_path} is not a valid zip file. "
+                    "Delete it and retry, or allow automatic download to recreate it."
+                )
             with zipfile.ZipFile(self.archive_path) as zip_handle:
                 zip_handle.extract(self.vector_filename, path=self.external_dir)
 
@@ -130,3 +160,19 @@ class GloVeDataset(CachedDataset):
             batch_size=batch_size,
             num_workers=num_workers,
         )
+
+    def _cleanup_temp_archive(self) -> None:
+        if self.archive_temp_path.exists():
+            self.archive_temp_path.unlink()
+
+    def _is_valid_archive(self, path: Path) -> bool:
+        if not path.exists() or not zipfile.is_zipfile(path):
+            return False
+
+        try:
+            with zipfile.ZipFile(path) as zip_handle:
+                if self.vector_filename not in zip_handle.namelist():
+                    return False
+                return zip_handle.testzip() is None
+        except zipfile.BadZipFile:
+            return False

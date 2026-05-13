@@ -51,7 +51,7 @@ class CachedDataset(ABC):
         """Ensure the processed artifact exists and return its directory."""
 
         artifact_dir = self.artifact_dir
-        if artifact_dir.exists() and not force_prepare:
+        if self.is_prepared() and not force_prepare:
             return artifact_dir
 
         if download:
@@ -63,6 +63,11 @@ class CachedDataset(ABC):
 
         self.prepare()
         return artifact_dir
+
+    def is_prepared(self) -> bool:
+        """Return True when the processed artifact is complete and ready to use."""
+
+        return self.artifact_dir.exists()
 
     @property
     @abstractmethod

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import tempfile
 import unittest
 from unittest import mock
@@ -43,6 +44,41 @@ class DatasetUtilitiesTest(unittest.TestCase):
                 artifact_mtime = (artifact_dir / "embeddings.pt").stat().st_mtime
                 dataset.ensure_prepared(download=False)
                 self.assertEqual((artifact_dir / "embeddings.pt").stat().st_mtime, artifact_mtime)
+
+    def test_download_replaces_invalid_cached_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = GloVeDataset(dim=50, max_vectors=2)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+                dataset.archive_path.write_bytes(b"not-a-zip")
+
+                valid_zip_bytes = io.BytesIO()
+                with zipfile.ZipFile(valid_zip_bytes, "w") as archive:
+                    archive.writestr(
+                        dataset.vector_filename,
+                        "cat " + " ".join(["0.1"] * 50) + "\n"
+                        "dog " + " ".join(["0.2"] * 50) + "\n",
+                    )
+                valid_zip_bytes.seek(0)
+
+                with mock.patch("urllib.request.urlopen", return_value=valid_zip_bytes):
+                    dataset.download()
+
+                self.assertTrue(dataset.archive_path.exists())
+                self.assertFalse(dataset.archive_temp_path.exists())
+                self.assertTrue(dataset._is_valid_archive(dataset.archive_path))
+
+    def test_prepare_raises_clear_error_for_invalid_archive_without_download(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = GloVeDataset(dim=50, max_vectors=2)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+                dataset.archive_path.write_bytes(b"not-a-zip")
+
+                with self.assertRaises(zipfile.BadZipFile):
+                    dataset.ensure_prepared(download=False)
 
     def test_load_dataset_returns_glove_dataset(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=10)
