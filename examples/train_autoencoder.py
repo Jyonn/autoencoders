@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 
-import torch
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from autoencoders import load_dataset, load_model
+from autoencoders import AutoencoderTrainer, TrainingArguments, load_dataset, load_model, set_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,22 +47,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_device(device_name: str) -> torch.device:
-    if device_name == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
-    return torch.device(device_name)
-
-
-def set_seed(seed: int) -> None:
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
 def build_dataset(args: argparse.Namespace):
     dataset_kwargs = {
         "dim": args.dim,
@@ -95,26 +77,9 @@ def build_model(args: argparse.Namespace, input_dim: int):
     return load_model(args.model, **model_kwargs)
 
 
-def evaluate(model, dataloader, device: torch.device) -> float:
-    model.eval()
-    total_loss = 0.0
-    total_examples = 0
-
-    with torch.no_grad():
-        for batch in dataloader:
-            batch = batch.to(device)
-            outputs = model(inputs=batch)
-            batch_size = batch.shape[0]
-            total_loss += outputs.loss.detach().item() * batch_size
-            total_examples += batch_size
-
-    return total_loss / max(total_examples, 1)
-
-
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
-    device = resolve_device(args.device)
 
     dataset = build_dataset(args)
     dataloaders = dataset.get_dataloaders(
@@ -124,66 +89,24 @@ def main() -> None:
         seed=args.seed,
     )
     embedding_matrix = dataset.load_embedding_matrix()
-    model = build_model(args, input_dim=embedding_matrix.embedding_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    model = build_model(args, input_dim=embedding_matrix.embedding_dim)
+    training_args = TrainingArguments(
+        output_dir=args.output_dir,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        batch_size=args.batch_size,
+        device=args.device,
+        seed=args.seed,
+    )
+    trainer = AutoencoderTrainer(model=model, args=training_args)
+    trainer.fit(
+        dataloaders,
+        metadata={
+            "dataset": args.dataset,
+            "model": args.model,
+        },
+    )
 
-    best_validation_loss = float("inf")
-    history: list[dict[str, float | int]] = []
-
-    for epoch in range(args.epochs):
-        model.train()
-        total_loss = 0.0
-        total_examples = 0
-
-        for batch in dataloaders.train:
-            batch = batch.to(device)
-            optimizer.zero_grad()
-            outputs = model(inputs=batch)
-            outputs.loss.backward()
-            optimizer.step()
-
-            batch_size = batch.shape[0]
-            total_loss += outputs.loss.detach().item() * batch_size
-            total_examples += batch_size
-
-        train_loss = total_loss / max(total_examples, 1)
-        validation_loss = evaluate(model, dataloaders.validation, device)
-        history.append(
-            {
-                "epoch": epoch + 1,
-                "train_loss": train_loss,
-                "validation_loss": validation_loss,
-            }
-        )
-        print(
-            f"epoch={epoch + 1} train_loss={train_loss:.6f} "
-            f"validation_loss={validation_loss:.6f}"
-        )
-
-        if validation_loss < best_validation_loss:
-            best_validation_loss = validation_loss
-            model.save_pretrained(Path(args.output_dir) / "best")
-
-    test_loss = evaluate(model, dataloaders.test, device)
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(output_dir / "final")
-
-    metrics = {
-        "dataset": args.dataset,
-        "model": args.model,
-        "device": str(device),
-        "best_validation_loss": best_validation_loss,
-        "final_test_loss": test_loss,
-        "history": history,
-    }
-    metrics_path = output_dir / "metrics.json"
-    metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-    print(f"final_test_loss={test_loss:.6f}")
-    print(f"Saved final model to {output_dir / 'final'}")
-    print(f"Saved best model to {output_dir / 'best'}")
-    print(f"Saved metrics to {metrics_path}")
 
 
 if __name__ == "__main__":
