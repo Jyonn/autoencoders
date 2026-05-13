@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoencoders"
+version = "0.1.0"
+description = "A unified library for autoencoder-family models."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "autoencoders contributors" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+torch = ["numpy>=1.26", "torch>=2.2"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["autoencoders*"]

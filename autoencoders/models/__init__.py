@@ -1,0 +1,2 @@
+"""Model namespaces for autoencoders."""
+
