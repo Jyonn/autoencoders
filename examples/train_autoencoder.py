@@ -25,7 +25,7 @@ from autoencoders import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", default="glove", choices=["glove"], help="Dataset name.")
-    parser.add_argument("--model", default="ae", choices=["ae", "dae", "vae"], help="Model name.")
+    parser.add_argument("--model", default="ae", choices=["ae", "dae", "vae", "betavae"], help="Model name.")
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
 
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--activation", default="relu", help="Activation name.")
     parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
     parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
+    parser.add_argument("--beta", type=float, default=4.0, help="Beta-VAE KL multiplier.")
     parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
     parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
@@ -108,6 +109,12 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "kl_weight": args.kl_weight,
             }
         )
+    if args.model == "betavae":
+        model_kwargs.update(
+            {
+                "beta": args.beta,
+            }
+        )
 
     return load_model(args.model, **model_kwargs)
 
@@ -124,7 +131,7 @@ def build_trainer(args: argparse.Namespace, model):
         "show_only_best_epochs": args.show_only_best_epochs,
     }
 
-    if args.model == "vae":
+    if args.model == "vae" or args.model == "betavae":
         training_args = VAETrainingArguments(
             kl_warmup_epochs=args.kl_warmup_epochs,
             kl_start_weight=args.kl_start_weight,
