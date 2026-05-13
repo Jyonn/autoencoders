@@ -27,7 +27,6 @@ class GloVeDataset(CachedDataset):
         self,
         *,
         dim: int = 50,
-        root: str | Path | None = None,
         max_vectors: int | None = None,
     ) -> None:
         if dim not in {50, 100, 200, 300}:
@@ -35,7 +34,7 @@ class GloVeDataset(CachedDataset):
 
         self.dim = dim
         self.max_vectors = max_vectors
-        super().__init__(root=root)
+        super().__init__()
 
     @property
     def archive_name(self) -> str:
@@ -131,4 +130,3 @@ class GloVeDataset(CachedDataset):
             batch_size=batch_size,
             num_workers=num_workers,
         )
-

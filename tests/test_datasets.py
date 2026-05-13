@@ -21,27 +21,28 @@ class DatasetUtilitiesTest(unittest.TestCase):
     def test_glove_dataset_prepare_and_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            dataset = GloVeDataset(root=root, dim=50, max_vectors=2)
-            dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = GloVeDataset(dim=50, max_vectors=2)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
-            with zipfile.ZipFile(dataset.archive_path, "w") as archive:
-                archive.writestr(
-                    dataset.vector_filename,
-                    "cat " + " ".join(["0.1"] * 50) + "\n"
-                    "dog " + " ".join(["0.2"] * 50) + "\n"
-                    "car " + " ".join(["0.3"] * 50) + "\n",
-                )
+                with zipfile.ZipFile(dataset.archive_path, "w") as archive:
+                    archive.writestr(
+                        dataset.vector_filename,
+                        "cat " + " ".join(["0.1"] * 50) + "\n"
+                        "dog " + " ".join(["0.2"] * 50) + "\n"
+                        "car " + " ".join(["0.3"] * 50) + "\n",
+                    )
 
-            artifact_dir = dataset.ensure_prepared(download=False)
-            self.assertTrue(artifact_dir.exists())
+                artifact_dir = dataset.ensure_prepared(download=False)
+                self.assertTrue(artifact_dir.exists())
 
-            embedding_matrix = dataset.load_embedding_matrix(download=False)
-            self.assertEqual(embedding_matrix.num_embeddings, 2)
-            self.assertEqual(embedding_matrix.embedding_dim, 50)
+                embedding_matrix = dataset.load_embedding_matrix(download=False)
+                self.assertEqual(embedding_matrix.num_embeddings, 2)
+                self.assertEqual(embedding_matrix.embedding_dim, 50)
 
-            artifact_mtime = (artifact_dir / "embeddings.pt").stat().st_mtime
-            dataset.ensure_prepared(download=False)
-            self.assertEqual((artifact_dir / "embeddings.pt").stat().st_mtime, artifact_mtime)
+                artifact_mtime = (artifact_dir / "embeddings.pt").stat().st_mtime
+                dataset.ensure_prepared(download=False)
+                self.assertEqual((artifact_dir / "embeddings.pt").stat().st_mtime, artifact_mtime)
 
     def test_load_dataset_returns_glove_dataset(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=10)
