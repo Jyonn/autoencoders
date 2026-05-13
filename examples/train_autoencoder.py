@@ -13,6 +13,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from autoencoders import (
     AutoencoderTrainer,
+    QuantizedAutoencoderTrainer,
+    QuantizedAutoencoderTrainingArguments,
     TrainingArguments,
     VAETrainer,
     VAETrainingArguments,
@@ -157,6 +159,9 @@ def build_trainer(args: argparse.Namespace, model):
             **common_kwargs,
         )
         return VAETrainer(model=model, args=training_args)
+    if args.model == "vqvae":
+        training_args = QuantizedAutoencoderTrainingArguments(**common_kwargs)
+        return QuantizedAutoencoderTrainer(model=model, args=training_args)
 
     training_args = TrainingArguments(**common_kwargs)
     return AutoencoderTrainer(model=model, args=training_args)

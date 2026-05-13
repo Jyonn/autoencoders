@@ -13,12 +13,16 @@ from autoencoders import (
     AutoencoderConfig,
     AutoencoderModel,
     AutoencoderTrainer,
+    QuantizedAutoencoderTrainer,
+    QuantizedAutoencoderTrainingArguments,
     TrainerDisplayConfig,
     TrainingArguments,
     VAETrainer,
     VAETrainingArguments,
     VariationalAutoencoderConfig,
     VariationalAutoencoderModel,
+    VectorQuantizedAutoencoderConfig,
+    VectorQuantizedAutoencoderModel,
 )
 from autoencoders.data import DatasetLoaders, EmbeddingMatrix, EmbeddingTensorDataset
 
@@ -200,6 +204,61 @@ class AutoencoderTrainerTest(unittest.TestCase):
         effective_kl_loss = trainer.compute_free_bits_kl_loss(outputs)
 
         self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
+
+    def test_quantized_trainer_tracks_codebook_metrics(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=16,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = QuantizedAutoencoderTrainingArguments(
+                output_dir=tmpdir,
+                epochs=2,
+                patience=None,
+                learning_rate=1e-3,
+                batch_size=6,
+                device="cpu",
+                seed=123,
+            )
+            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            history = metrics["history"]
+            self.assertEqual(len(history), 2)
+            self.assertIn("train_active_codes", history[0])
+            self.assertIn("validation_active_codes", history[0])
+            self.assertIn("train_codebook_perplexity", history[0])
+            self.assertIn("validation_codebook_usage_ratio", history[0])
+            self.assertLessEqual(history[0]["train_active_codes"], 16.0)
+            self.assertLessEqual(history[0]["validation_codebook_usage_ratio"], 1.0)
+            self.assertGreaterEqual(history[0]["validation_dead_code_ratio"], 0.0)
+            self.assertIn("active_codes", metrics["final_test_metrics"])
+            self.assertIn("codebook_perplexity", metrics["final_test_metrics"])
+
+    def test_quantized_trainer_computes_codebook_metrics(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=4,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        args = QuantizedAutoencoderTrainingArguments(output_dir="unused", device="cpu")
+        trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+
+        counts = torch.tensor([3, 1, 0, 0], dtype=torch.long)
+        metrics = trainer.compute_codebook_metrics(counts)
+
+        self.assertEqual(metrics["active_codes"], 2.0)
+        self.assertEqual(metrics["codebook_size"], 4.0)
+        self.assertAlmostEqual(metrics["codebook_usage_ratio"], 0.5, places=6)
+        self.assertAlmostEqual(metrics["dead_code_ratio"], 0.5, places=6)
+        self.assertGreater(metrics["codebook_perplexity"], 1.0)
 
 
 if __name__ == "__main__":

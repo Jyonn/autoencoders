@@ -49,6 +49,8 @@ try:
     from .models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
     from .training import (
         AutoencoderTrainer,
+        QuantizedAutoencoderTrainer,
+        QuantizedAutoencoderTrainingArguments,
         TrainerDisplayConfig,
         TrainingArguments,
         VAETrainer,
@@ -75,6 +77,8 @@ else:
             "EmbeddingTensorDataset",
             "GloVeDataset",
             "PreTrainedAutoencoderModel",
+            "QuantizedAutoencoderTrainer",
+            "QuantizedAutoencoderTrainingArguments",
             "SparseAutoencoderModel",
             "TrainerDisplayConfig",
             "TrainingArguments",

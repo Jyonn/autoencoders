@@ -2,6 +2,8 @@
 
 from .trainer import (
     AutoencoderTrainer,
+    QuantizedAutoencoderTrainer,
+    QuantizedAutoencoderTrainingArguments,
     TrainerDisplayConfig,
     TrainingArguments,
     VAETrainer,
@@ -12,6 +14,8 @@ from .trainer import (
 
 __all__ = [
     "AutoencoderTrainer",
+    "QuantizedAutoencoderTrainer",
+    "QuantizedAutoencoderTrainingArguments",
     "TrainerDisplayConfig",
     "TrainingArguments",
     "VAETrainer",

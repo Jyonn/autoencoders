@@ -140,6 +140,11 @@ class VAETrainingArguments(TrainingArguments):
 
 
 @dataclass
+class QuantizedAutoencoderTrainingArguments(TrainingArguments):
+    """Training settings specific to quantized autoencoders."""
+
+
+@dataclass
 class TrainerDisplayConfig:
     """Terminal display settings for trainer logs."""
 
@@ -444,6 +449,38 @@ class AutoencoderTrainer:
                     value_fg=self.display.codebook_value_fg,
                 )
             )
+        if "validation_active_codes" in epoch_metrics and "validation_codebook_size" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "codes",
+                    f"{int(epoch_metrics['validation_active_codes'])}/{int(epoch_metrics['validation_codebook_size'])}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_codebook_usage_ratio" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "usage",
+                    f"{float(epoch_metrics['validation_codebook_usage_ratio']):.3f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_codebook_perplexity" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "ppl",
+                    f"{float(epoch_metrics['validation_codebook_perplexity']):.2f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_dead_code_ratio" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "dead",
+                    f"{float(epoch_metrics['validation_dead_code_ratio']):.3f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
         if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
             summary_parts.append(
                 self._format_metric(
@@ -498,6 +535,38 @@ class AutoencoderTrainer:
                     value_fg=self.display.free_kl_value_fg,
                 )
             )
+        if "validation_active_codes" in epoch_metrics and "validation_codebook_size" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "codes",
+                    f"{int(epoch_metrics['validation_active_codes'])}/{int(epoch_metrics['validation_codebook_size'])}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_codebook_usage_ratio" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "usage",
+                    f"{float(epoch_metrics['validation_codebook_usage_ratio']):.3f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_codebook_perplexity" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "ppl",
+                    f"{float(epoch_metrics['validation_codebook_perplexity']):.2f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "validation_dead_code_ratio" in epoch_metrics:
+            parts.append(
+                self._format_metric(
+                    "dead",
+                    f"{float(epoch_metrics['validation_dead_code_ratio']):.3f}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
         self._print_log("BEST", self._join_segments(*parts), fg=self.display.best_label_fg, bg=self.display.best_label_bg)
 
     def _log_run_end(
@@ -521,6 +590,26 @@ class AutoencoderTrainer:
             summary_parts.append(self._format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         if "free_bits_kl_loss" in test_metrics:
             summary_parts.append(self._format_metric("free-kl", f"{test_metrics['free_bits_kl_loss']:.4f}", value_fg=self.display.free_kl_value_fg))
+        if "active_codes" in test_metrics and "codebook_size" in test_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "codes",
+                    f"{int(test_metrics['active_codes'])}/{int(test_metrics['codebook_size'])}",
+                    value_fg=self.display.meta_value_fg,
+                )
+            )
+        if "codebook_usage_ratio" in test_metrics:
+            summary_parts.append(
+                self._format_metric("usage", f"{test_metrics['codebook_usage_ratio']:.3f}", value_fg=self.display.meta_value_fg)
+            )
+        if "codebook_perplexity" in test_metrics:
+            summary_parts.append(
+                self._format_metric("ppl", f"{test_metrics['codebook_perplexity']:.2f}", value_fg=self.display.meta_value_fg)
+            )
+        if "dead_code_ratio" in test_metrics:
+            summary_parts.append(
+                self._format_metric("dead", f"{test_metrics['dead_code_ratio']:.3f}", value_fg=self.display.meta_value_fg)
+            )
         if stopped_early and best_epoch is not None:
             summary_parts.append(self._format_metric("best", str(best_epoch), value_fg=self.display.meta_value_fg))
             summary_parts.append(self._format_metric("stopped", str(self.current_epoch), value_fg=self.display.meta_value_fg))
@@ -624,3 +713,79 @@ class VAETrainer(AutoencoderTrainer):
         metrics = super()._extract_batch_metrics(outputs, loss=loss, training=training)
         metrics["free_bits_kl_loss"] = float(self.compute_free_bits_kl_loss(outputs).detach().item())
         return metrics
+
+
+class QuantizedAutoencoderTrainer(AutoencoderTrainer):
+    """Trainer with codebook-usage evaluation hooks for quantized autoencoders."""
+
+    def __init__(
+        self,
+        model,
+        args: QuantizedAutoencoderTrainingArguments,
+        optimizer: torch.optim.Optimizer | None = None,
+        display: TrainerDisplayConfig | None = None,
+    ) -> None:
+        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
+
+    @property
+    def quantized_args(self) -> QuantizedAutoencoderTrainingArguments:
+        return self.args
+
+    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        total_examples = 0
+        total_batches = len(dataloader)
+        codebook_size = int(self.model.config.codebook_size)
+        code_counts = torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+
+        for batch_index, batch in enumerate(dataloader, start=1):
+            batch = batch.to(self.device)
+            if training:
+                self.optimizer.zero_grad()
+            outputs = self.forward_batch(batch, training=training)
+            loss = self.compute_batch_loss(outputs, training=training)
+            if training:
+                loss.backward()
+                self.optimizer.step()
+
+            if outputs.codebook_indices is None:
+                raise ValueError("QuantizedAutoencoderTrainer requires outputs with codebook_indices.")
+
+            batch_size = batch.shape[0]
+            total_examples += batch_size
+            code_counts += torch.bincount(outputs.codebook_indices.reshape(-1), minlength=codebook_size)
+
+            batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
+            for name, value in batch_metrics.items():
+                totals[name] = totals.get(name, 0.0) + value * batch_size
+            if training:
+                running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
+                self._log_batch_progress(batch_index, total_batches, running_metrics)
+
+        metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
+        metrics.update(self.compute_codebook_metrics(code_counts))
+        return metrics
+
+    def compute_codebook_metrics(self, code_counts: torch.Tensor) -> dict[str, float]:
+        counts = code_counts.detach().to(dtype=torch.float32)
+        total_codes = float(counts.sum().item())
+        active_codes = int((counts > 0).sum().item())
+        codebook_size = int(counts.numel())
+        usage_ratio = active_codes / codebook_size if codebook_size > 0 else 0.0
+        dead_code_ratio = 1.0 - usage_ratio
+
+        if total_codes == 0:
+            perplexity = 0.0
+        else:
+            probabilities = counts / total_codes
+            used_probabilities = probabilities[probabilities > 0]
+            entropy = -(used_probabilities * used_probabilities.log()).sum()
+            perplexity = float(entropy.exp().item())
+
+        return {
+            "active_codes": float(active_codes),
+            "codebook_size": float(codebook_size),
+            "codebook_usage_ratio": usage_ratio,
+            "dead_code_ratio": dead_code_ratio,
+            "codebook_perplexity": perplexity,
+        }
