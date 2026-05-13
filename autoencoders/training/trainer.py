@@ -3,13 +3,36 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import torch
+from pigmento import Bracket, Color, Pigmento, Prefix
 
 from ..data.base import DatasetLoaders
+
+
+def _build_logger(label: str, color: Color, *, inline: bool = False) -> Pigmento:
+    logger = Pigmento()
+    logger.set_display_mode(display_method_name=False, display_class_name=False)
+    logger.add_prefix(Prefix(label, bracket=Bracket.DEFAULT, color=color))
+    if inline:
+        def inline_printer(prefixes, prefix_s, prefix_s_with_color, text, **kwargs):
+            end = kwargs.pop("end", "")
+            sys.stdout.write(f"\r{prefix_s_with_color} {text}{end}")
+            sys.stdout.flush()
+
+        logger.set_basic_printer(inline_printer)
+    return logger
+
+
+RUN_LOGGER = _build_logger("RUN", Color.BLUE)
+STEP_LOGGER = _build_logger("STEP", Color.CYAN, inline=True)
+EPOCH_LOGGER = _build_logger("EPOCH", Color.GREEN)
+FINAL_LOGGER = _build_logger("FINAL", Color.MAGENTA)
+SAVE_LOGGER = _build_logger("SAVE", Color.YELLOW)
 
 
 def resolve_device(device_name: str) -> torch.device:
@@ -83,6 +106,7 @@ class AutoencoderTrainer:
         self.model = model
         self.args = args
         self.current_epoch = 0
+        self.max_epochs: int | None = None
         self.device = resolve_device(args.device)
         self.model.to(self.device)
         self.optimizer = optimizer or torch.optim.Adam(
@@ -112,6 +136,8 @@ class AutoencoderTrainer:
         output_dir = Path(self.args.output_dir)
         epoch = 0
         max_epochs = self.args.epochs if self.args.epochs > 0 else None
+        self.max_epochs = max_epochs
+        self._log_run_start(metadata=metadata, max_epochs=max_epochs)
 
         while max_epochs is None or epoch < max_epochs:
             epoch += 1
@@ -123,9 +149,10 @@ class AutoencoderTrainer:
             epoch_metrics.update({f"train_{name}": value for name, value in train_metrics.items()})
             epoch_metrics.update({f"validation_{name}": value for name, value in validation_metrics.items()})
             history.append(epoch_metrics)
-            print(self._format_epoch_metrics(epoch_metrics))
+            improved = validation_metrics["loss"] < best_validation_loss
+            self._log_epoch_summary(epoch_metrics, best_validation_loss, improved)
 
-            if validation_metrics["loss"] < best_validation_loss:
+            if improved:
                 best_validation_loss = validation_metrics["loss"]
                 best_epoch = epoch
                 epochs_without_improvement = 0
@@ -157,10 +184,13 @@ class AutoencoderTrainer:
         metrics_path = output_dir / "metrics.json"
         metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-        print(self._format_metric_line("final_test", test_metrics))
-        print(f"Saved final model to {output_dir / 'final'}")
-        print(f"Saved best model to {output_dir / 'best'}")
-        print(f"Saved metrics to {metrics_path}")
+        self._log_run_end(
+            test_metrics=test_metrics,
+            output_dir=output_dir,
+            metrics_path=metrics_path,
+            stopped_early=stopped_early,
+            best_epoch=best_epoch,
+        )
         return metrics
 
     def on_epoch_start(self, epoch: int) -> None:
@@ -172,8 +202,9 @@ class AutoencoderTrainer:
     def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
         total_examples = 0
+        total_batches = len(dataloader)
 
-        for batch in dataloader:
+        for batch_index, batch in enumerate(dataloader, start=1):
             batch = batch.to(self.device)
             if training:
                 self.optimizer.zero_grad()
@@ -188,6 +219,13 @@ class AutoencoderTrainer:
             batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
+            if training:
+                running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
+                self._log_batch_progress(batch_index, total_batches, running_metrics)
+
+        if training and total_batches:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
 
         return {name: total / max(total_examples, 1) for name, total in totals.items()}
 
@@ -206,19 +244,88 @@ class AutoencoderTrainer:
                 metrics[name] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
         return metrics
 
-    @staticmethod
-    def _format_epoch_metrics(epoch_metrics: dict[str, float | int]) -> str:
-        parts = [f"epoch={epoch_metrics['epoch']}"]
-        for name, value in epoch_metrics.items():
-            if name == "epoch":
-                continue
-            parts.append(f"{name}={float(value):.6f}")
-        return " ".join(parts)
+    def _log_run_start(self, metadata: dict[str, Any] | None, max_epochs: int | None) -> None:
+        model_name = metadata.get("model", self.model.__class__.__name__) if metadata else self.model.__class__.__name__
+        dataset_name = metadata.get("dataset", "unknown") if metadata else "unknown"
+        epoch_budget = "early-stop" if max_epochs is None else str(max_epochs)
+        RUN_LOGGER(
+            f"model={model_name} dataset={dataset_name} device={self.device} epochs={epoch_budget}"
+        )
 
-    @staticmethod
-    def _format_metric_line(prefix: str, metrics: dict[str, float]) -> str:
-        parts = [f"{prefix}_{name}={value:.6f}" for name, value in metrics.items()]
-        return " ".join(parts)
+    def _log_batch_progress(self, batch_index: int, total_batches: int, metrics: dict[str, float]) -> None:
+        progress_width = 18
+        filled = int(progress_width * batch_index / max(total_batches, 1))
+        bar = "█" * filled + "·" * (progress_width - filled)
+        parts = [
+            f"{batch_index:>3}/{total_batches:<3}",
+            bar,
+            f"loss {metrics['loss']:.4f}",
+        ]
+        if "reconstruction_loss" in metrics:
+            parts.append(f"recon {metrics['reconstruction_loss']:.4f}")
+        if "kl_loss" in metrics:
+            parts.append(f"kl {metrics['kl_loss']:.4f}")
+        STEP_LOGGER("  ".join(parts))
+
+    def _log_epoch_summary(
+        self,
+        epoch_metrics: dict[str, float | int],
+        best_validation_loss: float,
+        improved: bool,
+    ) -> None:
+        epoch = int(epoch_metrics["epoch"])
+        if self.max_epochs is None:
+            epoch_label = f"{epoch:03d}"
+        else:
+            epoch_label = f"{epoch:03d}/{self.max_epochs:03d}"
+
+        summary_parts = [
+            f"{epoch_label}",
+            f"train {float(epoch_metrics['train_loss']):.4f}",
+            f"valid {float(epoch_metrics['validation_loss']):.4f}",
+        ]
+
+        if "train_reconstruction_loss" in epoch_metrics and "validation_reconstruction_loss" in epoch_metrics:
+            summary_parts.append(
+                f"recon {float(epoch_metrics['train_reconstruction_loss']):.4f}/{float(epoch_metrics['validation_reconstruction_loss']):.4f}"
+            )
+        if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
+            summary_parts.append(
+                f"kl {float(epoch_metrics['train_kl_loss']):.4f}/{float(epoch_metrics['validation_kl_loss']):.4f}"
+            )
+        if "kl_weight" in epoch_metrics:
+            summary_parts.append(f"beta {float(epoch_metrics['kl_weight']):.3f}")
+        if "free_bits" in epoch_metrics:
+            summary_parts.append(f"free {float(epoch_metrics['free_bits']):.3f}")
+        if "train_free_bits_kl_loss" in epoch_metrics and "validation_free_bits_kl_loss" in epoch_metrics:
+            summary_parts.append(
+                f"free-kl {float(epoch_metrics['train_free_bits_kl_loss']):.4f}/{float(epoch_metrics['validation_free_bits_kl_loss']):.4f}"
+            )
+
+        summary_parts.append("best" if improved else f"best {best_validation_loss:.4f}")
+        EPOCH_LOGGER("  ".join(summary_parts))
+
+    def _log_run_end(
+        self,
+        test_metrics: dict[str, float],
+        output_dir: Path,
+        metrics_path: Path,
+        stopped_early: bool,
+        best_epoch: int | None,
+    ) -> None:
+        summary_parts = [f"test {test_metrics['loss']:.4f}"]
+        if "reconstruction_loss" in test_metrics:
+            summary_parts.append(f"recon {test_metrics['reconstruction_loss']:.4f}")
+        if "kl_loss" in test_metrics:
+            summary_parts.append(f"kl {test_metrics['kl_loss']:.4f}")
+        if "free_bits_kl_loss" in test_metrics:
+            summary_parts.append(f"free-kl {test_metrics['free_bits_kl_loss']:.4f}")
+        if stopped_early and best_epoch is not None:
+            summary_parts.append(f"stopped@{self.current_epoch} best@{best_epoch}")
+        FINAL_LOGGER("  ".join(summary_parts))
+        SAVE_LOGGER(f"best -> {output_dir / 'best'}")
+        SAVE_LOGGER(f"final -> {output_dir / 'final'}")
+        SAVE_LOGGER(f"metrics -> {metrics_path}")
 
 
 class VAETrainer(AutoencoderTrainer):
@@ -278,6 +385,5 @@ class VAETrainer(AutoencoderTrainer):
 
     def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
         metrics = super()._extract_batch_metrics(outputs, loss=loss, training=training)
-        metrics["effective_kl_weight"] = self.get_current_kl_weight()
         metrics["free_bits_kl_loss"] = float(self.compute_free_bits_kl_loss(outputs).detach().item())
         return metrics

@@ -167,9 +167,9 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertAlmostEqual(history[0]["kl_weight"], 0.0, places=6)
             self.assertAlmostEqual(history[1]["kl_weight"], 0.4, places=6)
             self.assertAlmostEqual(history[2]["kl_weight"], 0.8, places=6)
-            self.assertAlmostEqual(history[0]["train_effective_kl_weight"], 0.0, places=6)
-            self.assertAlmostEqual(history[1]["train_effective_kl_weight"], 0.4, places=6)
-            self.assertAlmostEqual(history[2]["train_effective_kl_weight"], 0.8, places=6)
+            self.assertAlmostEqual(history[0]["train_free_bits_kl_loss"], history[0]["train_kl_loss"], places=6)
+            self.assertAlmostEqual(history[1]["train_free_bits_kl_loss"], history[1]["train_kl_loss"], places=6)
+            self.assertAlmostEqual(history[2]["train_free_bits_kl_loss"], history[2]["train_kl_loss"], places=6)
 
     def test_vae_trainer_applies_free_bits_floor(self) -> None:
         config = VariationalAutoencoderConfig(
