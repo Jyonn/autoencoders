@@ -67,6 +67,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Adam learning rate.")
     parser.add_argument("--device", default="auto", help="Training device: auto, cpu, cuda, mps.")
+    parser.add_argument(
+        "--show-only-best-epochs",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to persist only best-epoch summaries in the terminal output.",
+    )
     return parser.parse_args()
 
 
@@ -115,6 +121,7 @@ def build_trainer(args: argparse.Namespace, model):
         "batch_size": args.batch_size,
         "device": args.device,
         "seed": args.seed,
+        "show_only_best_epochs": args.show_only_best_epochs,
     }
 
     if args.model == "vae":
