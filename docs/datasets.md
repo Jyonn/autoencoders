@@ -70,7 +70,13 @@ The first call will automatically:
 The training example follows the same pattern and does not require an explicit prepare step:
 
 ```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_ae_on_glove.py --dim 50 --max-vectors 50000
+/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model ae --dim 50 --max-vectors 50000
+```
+
+For the denoising autoencoder:
+
+```bash
+/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model dae --dim 50 --max-vectors 50000
 ```
 
 ## Other Good Candidates

@@ -1,4 +1,4 @@
-"""Minimal training example for the basic autoencoder on a real embedding matrix."""
+"""Compatibility wrapper for training a basic autoencoder on GloVe."""
 
 from __future__ import annotations
 
@@ -6,17 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
-import torch
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from autoencoders import (
-    AutoencoderConfig,
-    AutoencoderModel,
-    load_dataset,
-)
+from train_autoencoder import main as train_autoencoder_main
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,40 +33,31 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    dataset = load_dataset("glove", dim=args.dim, max_vectors=args.max_vectors)
-    dataloaders = dataset.get_dataloaders(batch_size=args.batch_size)
-    dataloader = dataloaders.train
-    embedding_matrix = dataset.load_embedding_matrix()
-
-    config = AutoencoderConfig(
-        input_dim=embedding_matrix.embedding_dim,
-        latent_dim=args.latent_dim,
-        hidden_dims=list(args.hidden_dims),
-    )
-    model = AutoencoderModel(config)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-
-    model.train()
-    for epoch in range(args.epochs):
-        total_loss = 0.0
-        total_examples = 0
-
-        for batch in dataloader:
-            optimizer.zero_grad()
-            outputs = model(inputs=batch)
-            outputs.loss.backward()
-            optimizer.step()
-
-            batch_size = batch.shape[0]
-            total_loss += outputs.loss.detach().item() * batch_size
-            total_examples += batch_size
-
-        mean_loss = total_loss / max(total_examples, 1)
-        print(f"epoch={epoch + 1} mean_loss={mean_loss:.6f}")
-
-    output_dir = Path(args.output_dir)
-    model.save_pretrained(output_dir)
-    print(f"Saved model to {output_dir}")
+    sys.argv = [
+        sys.argv[0],
+        "--dataset",
+        "glove",
+        "--model",
+        "ae",
+        "--output-dir",
+        args.output_dir,
+        "--dim",
+        str(args.dim),
+        "--latent-dim",
+        str(args.latent_dim),
+        "--epochs",
+        str(args.epochs),
+        "--batch-size",
+        str(args.batch_size),
+        "--learning-rate",
+        str(args.learning_rate),
+    ]
+    if args.max_vectors is not None:
+        sys.argv.extend(["--max-vectors", str(args.max_vectors)])
+    if args.hidden_dims:
+        sys.argv.append("--hidden-dims")
+        sys.argv.extend(str(dim) for dim in args.hidden_dims)
+    train_autoencoder_main()
 
 
 if __name__ == "__main__":

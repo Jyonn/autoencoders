@@ -109,5 +109,6 @@ The first recommended real embedding matrix for training and testing is **Stanfo
 Downloadable datasets use a global cache by default at `~/.cache/autoencoders`, and you can override it with `AUTOENCODERS_CACHE`.
 
 - Dataset notes: [docs/datasets.md](/Users/jyonn/Projects/Libraries/autoencoders/docs/datasets.md)
-- Training example: [examples/train_ae_on_glove.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_ae_on_glove.py)
+- Generic training example: [examples/train_autoencoder.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_autoencoder.py)
+- Compatibility training example: [examples/train_ae_on_glove.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_ae_on_glove.py)
 - Dataset example: [examples/use_glove_dataset.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/use_glove_dataset.py)

@@ -33,6 +33,7 @@ try:
     from .models.ae.modeling_ae import AutoencoderModel
     from .models.base.modeling_base import BaseAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
+    from .models.loading import load_model
 except ModuleNotFoundError as exc:
     if exc.name != "torch":
         raise
@@ -52,6 +53,7 @@ else:
             "PreTrainedAutoencoderModel",
             "create_dataloaders",
             "load_dataset",
+            "load_model",
             "load_embedding_artifact",
             "load_text_embedding_matrix",
             "split_dataset",
