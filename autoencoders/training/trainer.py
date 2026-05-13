@@ -38,10 +38,19 @@ class TrainingArguments:
 
     output_dir: str = "artifacts/train-autoencoder"
     epochs: int = 5
+    patience: int | None = None
     learning_rate: float = 1e-3
     batch_size: int = 256
     device: str = "auto"
     seed: int = 42
+
+    def __post_init__(self) -> None:
+        if self.epochs < 0:
+            raise ValueError("epochs must be greater than or equal to 0.")
+        if self.patience is not None and self.patience <= 0:
+            raise ValueError("patience must be greater than 0 when provided.")
+        if self.epochs == 0 and self.patience is None:
+            raise ValueError("patience must be provided when epochs is set to 0.")
 
 
 class AutoencoderTrainer:
@@ -77,13 +86,19 @@ class AutoencoderTrainer:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         best_validation_loss = float("inf")
+        best_epoch: int | None = None
+        epochs_without_improvement = 0
+        stopped_early = False
         history: list[dict[str, float | int]] = []
         output_dir = Path(self.args.output_dir)
+        epoch = 0
+        max_epochs = self.args.epochs if self.args.epochs > 0 else None
 
-        for epoch in range(self.args.epochs):
+        while max_epochs is None or epoch < max_epochs:
             train_metrics = self.train_epoch(dataloaders.train)
             validation_metrics = self.evaluate(dataloaders.validation)
-            epoch_metrics: dict[str, float | int] = {"epoch": epoch + 1}
+            epoch += 1
+            epoch_metrics: dict[str, float | int] = {"epoch": epoch}
             epoch_metrics.update({f"train_{name}": value for name, value in train_metrics.items()})
             epoch_metrics.update({f"validation_{name}": value for name, value in validation_metrics.items()})
             history.append(epoch_metrics)
@@ -91,7 +106,14 @@ class AutoencoderTrainer:
 
             if validation_metrics["loss"] < best_validation_loss:
                 best_validation_loss = validation_metrics["loss"]
+                best_epoch = epoch
+                epochs_without_improvement = 0
                 self.model.save_pretrained(output_dir / "best")
+            else:
+                epochs_without_improvement += 1
+                if self.args.patience is not None and epochs_without_improvement >= self.args.patience:
+                    stopped_early = True
+                    break
 
         test_metrics = self.evaluate(dataloaders.test)
         self.model.save_pretrained(output_dir / "final")
@@ -99,9 +121,12 @@ class AutoencoderTrainer:
         metrics = {
             "device": str(self.device),
             "best_validation_loss": best_validation_loss,
+            "best_epoch": best_epoch,
+            "epochs_completed": len(history),
             "final_test_loss": test_metrics["loss"],
             "final_test_metrics": test_metrics,
             "history": history,
+            "stopped_early": stopped_early,
             "training_args": asdict(self.args),
         }
         if metadata:

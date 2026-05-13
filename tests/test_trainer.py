@@ -37,6 +37,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             args = TrainingArguments(
                 output_dir=tmpdir,
                 epochs=2,
+                patience=None,
                 learning_rate=1e-3,
                 batch_size=6,
                 device="cpu",
@@ -46,9 +47,13 @@ class AutoencoderTrainerTest(unittest.TestCase):
             metrics = trainer.fit(dataloaders, metadata={"dataset": "dummy", "model": "ae"})
 
             self.assertIn("best_validation_loss", metrics)
+            self.assertIn("best_epoch", metrics)
+            self.assertIn("epochs_completed", metrics)
             self.assertIn("final_test_loss", metrics)
             self.assertIn("final_test_metrics", metrics)
             self.assertEqual(len(metrics["history"]), 2)
+            self.assertEqual(metrics["epochs_completed"], 2)
+            self.assertFalse(metrics["stopped_early"])
             self.assertEqual(metrics["dataset"], "dummy")
             self.assertEqual(metrics["model"], "ae")
             self.assertIn("train_loss", metrics["history"][0])
@@ -63,7 +68,52 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             saved_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
             self.assertEqual(saved_metrics["training_args"]["epochs"], 2)
+            self.assertIsNone(saved_metrics["training_args"]["patience"])
             self.assertEqual(saved_metrics["dataset"], "dummy")
+
+    def test_epochs_zero_requires_patience(self) -> None:
+        with self.assertRaisesRegex(ValueError, "patience must be provided"):
+            TrainingArguments(output_dir="unused", epochs=0)
+
+    def test_trainer_stops_early_when_patience_is_reached(self) -> None:
+        config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
+        model = AutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        class ScriptedTrainer(AutoencoderTrainer):
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.validation_losses = iter([5.0, 4.0, 4.5, 4.6])
+                self.test_metrics = {"loss": 3.5}
+
+            def train_epoch(self, dataloader) -> dict[str, float]:
+                return {"loss": 1.0}
+
+            def evaluate(self, dataloader) -> dict[str, float]:
+                try:
+                    loss = next(self.validation_losses)
+                except StopIteration:
+                    loss = self.test_metrics["loss"]
+                return {"loss": loss}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = TrainingArguments(
+                output_dir=tmpdir,
+                epochs=0,
+                patience=2,
+                learning_rate=1e-3,
+                batch_size=6,
+                device="cpu",
+                seed=123,
+            )
+            trainer = ScriptedTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertTrue(metrics["stopped_early"])
+            self.assertEqual(metrics["best_epoch"], 2)
+            self.assertEqual(metrics["epochs_completed"], 4)
+            self.assertEqual(len(metrics["history"]), 4)
+            self.assertEqual(metrics["final_test_loss"], 3.5)
 
 
 if __name__ == "__main__":

@@ -41,7 +41,18 @@ def parse_args() -> argparse.Namespace:
         help="Whether denoising autoencoders should also corrupt inputs during evaluation.",
     )
 
-    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs.")
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=5,
+        help="Number of training epochs. Set to 0 to train until early stopping triggers.",
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=None,
+        help="Early stopping patience in epochs without validation improvement.",
+    )
     parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="Adam learning rate.")
     parser.add_argument("--device", default="auto", help="Training device: auto, cpu, cuda, mps.")
@@ -100,6 +111,7 @@ def main() -> None:
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         epochs=args.epochs,
+        patience=args.patience,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
         device=args.device,
