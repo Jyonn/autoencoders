@@ -1,7 +1,7 @@
 """Top-level package for the autoencoders library."""
 
 from .configuration_utils import PretrainedConfig
-from .modeling_outputs import AutoencoderOutput
+from .modeling_outputs import AutoencoderExport, AutoencoderOutput
 from .models.ae.configuration_ae import AutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
 from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConfig
@@ -11,6 +11,7 @@ from .models.vae.configuration_vae import VariationalAutoencoderConfig
 
 __all__ = [
     "AutoencoderConfig",
+    "AutoencoderExport",
     "AutoencoderOutput",
     "BaseAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",

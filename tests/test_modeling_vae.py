@@ -66,6 +66,18 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs[1].shape), (4, 16))
         self.assertEqual(tuple(outputs[2].shape), (4, 4))
 
+    def test_export_includes_posterior_statistics(self) -> None:
+        model = VariationalAutoencoderModel(self.config)
+        model.eval()
+
+        artifact = model.export(self.inputs)
+
+        self.assertEqual(artifact.model_type, "variational_autoencoder")
+        self.assertEqual(tuple(artifact.latents.shape), (4, 4))
+        self.assertEqual(tuple(artifact.posterior_mean.shape), (4, 4))
+        self.assertEqual(tuple(artifact.posterior_logvar.shape), (4, 4))
+        self.assertTrue(torch.allclose(artifact.latents, artifact.posterior_mean))
+
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = VariationalAutoencoderModel(self.config)
         with torch.no_grad():

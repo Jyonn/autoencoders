@@ -59,6 +59,18 @@ class AutoencoderModelTest(unittest.TestCase):
 
         self.assertEqual(tuple(reconstruction.shape), (3, 16))
 
+    def test_export_returns_standard_artifact(self) -> None:
+        model = AutoencoderModel(self.config)
+
+        artifact = model.export(self.inputs, metadata={"split": "test"})
+
+        self.assertEqual(artifact.model_type, "autoencoder")
+        self.assertEqual(tuple(artifact.latents.shape), (3, 4))
+        self.assertEqual(tuple(artifact.reconstruction.shape), (3, 16))
+        self.assertEqual(artifact.metadata["input_shape"], [3, 16])
+        self.assertEqual(artifact.metadata["latent_shape"], [3, 4])
+        self.assertEqual(artifact.metadata["split"], "test")
+
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = AutoencoderModel(self.config)
         with torch.no_grad():

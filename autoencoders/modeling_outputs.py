@@ -24,3 +24,22 @@ class AutoencoderOutput:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class AutoencoderExport:
+    """Standard export object for model-produced latent artifacts."""
+
+    model_type: str
+    latents: Any = None
+    reconstruction: Any = None
+    encoded: Any = None
+    posterior_mean: Any = None
+    posterior_logvar: Any = None
+    quantized_latents: Any = None
+    codebook_indices: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    extras: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

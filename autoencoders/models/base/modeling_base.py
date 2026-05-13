@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn.functional as F
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import AutoencoderExport, AutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
 from .configuration_base import BaseAutoencoderConfig
 
@@ -34,6 +34,25 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     def reconstruct(self, inputs: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
+
+    def export(
+        self,
+        inputs: torch.Tensor,
+        include_reconstruction: bool = True,
+        metadata: dict[str, object] | None = None,
+    ) -> AutoencoderExport:
+        was_training = self.training
+        self.eval()
+        with torch.no_grad():
+            outputs = self.forward(inputs=inputs, return_dict=True)
+        if was_training:
+            self.train()
+        return self._build_export(
+            inputs=inputs,
+            outputs=outputs,
+            include_reconstruction=include_reconstruction,
+            metadata=metadata,
+        )
 
     def compute_loss(self, reconstruction: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         if self.config.reconstruction_loss == "mse":
@@ -63,4 +82,29 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             latents=latents,
             encoded=encoded,
             loss_dict={"reconstruction_loss": loss},
+        )
+
+    def _build_export(
+        self,
+        *,
+        inputs: torch.Tensor,
+        outputs: AutoencoderOutput,
+        include_reconstruction: bool,
+        metadata: dict[str, object] | None,
+    ) -> AutoencoderExport:
+        export_metadata: dict[str, object] = {
+            "input_shape": list(inputs.shape),
+            "latent_shape": list(outputs.latents.shape) if outputs.latents is not None else None,
+        }
+        if metadata is not None:
+            export_metadata.update(metadata)
+
+        return AutoencoderExport(
+            model_type=self.config.model_type,
+            latents=outputs.latents,
+            reconstruction=outputs.reconstruction if include_reconstruction else None,
+            encoded=outputs.encoded,
+            posterior_mean=outputs.posterior_mean,
+            posterior_logvar=outputs.posterior_logvar,
+            metadata=export_metadata,
         )
