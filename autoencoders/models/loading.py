@@ -14,6 +14,8 @@ from .sae.configuration_sae import SparseAutoencoderConfig
 from .sae.modeling_sae import SparseAutoencoderModel
 from .vae.configuration_vae import VariationalAutoencoderConfig
 from .vae.modeling_vae import VariationalAutoencoderModel
+from .vqvae.configuration_vqvae import VectorQuantizedAutoencoderConfig
+from .vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
 
 
 def load_model(name: str, **kwargs: Any):
@@ -29,6 +31,8 @@ def load_model(name: str, **kwargs: Any):
         return VariationalAutoencoderModel(VariationalAutoencoderConfig(**kwargs))
     if name == "betavae":
         return BetaVariationalAutoencoderModel(BetaVariationalAutoencoderConfig(**kwargs))
+    if name == "vqvae":
+        return VectorQuantizedAutoencoderModel(VectorQuantizedAutoencoderConfig(**kwargs))
     raise ValueError(
-        f"Unknown model {name!r}. Available models: 'ae', 'dae', 'sae', 'vae', 'betavae'."
+        f"Unknown model {name!r}. Available models: 'ae', 'dae', 'sae', 'vae', 'betavae', 'vqvae'."
     )

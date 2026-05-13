@@ -8,6 +8,7 @@ from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConf
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
 from .models.sae.configuration_sae import SparseAutoencoderConfig
 from .models.vae.configuration_vae import VariationalAutoencoderConfig
+from .models.vqvae.configuration_vqvae import VectorQuantizedAutoencoderConfig
 
 __all__ = [
     "AutoencoderConfig",
@@ -19,6 +20,7 @@ __all__ = [
     "PretrainedConfig",
     "SparseAutoencoderConfig",
     "VariationalAutoencoderConfig",
+    "VectorQuantizedAutoencoderConfig",
 ]
 
 try:
@@ -44,6 +46,7 @@ try:
     from .models.loading import load_model
     from .models.sae.modeling_sae import SparseAutoencoderModel
     from .models.vae.modeling_vae import VariationalAutoencoderModel
+    from .models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
     from .training import (
         AutoencoderTrainer,
         TrainerDisplayConfig,
@@ -78,6 +81,7 @@ else:
             "VAETrainer",
             "VAETrainingArguments",
             "VariationalAutoencoderModel",
+            "VectorQuantizedAutoencoderModel",
             "create_dataloaders",
             "load_dataset",
             "load_model",

@@ -11,6 +11,7 @@ from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoenco
 from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
 from autoencoders.models.sae.modeling_sae import SparseAutoencoderModel
 from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
+from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
 
 
 class LoadingHelpersTest(unittest.TestCase):
@@ -44,6 +45,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_beta_variational_autoencoder(self) -> None:
         model = load_model("betavae", input_dim=16, latent_dim=4, hidden_dims=[8], beta=4.0)
         self.assertIsInstance(model, BetaVariationalAutoencoderModel)
+
+    def test_load_model_returns_vector_quantized_autoencoder(self) -> None:
+        model = load_model("vqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32)
+        self.assertIsInstance(model, VectorQuantizedAutoencoderModel)
 
 
 if __name__ == "__main__":

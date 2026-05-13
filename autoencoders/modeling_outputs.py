@@ -16,9 +16,13 @@ class AutoencoderOutput:
     encoded: Any = None
     posterior_mean: Any = None
     posterior_logvar: Any = None
+    quantized_latents: Any = None
+    codebook_indices: Any = None
     reconstruction_loss: Any = None
     kl_loss: Any = None
     sparsity_loss: Any = None
+    commitment_loss: Any = None
+    codebook_loss: Any = None
     hidden_states: dict[str, Any] | None = None
     loss_dict: dict[str, Any] = field(default_factory=dict)
 

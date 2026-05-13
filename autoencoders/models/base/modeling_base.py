@@ -106,5 +106,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             encoded=outputs.encoded,
             posterior_mean=outputs.posterior_mean,
             posterior_logvar=outputs.posterior_logvar,
+            quantized_latents=outputs.quantized_latents,
+            codebook_indices=outputs.codebook_indices,
             metadata=export_metadata,
         )

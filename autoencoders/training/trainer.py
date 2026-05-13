@@ -168,6 +168,8 @@ class TrainerDisplayConfig:
     kl_value_fg: str = "magenta"
     sparse_value_fg: str = "yellow"
     free_kl_value_fg: str = "blue"
+    commitment_value_fg: str = "cyan"
+    codebook_value_fg: str = "red"
     meta_value_fg: str = "yellow"
 
     def __post_init__(self) -> None:
@@ -195,6 +197,8 @@ class TrainerDisplayConfig:
             self.kl_value_fg,
             self.sparse_value_fg,
             self.free_kl_value_fg,
+            self.commitment_value_fg,
+            self.codebook_value_fg,
             self.meta_value_fg,
         ):
             if color_name not in FG and color_name not in BG:
@@ -387,6 +391,10 @@ class AutoencoderTrainer:
             parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in metrics:
             parts.append(self._format_metric("sparse", f"{metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "commitment_loss" in metrics:
+            parts.append(self._format_metric("commit", f"{metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
+        if "codebook_loss" in metrics:
+            parts.append(self._format_metric("book", f"{metrics['codebook_loss']:.4f}", value_fg=self.display.codebook_value_fg))
         if "kl_loss" in metrics:
             parts.append(self._format_metric("kl", f"{metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         self._write_live_line(self._join_segments(*parts))
@@ -418,6 +426,22 @@ class AutoencoderTrainer:
                     "sparse",
                     f"{float(epoch_metrics['train_sparsity_loss']):.4f}/{float(epoch_metrics['validation_sparsity_loss']):.4f}",
                     value_fg=self.display.sparse_value_fg,
+                )
+            )
+        if "train_commitment_loss" in epoch_metrics and "validation_commitment_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "commit",
+                    f"{float(epoch_metrics['train_commitment_loss']):.4f}/{float(epoch_metrics['validation_commitment_loss']):.4f}",
+                    value_fg=self.display.commitment_value_fg,
+                )
+            )
+        if "train_codebook_loss" in epoch_metrics and "validation_codebook_loss" in epoch_metrics:
+            summary_parts.append(
+                self._format_metric(
+                    "book",
+                    f"{float(epoch_metrics['train_codebook_loss']):.4f}/{float(epoch_metrics['validation_codebook_loss']):.4f}",
+                    value_fg=self.display.codebook_value_fg,
                 )
             )
         if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
@@ -456,6 +480,14 @@ class AutoencoderTrainer:
             parts.append(
                 self._format_metric("sparse", f"{float(epoch_metrics['validation_sparsity_loss']):.4f}", value_fg=self.display.sparse_value_fg)
             )
+        if "validation_commitment_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric("commit", f"{float(epoch_metrics['validation_commitment_loss']):.4f}", value_fg=self.display.commitment_value_fg)
+            )
+        if "validation_codebook_loss" in epoch_metrics:
+            parts.append(
+                self._format_metric("book", f"{float(epoch_metrics['validation_codebook_loss']):.4f}", value_fg=self.display.codebook_value_fg)
+            )
         if "validation_kl_loss" in epoch_metrics:
             parts.append(self._format_metric("kl", f"{float(epoch_metrics['validation_kl_loss']):.4f}", value_fg=self.display.kl_value_fg))
         if "validation_free_bits_kl_loss" in epoch_metrics:
@@ -481,6 +513,10 @@ class AutoencoderTrainer:
             summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
         if "sparsity_loss" in test_metrics:
             summary_parts.append(self._format_metric("sparse", f"{test_metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
+        if "commitment_loss" in test_metrics:
+            summary_parts.append(self._format_metric("commit", f"{test_metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
+        if "codebook_loss" in test_metrics:
+            summary_parts.append(self._format_metric("book", f"{test_metrics['codebook_loss']:.4f}", value_fg=self.display.codebook_value_fg))
         if "kl_loss" in test_metrics:
             summary_parts.append(self._format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
         if "free_bits_kl_loss" in test_metrics:
