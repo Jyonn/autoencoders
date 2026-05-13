@@ -21,10 +21,10 @@ class AutoencoderModel(BaseAutoencoderModel):
         self.encoder = self._build_encoder()
         self.decoder = self._build_decoder()
 
-    def encode(self, features: torch.Tensor, **kwargs) -> torch.Tensor:
-        return self.encoder(features)
+    def encode(self, inputs: torch.Tensor) -> torch.Tensor:
+        return self.encoder(inputs)
 
-    def decode(self, latents: torch.Tensor, **kwargs) -> torch.Tensor:
+    def decode(self, latents: torch.Tensor) -> torch.Tensor:
         return self.decoder(latents)
 
     def _build_encoder(self) -> nn.Sequential:
@@ -58,4 +58,3 @@ class AutoencoderModel(BaseAutoencoderModel):
             "tanh": nn.Tanh,
         }
         return activations[self.config.activation]
-

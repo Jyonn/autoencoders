@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
-
 import torch
 import torch.nn.functional as F
 
@@ -22,19 +20,19 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         super().__init__(config)
 
     @abstractmethod
-    def encode(self, features: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        """Encode features into latent representations."""
+    def encode(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Encode inputs into latent representations."""
 
-    def latent_transform(self, encoded: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def latent_transform(self, encoded: torch.Tensor) -> torch.Tensor:
         """Hook for subclasses such as VAE or VQ-VAE."""
         return encoded
 
     @abstractmethod
-    def decode(self, latents: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def decode(self, latents: torch.Tensor) -> torch.Tensor:
         """Decode latent representations back into feature space."""
 
-    def reconstruct(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        outputs = self.forward(inputs=inputs, return_dict=True, **kwargs)
+    def reconstruct(self, inputs: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
 
     def compute_loss(self, reconstruction: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -46,19 +44,14 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
     def forward(
         self,
-        inputs: torch.Tensor | None = None,
-        features: torch.Tensor | None = None,
-        targets: torch.Tensor | None = None,
+        inputs: torch.Tensor,
         return_dict: bool | None = None,
-        **kwargs: Any,
     ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        model_inputs = self._resolve_inputs(inputs=inputs, features=features)
-        encoded = self.encode(model_inputs, **kwargs)
-        latents = self.latent_transform(encoded, **kwargs)
-        reconstruction = self.decode(latents, **kwargs)
+        encoded = self.encode(inputs)
+        latents = self.latent_transform(encoded)
+        reconstruction = self.decode(latents)
 
-        loss_targets = model_inputs if targets is None else targets
-        loss = self.compute_loss(reconstruction, loss_targets)
+        loss = self.compute_loss(reconstruction, inputs)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -69,18 +62,5 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             reconstruction=reconstruction,
             latents=latents,
             encoded=encoded,
-            hidden_states={"inputs": model_inputs},
             loss_dict={"reconstruction_loss": loss},
         )
-
-    @staticmethod
-    def _resolve_inputs(
-        inputs: torch.Tensor | None = None,
-        features: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        if inputs is not None and features is not None:
-            raise ValueError("Provide only one of `inputs` or `features`.")
-        if inputs is None and features is None:
-            raise ValueError("One of `inputs` or `features` must be provided.")
-        return inputs if inputs is not None else features
-

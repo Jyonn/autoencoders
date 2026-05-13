@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Callable
 
 import torch
 from torch import nn
@@ -25,13 +25,13 @@ class VariationalAutoencoderModel(BaseAutoencoderModel):
         self.logvar_projection = nn.Linear(encoder_output_dim, self.config.latent_dim, bias=self.config.use_bias)
         self.decoder = self._build_decoder()
 
-    def encode(self, features: torch.Tensor, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
-        encoded = self.encoder(features)
+    def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        encoded = self.encoder(inputs)
         posterior_mean = self.mean_projection(encoded)
         posterior_logvar = self.logvar_projection(encoded)
         return posterior_mean, posterior_logvar
 
-    def decode(self, latents: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def decode(self, latents: torch.Tensor) -> torch.Tensor:
         return self.decoder(latents)
 
     def reparameterize(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
@@ -48,15 +48,11 @@ class VariationalAutoencoderModel(BaseAutoencoderModel):
 
     def forward(
         self,
-        inputs: torch.Tensor | None = None,
-        features: torch.Tensor | None = None,
-        targets: torch.Tensor | None = None,
+        inputs: torch.Tensor,
         return_dict: bool | None = None,
         sample_posterior: bool | None = None,
-        **kwargs: Any,
     ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        model_inputs = self._resolve_inputs(inputs=inputs, features=features)
-        posterior_mean, posterior_logvar = self.encode(model_inputs, **kwargs)
+        posterior_mean, posterior_logvar = self.encode(inputs)
 
         if sample_posterior is None:
             sample_posterior = self.training or not self.config.use_mean_in_eval
@@ -66,9 +62,8 @@ class VariationalAutoencoderModel(BaseAutoencoderModel):
         else:
             latents = posterior_mean
 
-        reconstruction = self.decode(latents, **kwargs)
-        loss_targets = model_inputs if targets is None else targets
-        reconstruction_loss = self.compute_loss(reconstruction, loss_targets)
+        reconstruction = self.decode(latents)
+        reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
         loss = reconstruction_loss + self.config.kl_weight * kl_loss
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
@@ -85,7 +80,6 @@ class VariationalAutoencoderModel(BaseAutoencoderModel):
             posterior_logvar=posterior_logvar,
             reconstruction_loss=reconstruction_loss,
             kl_loss=kl_loss,
-            hidden_states={"inputs": model_inputs},
             loss_dict={
                 "loss": loss,
                 "reconstruction_loss": reconstruction_loss,

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 
 from ...modeling_outputs import AutoencoderOutput
@@ -36,15 +34,11 @@ class DenoisingAutoencoderModel(AutoencoderModel):
 
     def forward(
         self,
-        inputs: torch.Tensor | None = None,
-        features: torch.Tensor | None = None,
-        targets: torch.Tensor | None = None,
+        inputs: torch.Tensor,
         return_dict: bool | None = None,
         add_noise: bool | None = None,
         corrupted_inputs: torch.Tensor | None = None,
-        **kwargs: Any,
     ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        clean_inputs = self._resolve_inputs(inputs=inputs, features=features)
         apply_noise = self.training if add_noise is None else add_noise
         if not self.training and add_noise is None:
             apply_noise = self.config.apply_noise_in_eval
@@ -52,16 +46,15 @@ class DenoisingAutoencoderModel(AutoencoderModel):
         if corrupted_inputs is not None:
             model_inputs = corrupted_inputs
         elif apply_noise:
-            model_inputs = self.corrupt_inputs(clean_inputs)
+            model_inputs = self.corrupt_inputs(inputs)
         else:
-            model_inputs = clean_inputs
+            model_inputs = inputs
 
-        encoded = self.encode(model_inputs, **kwargs)
-        latents = self.latent_transform(encoded, **kwargs)
-        reconstruction = self.decode(latents, **kwargs)
+        encoded = self.encode(model_inputs)
+        latents = self.latent_transform(encoded)
+        reconstruction = self.decode(latents)
 
-        loss_targets = clean_inputs if targets is None else targets
-        loss = self.compute_loss(reconstruction, loss_targets)
+        loss = self.compute_loss(reconstruction, inputs)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -73,7 +66,7 @@ class DenoisingAutoencoderModel(AutoencoderModel):
             latents=latents,
             encoded=encoded,
             hidden_states={
-                "inputs": clean_inputs,
+                "inputs": inputs,
                 "corrupted_inputs": model_inputs,
             },
             loss_dict={"reconstruction_loss": loss},

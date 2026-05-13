@@ -34,12 +34,11 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.latents.shape), (3, 4))
         self.assertEqual(tuple(outputs.encoded.shape), (3, 4))
         self.assertIn("reconstruction_loss", outputs.loss_dict)
-        self.assertEqual(outputs.hidden_states["inputs"].shape, self.inputs.shape)
 
-    def test_forward_accepts_features_argument(self) -> None:
+    def test_forward_uses_inputs_argument(self) -> None:
         model = AutoencoderModel(self.config)
 
-        outputs = model(features=self.inputs)
+        outputs = model(inputs=self.inputs)
 
         self.assertEqual(tuple(outputs.reconstruction.shape), (3, 16))
         self.assertEqual(tuple(outputs.latents.shape), (3, 4))
