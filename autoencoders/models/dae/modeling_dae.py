@@ -14,8 +14,21 @@ class DenoisingAutoencoderModel(AutoencoderModel):
 
     config_class = DenoisingAutoencoderConfig
 
-    def __init__(self, config: DenoisingAutoencoderConfig) -> None:
-        super().__init__(config)
+    def __init__(
+        self,
+        config: DenoisingAutoencoderConfig,
+        encoder=None,
+        decoder=None,
+        encoder_config=None,
+        decoder_config=None,
+    ) -> None:
+        super().__init__(
+            config,
+            encoder=encoder,
+            decoder=decoder,
+            encoder_config=encoder_config,
+            decoder_config=decoder_config,
+        )
 
     def corrupt_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         if self.config.noise_type == "gaussian":

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from autoencoders import load_dataset, load_model
+from autoencoders import get_module_modules, load_dataset, load_model
 from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
 from autoencoders.data import (
     ConceptNetNumberbatchDataset,
@@ -185,6 +185,11 @@ class LoadingHelpersTest(unittest.TestCase):
         self.assertNotIn("base", model_modules)
         self.assertIn("ae", model_modules)
         self.assertIn("vqvae", model_modules)
+
+    def test_backbone_module_discovery_excludes_internal_base_namespace(self) -> None:
+        module_modules = get_module_modules()
+        self.assertNotIn("base", module_modules)
+        self.assertIn("mlp", module_modules)
 
 
 if __name__ == "__main__":

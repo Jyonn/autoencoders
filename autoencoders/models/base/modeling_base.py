@@ -5,9 +5,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import torch
 import torch.nn.functional as F
+from torch import nn
 
 from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
+from ...modules import MLPModuleConfig, get_module_class
 from .configuration_base import BaseAutoencoderConfig
 
 
@@ -20,6 +22,79 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
     def __init__(self, config: BaseAutoencoderConfig) -> None:
         super().__init__(config)
+        self._encoder_module_type: str | None = None
+        self._decoder_module_type: str | None = None
+        self._encoder_module_config = None
+        self._decoder_module_config = None
+
+    def get_serializable_module_specs(self) -> dict[str, dict[str, object]]:
+        module_specs: dict[str, dict[str, object]] = {}
+        for name in ("encoder", "decoder"):
+            module_type = getattr(self, f"_{name}_module_type")
+            module_config = getattr(self, f"_{name}_module_config")
+            if module_type is None:
+                continue
+            if module_type == "external":
+                module_specs[name] = {"module_type": "external"}
+                continue
+            module_specs[name] = {
+                "module_type": module_type,
+                "module_config": module_config.to_dict(),
+            }
+        return module_specs
+
+    def _create_default_encoder_module_config(self):
+        return MLPModuleConfig(
+            hidden_dims=list(self.config.hidden_dims),
+            activation=self.config.activation,
+            use_bias=self.config.use_bias,
+        )
+
+    def _create_default_decoder_module_config(self):
+        decoder_hidden_dims = self.config.decoder_hidden_dims
+        if decoder_hidden_dims is None:
+            decoder_hidden_dims = list(reversed(self.config.hidden_dims))
+        return MLPModuleConfig(
+            hidden_dims=list(decoder_hidden_dims),
+            activation=self.config.activation,
+            use_bias=self.config.use_bias,
+        )
+
+    def _coerce_module_config(self, module_class, module_config):
+        config_class = module_class.config_class
+        if module_config is None:
+            return config_class()
+        if isinstance(module_config, config_class):
+            return module_config
+        if isinstance(module_config, dict):
+            return config_class.from_dict(module_config)
+        return config_class.from_dict(module_config.to_dict())
+
+    def _build_backbone_module(
+        self,
+        *,
+        module: str | nn.Module | None,
+        module_config,
+        default_module_name: str,
+        default_module_config,
+        input_dim: int,
+        output_dim: int,
+        reverse: bool = False,
+    ):
+        if isinstance(module, nn.Module):
+            return module, "external", None
+
+        module_name = default_module_name if module is None else module
+        module_class = get_module_class(module_name)
+        effective_config = default_module_config if module_config is None else module_config
+        resolved_config = self._coerce_module_config(module_class, effective_config)
+        built_module = module_class(
+            resolved_config,
+            input_dim=input_dim,
+            latent_dim=output_dim,
+            reverse=reverse,
+        )
+        return built_module, module_name, resolved_config
 
     @abstractmethod
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:

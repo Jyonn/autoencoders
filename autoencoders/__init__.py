@@ -2,6 +2,14 @@
 
 from .models.aae.configuration_aae import AdversarialAutoencoderConfig
 from .configuration_utils import PretrainedConfig
+from .modules import (
+    BaseAutoencoderModule,
+    BaseAutoencoderModuleConfig,
+    MLPModule,
+    MLPModuleConfig,
+    get_module_class,
+    get_module_modules,
+)
 from .modeling_outputs import (
     AdversarialAutoencoderOutput,
     AutoencoderExport,
@@ -64,6 +72,8 @@ __all__ = [
     "AutoencoderOutput",
     "BaseAutoencoderOutput",
     "BaseAutoencoderConfig",
+    "BaseAutoencoderModule",
+    "BaseAutoencoderModuleConfig",
     "BaseVariationalAutoencoderConfig",
     "BaseVectorQuantizedAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",
@@ -93,6 +103,8 @@ __all__ = [
     "KLSparseAutoencoderOutput",
     "MMDVariationalAutoencoderConfig",
     "MMDVariationalAutoencoderOutput",
+    "MLPModule",
+    "MLPModuleConfig",
     "PretrainedConfig",
     "ProductQuantizedAutoencoderConfig",
     "QuantizedAutoencoderOutput",
@@ -110,6 +122,8 @@ __all__ = [
     "WassersteinAutoencoderConfig",
     "WassersteinAutoencoderOutput",
     "VectorQuantizedAutoencoderConfig",
+    "get_module_class",
+    "get_module_modules",
 ]
 
 try:

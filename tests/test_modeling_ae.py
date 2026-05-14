@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from pathlib import Path
 
 try:
     import torch
@@ -11,6 +12,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
     torch = None
 
 if torch is not None:
+    from torch import nn
+
     from autoencoders import AutoencoderConfig, AutoencoderModel
 
 
@@ -88,6 +91,27 @@ class AutoencoderModelTest(unittest.TestCase):
         loaded_state = loaded.state_dict()
         for name, parameter in original_state.items():
             self.assertTrue(torch.equal(parameter, loaded_state[name]), msg=name)
+
+    def test_save_pretrained_writes_builtin_module_specs(self) -> None:
+        model = AutoencoderModel(self.config)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            model.save_pretrained(tmpdir)
+            self.assertTrue((Path(tmpdir) / "encoder_module.json").exists())
+            self.assertTrue((Path(tmpdir) / "decoder_module.json").exists())
+
+    def test_external_modules_require_reinjection_on_load(self) -> None:
+        encoder = nn.Linear(16, 4)
+        decoder = nn.Linear(4, 16)
+        model = AutoencoderModel(self.config, encoder=encoder, decoder=decoder)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            model.save_pretrained(tmpdir)
+            with self.assertRaisesRegex(ValueError, "external encoder module"):
+                AutoencoderModel.from_pretrained(tmpdir)
+            loaded = AutoencoderModel.from_pretrained(tmpdir, encoder=nn.Linear(16, 4), decoder=nn.Linear(4, 16))
+
+        self.assertIsInstance(loaded.encoder, nn.Linear)
 
 
 if __name__ == "__main__":

@@ -17,8 +17,21 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
 
     config_class = BaseVectorQuantizedAutoencoderConfig
 
-    def __init__(self, config: BaseVectorQuantizedAutoencoderConfig) -> None:
-        super().__init__(config)
+    def __init__(
+        self,
+        config: BaseVectorQuantizedAutoencoderConfig,
+        encoder=None,
+        decoder=None,
+        encoder_config=None,
+        decoder_config=None,
+    ) -> None:
+        super().__init__(
+            config,
+            encoder=encoder,
+            decoder=decoder,
+            encoder_config=encoder_config,
+            decoder_config=decoder_config,
+        )
         self.register_buffer("_code_usage_counts", torch.zeros(0, dtype=torch.long), persistent=False)
         self._reference_latent_batches: list[torch.Tensor] = []
         self._last_dead_code_reset_count = 0

@@ -14,8 +14,21 @@ class KLSparseAutoencoderModel(AutoencoderModel):
 
     config_class = KLSparseAutoencoderConfig
 
-    def __init__(self, config: KLSparseAutoencoderConfig) -> None:
-        super().__init__(config)
+    def __init__(
+        self,
+        config: KLSparseAutoencoderConfig,
+        encoder=None,
+        decoder=None,
+        encoder_config=None,
+        decoder_config=None,
+    ) -> None:
+        super().__init__(
+            config,
+            encoder=encoder,
+            decoder=decoder,
+            encoder_config=encoder_config,
+            decoder_config=decoder_config,
+        )
 
     def compute_kl_sparsity_loss(self, latents: torch.Tensor) -> torch.Tensor:
         rho = torch.full(
