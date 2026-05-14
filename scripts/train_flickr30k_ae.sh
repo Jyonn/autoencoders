@@ -13,7 +13,7 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --encoder ViT-B-32 \
   --clip-pretrained laion2b_s34b_b79k \
   --clip-modality both \
-  --encoder-batch-size 64 \
+  --encoder-batch-size 16 \
   --max-vectors 50000 \
   --latent-dim 64 \
   --hidden-dims 256 128 \

@@ -91,6 +91,14 @@ class DatasetUtilitiesTest(unittest.TestCase):
         self.assertIn("100%", rendered)
         self.assertIn("5/5", rendered)
 
+    def test_item_progress_bar_does_not_fake_completion_on_early_close(self) -> None:
+        stream = io.StringIO()
+        progress = ItemProgressBar("Encoding captions", 5, stream=stream)
+        progress.update(2)
+        progress.close()
+        rendered = stream.getvalue().splitlines()[-1]
+        self.assertIn("2/5", rendered)
+
     def test_default_cache_dir_uses_environment_override(self) -> None:
         with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": "/tmp/autoencoders-cache"}, clear=False):
             self.assertEqual(default_cache_dir(), Path("/tmp/autoencoders-cache"))

@@ -39,6 +39,11 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
         help="CLIP pretrained checkpoint name for CLIP-backed datasets.",
     )
     parser.add_argument(
+        "--clip-device",
+        default=None,
+        help="Optional CLIP preprocessing device override, for example `cpu` or `cuda`.",
+    )
+    parser.add_argument(
         "--clip-modality",
         choices=["image", "text", "both"],
         default="both",
@@ -90,6 +95,7 @@ def build_dataset(args: argparse.Namespace):
             encoder_name=args.encoder,
             encoder_pretrained=args.clip_pretrained,
             encoder_batch_size=args.encoder_batch_size,
+            encoder_device=args.clip_device,
             modality=args.clip_modality,
             max_vectors=args.max_vectors,
         )

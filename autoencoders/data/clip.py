@@ -119,6 +119,15 @@ class OpenCLIPEmbeddingEncoder(CLIPEmbeddingEncoder):
                         embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
                     batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
                     progress.update(len(batch_paths))
+            except RuntimeError as exc:
+                if self.device.startswith("cuda") and (
+                    "CUDNN_STATUS_NOT_INITIALIZED" in str(exc) or "CUDA" in str(exc)
+                ):
+                    raise RuntimeError(
+                        "CLIP image encoding failed on CUDA. Try a smaller "
+                        "`--encoder-batch-size` or run preprocessing with `--clip-device cpu`."
+                    ) from exc
+                raise
             finally:
                 progress.close()
         return torch.cat(batches, dim=0)
@@ -136,6 +145,15 @@ class OpenCLIPEmbeddingEncoder(CLIPEmbeddingEncoder):
                         embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
                     batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
                     progress.update(len(batch_texts))
+            except RuntimeError as exc:
+                if self.device.startswith("cuda") and (
+                    "CUDNN_STATUS_NOT_INITIALIZED" in str(exc) or "CUDA" in str(exc)
+                ):
+                    raise RuntimeError(
+                        "CLIP text encoding failed on CUDA. Try a smaller "
+                        "`--encoder-batch-size` or run preprocessing with `--clip-device cpu`."
+                    ) from exc
+                raise
             finally:
                 progress.close()
         return torch.cat(batches, dim=0)
@@ -154,6 +172,7 @@ class CLIPBackedDataset(CachedDataset, ABC):
         encoder_name: str | None = None,
         encoder_pretrained: str | None = None,
         encoder_batch_size: int = 64,
+        encoder_device: str | None = None,
         normalize_embeddings: bool = True,
         modality: ClipModality = "both",
         max_vectors: int | None = None,
@@ -161,6 +180,7 @@ class CLIPBackedDataset(CachedDataset, ABC):
         self.encoder_name = encoder_name or self.default_encoder_name
         self.encoder_pretrained = encoder_pretrained or self.default_pretrained_name
         self.encoder_batch_size = encoder_batch_size
+        self.encoder_device = encoder_device
         self.normalize_embeddings = normalize_embeddings
         self.modality = modality
         self.max_vectors = max_vectors
@@ -236,6 +256,7 @@ class CLIPBackedDataset(CachedDataset, ABC):
             self.encoder_pretrained,
             batch_size=self.encoder_batch_size,
             normalize_embeddings=self.normalize_embeddings,
+            device=self.encoder_device,
         )
 
     @abstractmethod

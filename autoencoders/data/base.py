@@ -95,7 +95,6 @@ class ItemProgressBar:
         if self._finished:
             return
         self._finished = True
-        self.completed_items = self.total_items
         self._render(final=True)
 
     def _render(self, final: bool = False) -> None:
