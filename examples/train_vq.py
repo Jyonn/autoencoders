@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import argparse
 
-from _train_common import add_dataset_args, add_training_args, build_training_arguments, prepare_training
+from _train_common import (
+    add_dataset_args,
+    add_training_args,
+    build_training_arguments,
+    prepare_training,
+    print_training_overview,
+)
 from autoencoders import VQTrainer, load_model
 
 
@@ -76,6 +82,7 @@ def main() -> None:
     args = parse_args()
     _, dataloaders, input_dim = prepare_training(args)
     model = build_model(args, input_dim=input_dim)
+    print_training_overview(args, model, input_dim=input_dim)
     trainer = VQTrainer(model=model, args=build_training_arguments(args))
     trainer.fit(dataloaders, metadata={"dataset": args.dataset, "model": args.model})
 

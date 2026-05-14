@@ -9,6 +9,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --dataset fasttext \
   --model ae \
+  --advice \
   --output-dir artifacts/fasttext/ae \
   --dim 300 \
   --max-vectors 50000 \

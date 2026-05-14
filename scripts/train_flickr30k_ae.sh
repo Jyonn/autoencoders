@@ -9,6 +9,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --dataset flickr30k \
   --model ae \
+  --advice \
   --output-dir artifacts/flickr30k/ae \
   --encoder ViT-B-32 \
   --clip-pretrained laion2b_s34b_b79k \

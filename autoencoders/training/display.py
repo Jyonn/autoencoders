@@ -82,6 +82,8 @@ class TrainerDisplayConfig:
     final_label_bg: str = "magenta"
     save_label_fg: str = "black"
     save_label_bg: str = "yellow"
+    advice_label_fg: str = "black"
+    advice_label_bg: str = "white"
     phase_fg: str = "white"
     phase_bg: str = "cyan"
     epoch_index_fg: str = "yellow"
@@ -115,6 +117,8 @@ class TrainerDisplayConfig:
             self.final_label_bg,
             self.save_label_fg,
             self.save_label_bg,
+            self.advice_label_fg,
+            self.advice_label_bg,
             self.phase_fg,
             self.phase_bg,
             self.epoch_index_fg,
@@ -243,6 +247,10 @@ class TrainerDisplay:
         self._print_log("SAVE", f"best -> {output_dir / 'best'}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
         self._print_log("SAVE", f"final -> {output_dir / 'final'}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
         self._print_log("SAVE", f"metrics -> {metrics_path}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
+
+    def log_advice(self, advice: list[str]) -> None:
+        for suggestion in advice:
+            self._print_log("ADVICE", suggestion, fg=self.config.advice_label_fg, bg=self.config.advice_label_bg)
 
     def format_metric(self, name: str, value: str, *, value_fg: str) -> str:
         return f"{style(name, fg=self.config.metric_name_fg, dim=True)} {style(value, fg=value_fg, bold=True)}"

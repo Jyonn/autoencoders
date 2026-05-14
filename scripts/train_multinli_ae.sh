@@ -9,6 +9,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --dataset multinli \
   --model ae \
+  --advice \
   --output-dir artifacts/multinli/ae \
   --encoder sentence-transformers/all-MiniLM-L6-v2 \
   --encoder-batch-size 128 \

@@ -105,6 +105,21 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(saved_metrics["training_args"]["epochs"], 2)
             self.assertIsNone(saved_metrics["training_args"]["patience"])
             self.assertEqual(saved_metrics["dataset"], "dummy")
+            self.assertEqual(saved_metrics["advice"], [])
+
+    def test_trainer_keeps_advice_disabled_by_default(self) -> None:
+        config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
+        model = AutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = AETrainer(
+                model=model,
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+            )
+            metrics = trainer.fit(dataloaders)
+
+            self.assertEqual(metrics["advice"], [])
 
     def test_epochs_zero_requires_patience(self) -> None:
         with self.assertRaisesRegex(ValueError, "patience must be provided"):
@@ -213,6 +228,58 @@ class AutoencoderTrainerTest(unittest.TestCase):
         effective_kl_loss = outputs.free_bits_kl_loss
 
         self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
+
+    def test_vae_trainer_emits_advice_for_posterior_collapse(self) -> None:
+        config = VariationalAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            kl_weight=0.5,
+            free_bits=0.02,
+            kl_warmup_epochs=5,
+        )
+        model = VariationalAutoencoderModel(config)
+        dataloaders = build_dataset_loaders()
+
+        class ScriptedVAETrainer(VAETrainer):
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.eval_calls = 0
+
+            def train_epoch(self, dataloader) -> dict[str, float]:
+                return {
+                    "loss": 0.45,
+                    "reconstruction_loss": 0.44,
+                    "kl_loss": 0.000001,
+                    "free_bits_kl_loss": 0.08,
+                }
+
+            def evaluate(self, dataloader) -> dict[str, float]:
+                self.eval_calls += 1
+                if self.eval_calls == 1:
+                    return {
+                        "loss": 0.46,
+                        "reconstruction_loss": 0.45,
+                        "kl_loss": 0.000001,
+                        "free_bits_kl_loss": 0.08,
+                    }
+                return {
+                    "loss": 0.47,
+                    "reconstruction_loss": 0.46,
+                    "kl_loss": 0.000001,
+                    "free_bits_kl_loss": 0.08,
+                }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = ScriptedVAETrainer(
+                model=model,
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu", advice=True),
+            )
+            metrics = trainer.fit(dataloaders)
+
+            self.assertTrue(metrics["advice"])
+            self.assertTrue(any("posterior collapse" in suggestion for suggestion in metrics["advice"]))
+            self.assertTrue(any("free_bits" in suggestion for suggestion in metrics["advice"]))
 
     def test_base_trainer_tracks_contractive_loss_in_eval_for_cae_models(self) -> None:
         config = ContractiveAutoencoderConfig(
@@ -396,6 +463,33 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertGreaterEqual(history[0]["validation_dead_code_ratio"], 0.0)
             self.assertIn("active_codes", metrics["final_test_metrics"])
             self.assertIn("codebook_perplexity", metrics["final_test_metrics"])
+
+    def test_quantized_trainer_generates_codebook_advice(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=8,
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=16,
+            use_ema_codebook=False,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        trainer = VQTrainer(model=model, args=TrainingArguments(output_dir="unused", device="cpu", advice=True))
+
+        advice = trainer.generate_advice(
+            {
+                "history": [],
+                "final_test_metrics": {
+                    "reconstruction_loss": 1.0,
+                    "codebook_usage_ratio": 0.25,
+                    "commitment_loss": 0.35,
+                    "codebook_loss": 0.4,
+                },
+            }
+        )
+
+        self.assertTrue(any("codebook_size" in suggestion for suggestion in advice))
+        self.assertTrue(any("commitment_weight" in suggestion for suggestion in advice))
+        self.assertTrue(any("codebook_weight" in suggestion for suggestion in advice))
 
     def test_quantized_trainer_computes_codebook_metrics(self) -> None:
         config = VectorQuantizedAutoencoderConfig(

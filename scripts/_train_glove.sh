@@ -18,4 +18,5 @@ shift 2
 exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/${ENTRYPOINT}" \
   --dataset glove \
   --model "${MODEL_NAME}" \
+  --advice \
   "$@"

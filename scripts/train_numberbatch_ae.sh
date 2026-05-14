@@ -9,6 +9,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --dataset numberbatch \
   --model ae \
+  --advice \
   --output-dir artifacts/numberbatch/ae \
   --dim 300 \
   --max-vectors 50000 \

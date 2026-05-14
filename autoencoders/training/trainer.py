@@ -45,6 +45,7 @@ class TrainingArguments:
     device: str = "auto"
     seed: int = 42
     show_only_best_epochs: bool = True
+    advice: bool = False
 
     def __post_init__(self) -> None:
         if self.epochs < 0:
@@ -202,6 +203,7 @@ class AETrainer:
             "stopped_early": stopped_early,
             "training_args": asdict(self.args),
         }
+        metrics["advice"] = self.generate_advice(metrics) if self.args.advice else []
         if metadata:
             metrics.update(metadata)
 
@@ -217,6 +219,8 @@ class AETrainer:
             best_epoch=best_epoch,
             current_epoch=self.current_epoch,
         )
+        if metrics["advice"]:
+            self.display.log_advice(metrics["advice"])
         return metrics
 
     def on_epoch_start(self, epoch: int) -> None:
@@ -286,6 +290,112 @@ class AETrainer:
 
     def current_phase(self) -> str:
         return "train" if self.model.training else "eval"
+
+    def generate_advice(self, metrics: dict[str, Any]) -> list[str]:
+        advice: list[str] = []
+        history = metrics.get("history", [])
+        final_test_metrics = metrics.get("final_test_metrics", {})
+        model_config = self.model.config
+        model_type = getattr(model_config, "model_type", "")
+
+        if history:
+            last_epoch = history[-1]
+            train_loss = float(last_epoch.get("train_loss", 0.0))
+            validation_loss = float(last_epoch.get("validation_loss", 0.0))
+            if train_loss > 0 and validation_loss > train_loss * 1.15:
+                advice.append(
+                    "Validation loss is noticeably above training loss; try a smaller `latent_dim` (compressed width), fewer `hidden_dims` (encoder/decoder capacity), or stronger regularization."
+                )
+
+        if "variational_autoencoder" in model_type:
+            advice.extend(self._generate_vae_advice(final_test_metrics))
+        if "quantized_autoencoder" in model_type or any(
+            token in model_type for token in ("vector_quantized", "product_quantized", "residual_quantized")
+        ):
+            advice.extend(self._generate_vq_advice(final_test_metrics))
+        if "sparse_autoencoder" in model_type or "topk_sparse" in model_type or "kl_sparse" in model_type:
+            advice.extend(self._generate_sparse_advice(final_test_metrics))
+        if "wasserstein_autoencoder" in model_type or "information_variational_autoencoder" in model_type:
+            advice.extend(self._generate_mmd_advice(final_test_metrics))
+        if "factor_variational_autoencoder" in model_type:
+            advice.extend(self._generate_factor_advice(final_test_metrics))
+
+        return advice[:4]
+
+    def _generate_vae_advice(self, final_test_metrics: dict[str, float]) -> list[str]:
+        advice: list[str] = []
+        kl_loss = float(final_test_metrics.get("kl_loss", 0.0))
+        free_bits_kl_loss = float(final_test_metrics.get("free_bits_kl_loss", 0.0))
+        if kl_loss < 1e-3:
+            advice.append(
+                "KL is close to zero, which suggests posterior collapse; increase `free_bits` (minimum KL floor) or `kl_warmup_epochs` (how slowly KL reaches full strength), or reduce decoder capacity."
+            )
+        elif free_bits_kl_loss > max(kl_loss * 1.5, kl_loss + 0.1):
+            advice.append(
+                "`free_bits` is dominating the KL term; try lowering `free_bits` (minimum KL floor) or `kl_weight` (overall KL strength) for a softer regularization floor."
+            )
+        return advice
+
+    def _generate_vq_advice(self, final_test_metrics: dict[str, float]) -> list[str]:
+        advice: list[str] = []
+        usage_ratio = float(final_test_metrics.get("codebook_usage_ratio", -1.0))
+        commitment_loss = float(final_test_metrics.get("commitment_loss", 0.0))
+        codebook_loss = float(final_test_metrics.get("codebook_loss", 0.0))
+        reconstruction_loss = float(final_test_metrics.get("reconstruction_loss", 0.0))
+        if 0.0 <= usage_ratio < 0.5:
+            advice.append(
+                "Codebook usage is low; try a smaller `codebook_size` (number of codes), or keep `use_ema_codebook` and `dead_code_reset` enabled so unused codes recover faster."
+            )
+        elif usage_ratio > 0.98:
+            advice.append(
+                "Codebook usage is saturated; try a larger `codebook_size` (more codes) or `latent_dim` (wider latent vectors) to add representational capacity."
+            )
+        if reconstruction_loss > 0 and commitment_loss > reconstruction_loss * 0.25:
+            advice.append(
+                "`commitment_weight` looks aggressive relative to reconstruction; try lowering `commitment_weight`, which controls how strongly encoder outputs are forced toward selected codes."
+            )
+        if reconstruction_loss > 0 and codebook_loss > reconstruction_loss * 0.25 and not getattr(self.model.config, "use_ema_codebook", False):
+            advice.append(
+                "`codebook_loss` is relatively large; try lowering `codebook_weight` (how strongly code vectors chase encoder outputs) or enabling `use_ema_codebook`."
+            )
+        return advice
+
+    def _generate_sparse_advice(self, final_test_metrics: dict[str, float]) -> list[str]:
+        advice: list[str] = []
+        reconstruction_loss = float(final_test_metrics.get("reconstruction_loss", 0.0))
+        for metric_name, parameter_name in (
+            ("sparsity_loss", "sparsity_weight"),
+            ("kl_sparsity_loss", "sparsity_weight"),
+            ("topk_sparsity", "topk"),
+            ("contractive_loss", "contractive_weight"),
+        ):
+            metric_value = float(final_test_metrics.get(metric_name, 0.0))
+            if reconstruction_loss > 0 and metric_value > reconstruction_loss * 0.5:
+                advice.append(
+                    f"`{metric_name}` is dominating reconstruction; try reducing `{parameter_name}`, which sets the strength of that sparsity or contractive penalty."
+                )
+                break
+        return advice
+
+    def _generate_mmd_advice(self, final_test_metrics: dict[str, float]) -> list[str]:
+        advice: list[str] = []
+        reconstruction_loss = float(final_test_metrics.get("reconstruction_loss", 0.0))
+        mmd_loss = float(final_test_metrics.get("mmd_loss", 0.0))
+        if reconstruction_loss > 0 and mmd_loss > reconstruction_loss * 0.5:
+            advice.append(
+                "`mmd_weight` looks strong relative to reconstruction; try lowering `mmd_weight`, which controls how hard the latent distribution is pushed toward the prior, or narrow the kernel bandwidth set."
+            )
+        return advice
+
+    def _generate_factor_advice(self, final_test_metrics: dict[str, float]) -> list[str]:
+        advice: list[str] = []
+        tc_loss = float(final_test_metrics.get("total_correlation_loss", 0.0))
+        reconstruction_loss = float(final_test_metrics.get("reconstruction_loss", 0.0))
+        if reconstruction_loss > 0 and tc_loss > reconstruction_loss * 0.3:
+            advice.append(
+                "`tc_weight` is contributing heavily; try lowering `tc_weight`, which sets the total-correlation pressure, or use fewer discriminator updates per batch."
+            )
+        return advice
 
 
 class VAETrainer(AETrainer):
