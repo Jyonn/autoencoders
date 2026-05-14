@@ -36,6 +36,18 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
 
+    def get_epoch_metrics(
+        self,
+        *,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
+    ) -> dict[str, float | int]:
+        del global_step, current_epoch
+        return {}
+
+    def consume_dead_code_reset_count(self) -> int:
+        return 0
+
     def export(
         self,
         inputs: torch.Tensor,
@@ -106,9 +118,5 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             latents=outputs.latents,
             reconstruction=outputs.reconstruction if include_reconstruction else None,
             encoded=outputs.encoded,
-            posterior_mean=getattr(outputs, "posterior_mean", None),
-            posterior_logvar=getattr(outputs, "posterior_logvar", None),
-            quantized_latents=getattr(outputs, "quantized_latents", None),
-            codebook_indices=getattr(outputs, "codebook_indices", None),
             metadata=export_metadata,
         )

@@ -6,7 +6,7 @@ from abc import abstractmethod
 
 import torch
 
-from ...modeling_outputs import VariationalAutoencoderOutput
+from ...modeling_outputs import AutoencoderExport, VariationalAutoencoderOutput
 from .configuration_vae import BaseVariationalAutoencoderConfig
 from .modeling_base import BaseAutoencoderModel
 
@@ -79,6 +79,19 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         progress = min((current_epoch - 1) / (warmup_epochs - 1), 1.0)
         return start_weight + progress * (target_weight - start_weight)
 
+    def get_epoch_metrics(
+        self,
+        *,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
+    ) -> dict[str, float]:
+        return {
+            "kl_weight": self.get_current_kl_weight(
+                global_step=global_step,
+                current_epoch=current_epoch,
+            ),
+        }
+
     def compute_total_loss(
         self,
         reconstruction_loss: torch.Tensor,
@@ -133,3 +146,21 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
                 "effective_kl_weight": loss.new_tensor(effective_kl_weight),
             },
         )
+
+    def _build_export(
+        self,
+        *,
+        inputs: torch.Tensor,
+        outputs: VariationalAutoencoderOutput,
+        include_reconstruction: bool,
+        metadata: dict[str, object] | None,
+    ) -> AutoencoderExport:
+        artifact = super()._build_export(
+            inputs=inputs,
+            outputs=outputs,
+            include_reconstruction=include_reconstruction,
+            metadata=metadata,
+        )
+        artifact.posterior_mean = outputs.posterior_mean
+        artifact.posterior_logvar = outputs.posterior_logvar
+        return artifact

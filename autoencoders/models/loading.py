@@ -37,17 +37,14 @@ def get_model_class(name: str):
     module = import_module(module_path)
     model_export_names = [
         export_name
-        for export_name in getattr(module, "__all__", [])
+        for export_name in module.__all__
         if export_name.endswith("Model")
     ]
     if len(model_export_names) != 1:
         raise ValueError(
             f"Expected exactly one model export in module {module.__name__!r}, found {len(model_export_names)}."
         )
-    model_class = getattr(module, model_export_names[0])
-    if getattr(model_class, "config_class", None) is None:
-        raise ValueError(f"Model export {model_class.__name__!r} in module {module.__name__!r} is missing config_class.")
-    return model_class
+    return getattr(module, model_export_names[0])
 
 
 def load_model(name: str, **kwargs: Any):

@@ -27,8 +27,7 @@ class PreTrainedAutoencoderModel(nn.Module):
     def save_pretrained(self, save_directory: str | Path) -> Path:
         save_path = Path(save_directory)
         save_path.mkdir(parents=True, exist_ok=True)
-        if hasattr(self.config, "save_pretrained"):
-            self.config.save_pretrained(save_path)
+        self.config.save_pretrained(save_path)
         weights_path = save_path / self.weights_name
         torch.save(self.state_dict(), weights_path)
         return weights_path
@@ -40,9 +39,6 @@ class PreTrainedAutoencoderModel(nn.Module):
         map_location: str | torch.device = "cpu",
         **kwargs: Any,
     ) -> "PreTrainedAutoencoderModel":
-        if cls.config_class is None:
-            raise ValueError(f"{cls.__name__} must define config_class to use from_pretrained().")
-
         load_path = Path(pretrained_model_name_or_path)
         config = cls.config_class.from_pretrained(load_path, **kwargs)
         model = cls.from_config(config)
@@ -53,4 +49,3 @@ class PreTrainedAutoencoderModel(nn.Module):
             model.load_state_dict(state_dict)
 
         return model
-

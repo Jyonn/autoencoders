@@ -328,14 +328,13 @@ class AutoencoderTrainer:
         self.current_epoch = epoch
 
     def get_epoch_metrics(self) -> dict[str, float | int]:
-        if not hasattr(self.model, "get_current_kl_weight"):
-            return {}
-        return {
-            "kl_weight": self.model.get_current_kl_weight(current_epoch=self.current_epoch),
-        }
+        return self.model.get_epoch_metrics(
+            global_step=self.global_step,
+            current_epoch=self.current_epoch,
+        )
 
     def requires_grad_in_eval(self) -> bool:
-        return bool(getattr(self.model, "requires_grad_in_eval", False))
+        return self.model.requires_grad_in_eval
 
     def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
@@ -820,11 +819,6 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
                 self.optimizer.step()
                 self.global_step += 1
 
-            if outputs.codebook_indices is None:
-                raise ValueError("QuantizedAutoencoderTrainer requires outputs with codebook_indices.")
-            if outputs.encoded is None:
-                raise ValueError("QuantizedAutoencoderTrainer requires outputs with encoded latents.")
-
             batch_size = batch.shape[0]
             total_examples += batch_size
             code_counts = self.accumulate_code_counts(code_counts, outputs.codebook_indices)
@@ -839,10 +833,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
         metrics.update(self.compute_codebook_metrics(code_counts))
         if training:
-            if hasattr(self.model, "consume_dead_code_reset_count"):
-                metrics["dead_code_reset_count"] = float(self.model.consume_dead_code_reset_count())
-            else:
-                metrics["dead_code_reset_count"] = 0.0
+            metrics["dead_code_reset_count"] = float(self.model.consume_dead_code_reset_count())
         return metrics
 
     def forward_batch(
