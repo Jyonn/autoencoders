@@ -8,7 +8,7 @@ from _train_common import add_dataset_args, add_training_args, build_training_ar
 from autoencoders import VAETrainer, load_model
 
 
-MODEL_CHOICES = ["vae", "dvae", "betavae", "hvae", "infovae"]
+MODEL_CHOICES = ["vae", "dvae", "betavae", "hvae", "infovae", "vamppriorvae"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-latent-dim", type=int, default=None, help="Hierarchical VAE top-level latent dimensionality.")
     parser.add_argument("--mmd-weight", type=float, default=5.0, help="InfoVAE MMD prior-matching weight.")
     parser.add_argument("--mmd-bandwidths", type=float, nargs="+", default=[0.1, 0.2, 0.5, 1.0, 2.0, 5.0], help="InfoVAE MMD kernel bandwidths.")
+    parser.add_argument("--num-pseudo-inputs", type=int, default=128, help="VampPriorVAE number of learned pseudo-inputs.")
+    parser.add_argument("--pseudo-input-std", type=float, default=0.01, help="VampPriorVAE pseudo-input initialization std.")
     parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
     parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
     parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
@@ -58,6 +60,11 @@ def build_model(args: argparse.Namespace, input_dim: int):
         model_kwargs.update(
             mmd_weight=args.mmd_weight,
             mmd_bandwidths=list(args.mmd_bandwidths),
+        )
+    if args.model == "vamppriorvae":
+        model_kwargs.update(
+            num_pseudo_inputs=args.num_pseudo_inputs,
+            pseudo_input_std=args.pseudo_input_std,
         )
     if args.model == "dvae":
         model_kwargs.update(

@@ -17,6 +17,7 @@ from .modeling_outputs import (
     QuantizedAutoencoderOutput,
     SparseAutoencoderOutput,
     TopKSparseAutoencoderOutput,
+    VampPriorVariationalAutoencoderOutput,
     VariationalAutoencoderOutput,
     WassersteinAutoencoderOutput,
 )
@@ -37,6 +38,7 @@ from .models.rqvae.configuration_rqvae import ResidualQuantizedAutoencoderConfig
 from .models.sae.configuration_sae import SparseAutoencoderConfig
 from .models.topksae.configuration_topksae import TopKSparseAutoencoderConfig
 from .models.vae.configuration_vae import VariationalAutoencoderConfig
+from .models.vamppriorvae.configuration_vamppriorvae import VampPriorVariationalAutoencoderConfig
 from .models.wae.configuration_wae import WassersteinAutoencoderConfig
 from .models.vqvae.configuration_vqvae import VectorQuantizedAutoencoderConfig
 
@@ -73,6 +75,8 @@ __all__ = [
     "SparseAutoencoderOutput",
     "TopKSparseAutoencoderConfig",
     "TopKSparseAutoencoderOutput",
+    "VampPriorVariationalAutoencoderConfig",
+    "VampPriorVariationalAutoencoderOutput",
     "VariationalAutoencoderConfig",
     "VariationalAutoencoderOutput",
     "WassersteinAutoencoderConfig",
@@ -122,6 +126,7 @@ try:
     from .models.sae.modeling_sae import SparseAutoencoderModel
     from .models.topksae.modeling_topksae import TopKSparseAutoencoderModel
     from .models.vae.modeling_vae import VariationalAutoencoderModel
+    from .models.vamppriorvae.modeling_vamppriorvae import VampPriorVariationalAutoencoderModel
     from .models.wae.modeling_wae import WassersteinAutoencoderModel
     from .models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
     from .training import (
@@ -181,6 +186,7 @@ else:
             "TrainerDisplayConfig",
             "TrainingArguments",
             "VAETrainer",
+            "VampPriorVariationalAutoencoderModel",
             "VariationalAutoencoderModel",
             "VQTrainer",
             "VectorQuantizedAutoencoderModel",

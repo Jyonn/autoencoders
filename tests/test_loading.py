@@ -28,6 +28,7 @@ from autoencoders.models.rqvae.modeling_rqvae import ResidualQuantizedAutoencode
 from autoencoders.models.sae.modeling_sae import SparseAutoencoderModel
 from autoencoders.models.topksae.modeling_topksae import TopKSparseAutoencoderModel
 from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
+from autoencoders.models.vamppriorvae.modeling_vamppriorvae import VampPriorVariationalAutoencoderModel
 from autoencoders.models.wae.modeling_wae import WassersteinAutoencoderModel
 from autoencoders.models.loading import get_model_modules
 from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
@@ -108,6 +109,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_information_variational_autoencoder(self) -> None:
         model = load_model("infovae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)
         self.assertIsInstance(model, InformationVariationalAutoencoderModel)
+
+    def test_load_model_returns_vampprior_variational_autoencoder(self) -> None:
+        model = load_model("vamppriorvae", input_dim=16, latent_dim=4, hidden_dims=[8], num_pseudo_inputs=32)
+        self.assertIsInstance(model, VampPriorVariationalAutoencoderModel)
 
     def test_load_model_returns_wasserstein_autoencoder(self) -> None:
         model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)

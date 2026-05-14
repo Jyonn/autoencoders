@@ -79,6 +79,14 @@ class HierarchicalVariationalAutoencoderOutput(VariationalAutoencoderOutput):
 
 
 @dataclass
+class VampPriorVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for variational autoencoders with a learned VampPrior."""
+
+    pseudo_posterior_mean: Any = None
+    pseudo_posterior_logvar: Any = None
+
+
+@dataclass
 class InformationVariationalAutoencoderOutput(VariationalAutoencoderOutput):
     """Output for InfoVAE-style variational autoencoders."""
 
