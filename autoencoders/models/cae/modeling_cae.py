@@ -35,7 +35,10 @@ class ContractiveAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
     ) -> ContractiveAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+        del global_step, current_epoch
         if torch.is_grad_enabled():
             encoder_inputs = inputs.detach().clone().requires_grad_(True)
         else:

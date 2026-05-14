@@ -181,6 +181,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
             {
                 "kl_weight": args.kl_weight,
                 "free_bits": args.free_bits,
+                "kl_warmup_epochs": args.kl_warmup_epochs,
+                "kl_start_weight": args.kl_start_weight,
             }
         )
     if args.model == "dvae":
@@ -188,6 +190,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
             {
                 "kl_weight": args.kl_weight,
                 "free_bits": args.free_bits,
+                "kl_warmup_epochs": args.kl_warmup_epochs,
+                "kl_start_weight": args.kl_start_weight,
                 "noise_type": args.noise_type,
                 "noise_std": args.noise_std,
                 "masking_ratio": args.masking_ratio,
@@ -199,6 +203,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
             {
                 "beta": args.beta,
                 "free_bits": args.free_bits,
+                "kl_warmup_epochs": args.kl_warmup_epochs,
+                "kl_start_weight": args.kl_start_weight,
             }
         )
     if args.model == "hvae":
@@ -206,6 +212,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
             {
                 "kl_weight": args.kl_weight,
                 "free_bits": args.free_bits,
+                "kl_warmup_epochs": args.kl_warmup_epochs,
+                "kl_start_weight": args.kl_start_weight,
                 "top_latent_dim": args.top_latent_dim,
             }
         )
@@ -282,11 +290,7 @@ def build_trainer(args: argparse.Namespace, model):
     }
 
     if args.model == "vae" or args.model == "dvae" or args.model == "betavae" or args.model == "hvae":
-        training_args = VAETrainingArguments(
-            kl_warmup_epochs=args.kl_warmup_epochs,
-            kl_start_weight=args.kl_start_weight,
-            **common_kwargs,
-        )
+        training_args = VAETrainingArguments(**common_kwargs)
         return VAETrainer(model=model, args=training_args)
     if args.model == "cae":
         training_args = TrainingArguments(**common_kwargs)

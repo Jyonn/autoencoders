@@ -62,6 +62,8 @@ class VariationalAutoencoderOutput(BaseAutoencoderOutput):
     posterior_mean: Any = None
     posterior_logvar: Any = None
     kl_loss: Any = None
+    free_bits_kl_loss: Any = None
+    effective_kl_weight: Any = None
 
 
 @dataclass

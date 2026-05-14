@@ -53,6 +53,8 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         inputs: torch.Tensor,
         return_dict: bool | None = None,
         sample_posterior: bool | None = None,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
     ) -> HierarchicalVariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         top_mean, top_logvar, bottom_mean, bottom_logvar = self.encode(inputs)
         if sample_posterior is None:
@@ -71,7 +73,12 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         top_kl_loss = self.compute_kl_loss(top_mean, top_logvar)
         bottom_kl_loss = self.compute_kl_loss(bottom_mean, bottom_logvar)
         kl_loss = top_kl_loss + bottom_kl_loss
-        loss = self.compute_total_loss(reconstruction_loss, kl_loss)
+        free_bits_kl_loss = self.compute_free_bits_kl_loss(
+            torch.cat([top_mean, bottom_mean], dim=-1),
+            torch.cat([top_logvar, bottom_logvar], dim=-1),
+        )
+        effective_kl_weight = self.get_current_kl_weight(global_step=global_step, current_epoch=current_epoch)
+        loss = self.compute_total_loss(reconstruction_loss, free_bits_kl_loss, kl_weight=effective_kl_weight)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -86,6 +93,8 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
             posterior_logvar=torch.cat([top_logvar, bottom_logvar], dim=-1),
             reconstruction_loss=reconstruction_loss,
             kl_loss=kl_loss,
+            free_bits_kl_loss=free_bits_kl_loss,
+            effective_kl_weight=effective_kl_weight,
             hierarchical_kl_loss=kl_loss,
             hidden_states={
                 "top_latents": top_latents,
@@ -99,6 +108,8 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
                 "loss": loss,
                 "reconstruction_loss": reconstruction_loss,
                 "kl_loss": kl_loss,
+                "free_bits_kl_loss": free_bits_kl_loss,
+                "effective_kl_weight": loss.new_tensor(effective_kl_weight),
                 "hierarchical_kl_loss": kl_loss,
             },
         )

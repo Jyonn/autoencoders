@@ -37,8 +37,43 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.posterior_logvar.shape), (4, 4))
         self.assertIn("reconstruction_loss", outputs.loss_dict)
         self.assertIn("kl_loss", outputs.loss_dict)
+        self.assertIn("free_bits_kl_loss", outputs.loss_dict)
+        self.assertIn("effective_kl_weight", outputs.loss_dict)
         self.assertIn("loss", outputs.loss_dict)
-        expected_loss = outputs.reconstruction_loss + self.config.kl_weight * outputs.kl_loss
+        expected_loss = outputs.reconstruction_loss + self.config.kl_weight * outputs.free_bits_kl_loss
+        self.assertTrue(torch.allclose(outputs.loss, expected_loss))
+
+    def test_training_forward_requires_current_epoch_when_warmup_is_enabled(self) -> None:
+        config = VariationalAutoencoderConfig(
+            input_dim=16,
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            kl_weight=0.5,
+            kl_warmup_epochs=3,
+            kl_start_weight=0.0,
+        )
+        model = VariationalAutoencoderModel(config)
+        model.train()
+
+        with self.assertRaisesRegex(ValueError, "current_epoch"):
+            model(inputs=self.inputs)
+
+    def test_training_forward_uses_warmup_weight_when_current_epoch_is_provided(self) -> None:
+        config = VariationalAutoencoderConfig(
+            input_dim=16,
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            kl_weight=0.6,
+            kl_warmup_epochs=3,
+            kl_start_weight=0.0,
+        )
+        model = VariationalAutoencoderModel(config)
+        model.train()
+
+        outputs = model(inputs=self.inputs, current_epoch=2)
+
+        self.assertAlmostEqual(float(outputs.effective_kl_weight), 0.3, places=6)
+        expected_loss = outputs.reconstruction_loss + outputs.effective_kl_weight * outputs.free_bits_kl_loss
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_eval_uses_mean_by_default(self) -> None:

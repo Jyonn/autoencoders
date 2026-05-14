@@ -125,16 +125,6 @@ class TrainingArguments:
 class VAETrainingArguments(TrainingArguments):
     """Training settings specific to variational autoencoders."""
 
-    kl_warmup_epochs: int = 20
-    kl_start_weight: float = 0.0
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.kl_warmup_epochs < 0:
-            raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
-        if self.kl_start_weight < 0:
-            raise ValueError("kl_start_weight must be non-negative.")
-
 
 @dataclass
 class QuantizedAutoencoderTrainingArguments(TrainingArguments):
@@ -255,6 +245,7 @@ class AutoencoderTrainer:
         self.args = args
         self.display = display or TrainerDisplayConfig()
         self.current_epoch = 0
+        self.global_step = 0
         self.max_epochs: int | None = None
         self._last_live_line_length = 0
         self.device = resolve_device(args.device)
@@ -382,7 +373,8 @@ class AutoencoderTrainer:
         return {name: total / max(total_examples, 1) for name, total in totals.items()}
 
     def forward_batch(self, batch: torch.Tensor, *, training: bool):
-        return self.model(inputs=batch)
+        global_step = self.global_step + 1 if training else None
+        return self.model(inputs=batch, global_step=global_step, current_epoch=self.current_epoch)
 
     def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
         return outputs.loss
@@ -820,49 +812,12 @@ class VAETrainer(AutoencoderTrainer):
     def vae_args(self) -> VAETrainingArguments:
         return self.args
 
-    def get_current_kl_weight(self) -> float:
-        target_weight = float(self.model.config.kl_weight)
-        warmup_epochs = self.vae_args.kl_warmup_epochs
-        start_weight = self.vae_args.kl_start_weight
-
-        if warmup_epochs <= 0:
-            return target_weight
-        if warmup_epochs == 1:
-            return target_weight
-        if self.current_epoch <= 1:
-            return start_weight
-
-        progress = min((self.current_epoch - 1) / (warmup_epochs - 1), 1.0)
-        return start_weight + progress * (target_weight - start_weight)
-
     def get_epoch_metrics(self) -> dict[str, float | int]:
+        if not hasattr(self.model, "get_current_kl_weight"):
+            return {}
         return {
-            "kl_weight": self.get_current_kl_weight(),
+            "kl_weight": self.model.get_current_kl_weight(current_epoch=self.current_epoch),
         }
-
-    def compute_free_bits_kl_loss(self, outputs) -> torch.Tensor:
-        if outputs.posterior_mean is None or outputs.posterior_logvar is None:
-            raise ValueError("VAETrainer requires outputs with posterior statistics.")
-
-        kl_per_dim = -0.5 * (
-            1
-            + outputs.posterior_logvar
-            - outputs.posterior_mean.pow(2)
-            - outputs.posterior_logvar.exp()
-        )
-        mean_kl_per_dim = kl_per_dim.mean(dim=0)
-        return torch.clamp(mean_kl_per_dim, min=float(self.model.config.free_bits)).sum()
-
-    def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
-        if outputs.reconstruction_loss is None or outputs.kl_loss is None:
-            raise ValueError("VAETrainer requires outputs with reconstruction_loss and kl_loss.")
-        effective_kl_loss = self.compute_free_bits_kl_loss(outputs)
-        return outputs.reconstruction_loss + self.get_current_kl_weight() * effective_kl_loss
-
-    def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
-        metrics = super()._extract_batch_metrics(outputs, loss=loss, training=training)
-        metrics["free_bits_kl_loss"] = float(self.compute_free_bits_kl_loss(outputs).detach().item())
-        return metrics
 
 
 class ContractiveAutoencoderTrainer(AutoencoderTrainer):
@@ -905,6 +860,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
             if training:
                 loss.backward()
                 self.optimizer.step()
+                self.global_step += 1
 
             if outputs.codebook_indices is None:
                 raise ValueError("QuantizedAutoencoderTrainer requires outputs with codebook_indices.")
@@ -1059,6 +1015,7 @@ class AdversarialAutoencoderTrainer(AutoencoderTrainer):
 
         for batch_index, batch in enumerate(dataloader, start=1):
             batch = batch.to(self.device)
+            batch_global_step = self.global_step + 1 if training else None
 
             if training:
                 self.optimizer.zero_grad()
@@ -1086,9 +1043,10 @@ class AdversarialAutoencoderTrainer(AutoencoderTrainer):
                 adversarial_loss = self.model.compute_adversarial_loss(adversarial_latents)
                 (self.model.config.adversarial_weight * adversarial_loss).backward()
                 self.generator_optimizer.step()
+                self.global_step += 1
 
             with torch.no_grad():
-                outputs = self.model(inputs=batch)
+                outputs = self.model(inputs=batch, global_step=batch_global_step, current_epoch=self.current_epoch)
 
             batch_size = batch.shape[0]
             total_examples += batch_size

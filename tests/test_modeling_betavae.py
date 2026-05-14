@@ -31,8 +31,11 @@ class BetaVariationalAutoencoderModelTest(unittest.TestCase):
 
         outputs = model(inputs=self.inputs)
 
-        expected_loss = outputs.reconstruction_loss + self.config.beta * outputs.kl_loss
+        expected_loss = (
+            outputs.reconstruction_loss + self.config.beta * outputs.free_bits_kl_loss
+        )
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
+        self.assertIsNotNone(outputs.effective_kl_weight)
 
     def test_beta_is_saved_in_config(self) -> None:
         model = BetaVariationalAutoencoderModel(self.config)

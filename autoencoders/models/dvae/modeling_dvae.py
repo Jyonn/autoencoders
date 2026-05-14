@@ -36,6 +36,8 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
         sample_posterior: bool | None = None,
         add_noise: bool | None = None,
         corrupted_inputs: torch.Tensor | None = None,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
     ) -> DenoisingVariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         apply_noise = self.training if add_noise is None else add_noise
         if not self.training and add_noise is None:
@@ -57,7 +59,9 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
         reconstruction = self.decode(latents)
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
-        loss = self.compute_total_loss(reconstruction_loss, kl_loss)
+        free_bits_kl_loss = self.compute_free_bits_kl_loss(posterior_mean, posterior_logvar)
+        effective_kl_weight = self.get_current_kl_weight(global_step=global_step, current_epoch=current_epoch)
+        loss = self.compute_total_loss(reconstruction_loss, free_bits_kl_loss, kl_weight=effective_kl_weight)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -72,10 +76,14 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
             posterior_logvar=posterior_logvar,
             reconstruction_loss=reconstruction_loss,
             kl_loss=kl_loss,
+            free_bits_kl_loss=free_bits_kl_loss,
+            effective_kl_weight=effective_kl_weight,
             hidden_states={"inputs": inputs, "corrupted_inputs": model_inputs},
             loss_dict={
                 "loss": loss,
                 "reconstruction_loss": reconstruction_loss,
                 "kl_loss": kl_loss,
+                "free_bits_kl_loss": free_bits_kl_loss,
+                "effective_kl_weight": loss.new_tensor(effective_kl_weight),
             },
         )

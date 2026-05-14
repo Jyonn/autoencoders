@@ -37,7 +37,10 @@ class FiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
     ) -> FiniteScalarQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+        del global_step, current_epoch
         encoded = self.encode(inputs)
         quantized_latents, codebook_indices = self.quantize(encoded)
         latents = encoded + (quantized_latents - encoded).detach()

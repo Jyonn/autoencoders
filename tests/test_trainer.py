@@ -152,15 +152,10 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(len(metrics["history"]), 4)
             self.assertEqual(metrics["final_test_loss"], 3.5)
 
-    def test_vae_training_arguments_validate_warmup_fields(self) -> None:
+    def test_vae_training_arguments_use_base_training_defaults(self) -> None:
         defaults = VAETrainingArguments(output_dir="unused")
-        self.assertEqual(defaults.kl_warmup_epochs, 20)
-        self.assertEqual(defaults.kl_start_weight, 0.0)
-
-        with self.assertRaisesRegex(ValueError, "kl_warmup_epochs"):
-            VAETrainingArguments(output_dir="unused", kl_warmup_epochs=-1)
-        with self.assertRaisesRegex(ValueError, "kl_start_weight"):
-            VAETrainingArguments(output_dir="unused", kl_start_weight=-0.1)
+        self.assertEqual(defaults.epochs, 5)
+        self.assertEqual(defaults.device, "auto")
 
     def test_trainer_display_config_validates_progress_width(self) -> None:
         display = TrainerDisplayConfig()
@@ -176,6 +171,8 @@ class AutoencoderTrainerTest(unittest.TestCase):
             latent_dim=4,
             hidden_dims=[6],
             kl_weight=0.8,
+            kl_warmup_epochs=3,
+            kl_start_weight=0.0,
         )
         model = VariationalAutoencoderModel(config)
         dataloaders = build_dataset_loaders()
@@ -189,8 +186,6 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 batch_size=6,
                 device="cpu",
                 seed=123,
-                kl_warmup_epochs=3,
-                kl_start_weight=0.0,
             )
             trainer = VAETrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
@@ -220,8 +215,8 @@ class AutoencoderTrainerTest(unittest.TestCase):
         )
         trainer = VAETrainer(model=model, args=args)
 
-        outputs = model(inputs=torch.zeros(4, 8))
-        effective_kl_loss = trainer.compute_free_bits_kl_loss(outputs)
+        outputs = model(inputs=torch.zeros(4, 8), current_epoch=1)
+        effective_kl_loss = outputs.free_bits_kl_loss
 
         self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
 

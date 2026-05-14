@@ -44,6 +44,41 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         )
         return kl_per_example.mean()
 
+    def compute_free_bits_kl_loss(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
+        kl_per_dim = -0.5 * (
+            1
+            + posterior_logvar
+            - posterior_mean.pow(2)
+            - posterior_logvar.exp()
+        )
+        mean_kl_per_dim = kl_per_dim.mean(dim=0)
+        return torch.clamp(mean_kl_per_dim, min=float(self.config.free_bits)).sum()
+
+    def get_current_kl_weight(
+        self,
+        *,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
+    ) -> float:
+        del global_step
+        target_weight = float(self.config.kl_weight)
+        warmup_epochs = int(self.config.kl_warmup_epochs)
+        start_weight = float(self.config.kl_start_weight)
+
+        if warmup_epochs <= 0:
+            return target_weight
+        if current_epoch is None:
+            if not self.training:
+                return target_weight
+            raise ValueError("current_epoch must be provided when kl_warmup_epochs is enabled during training.")
+        if warmup_epochs == 1:
+            return target_weight
+        if current_epoch <= 1:
+            return start_weight
+
+        progress = min((current_epoch - 1) / (warmup_epochs - 1), 1.0)
+        return start_weight + progress * (target_weight - start_weight)
+
     def compute_total_loss(
         self,
         reconstruction_loss: torch.Tensor,
@@ -59,6 +94,8 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         inputs: torch.Tensor,
         return_dict: bool | None = None,
         sample_posterior: bool | None = None,
+        global_step: int | None = None,
+        current_epoch: int | None = None,
     ) -> VariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         posterior_mean, posterior_logvar = self.encode(inputs)
         latents = self.sample_latents(
@@ -69,7 +106,9 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         reconstruction = self.decode(latents)
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
-        loss = self.compute_total_loss(reconstruction_loss, kl_loss)
+        free_bits_kl_loss = self.compute_free_bits_kl_loss(posterior_mean, posterior_logvar)
+        effective_kl_weight = self.get_current_kl_weight(global_step=global_step, current_epoch=current_epoch)
+        loss = self.compute_total_loss(reconstruction_loss, free_bits_kl_loss, kl_weight=effective_kl_weight)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:
@@ -84,9 +123,13 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
             posterior_logvar=posterior_logvar,
             reconstruction_loss=reconstruction_loss,
             kl_loss=kl_loss,
+            free_bits_kl_loss=free_bits_kl_loss,
+            effective_kl_weight=effective_kl_weight,
             loss_dict={
                 "loss": loss,
                 "reconstruction_loss": reconstruction_loss,
                 "kl_loss": kl_loss,
+                "free_bits_kl_loss": free_bits_kl_loss,
+                "effective_kl_weight": loss.new_tensor(effective_kl_weight),
             },
         )
