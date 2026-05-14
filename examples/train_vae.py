@@ -10,6 +10,7 @@ from _train_common import (
     build_training_arguments,
     prepare_training,
     print_training_overview,
+    validate_model_input_compatibility,
 )
 from autoencoders import (
     FactorVAETrainer,
@@ -126,6 +127,7 @@ def main() -> None:
     _, dataloaders, input_dim = prepare_training(args)
     model = build_model(args, input_dim=input_dim)
     print_training_overview(args, model, input_dim=input_dim)
+    validate_model_input_compatibility(args, model, dataloaders)
     if args.model == "factorvae":
         base_args = build_training_arguments(args)
         trainer_args = FactorVariationalAutoencoderTrainingArguments(

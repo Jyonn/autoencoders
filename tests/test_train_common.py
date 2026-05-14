@@ -9,7 +9,10 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
+import torch
+
 from autoencoders import VariationalAutoencoderConfig, VariationalAutoencoderModel, VectorQuantizedAutoencoderConfig, VectorQuantizedAutoencoderModel
+from autoencoders.data.base import DatasetLoaders
 
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[1] / "examples"
@@ -148,6 +151,32 @@ class TrainCommonTest(unittest.TestCase):
         self.assertIn("codebook_size", output)
         self.assertIn("use_ema_codebook", output)
         self.assertIn("dead_code_reset", output)
+
+    def test_validate_model_input_compatibility_prints_friendly_message(self) -> None:
+        args = argparse.Namespace(dataset="glove", model="vqvae")
+        model = VectorQuantizedAutoencoderModel(
+            VectorQuantizedAutoencoderConfig(
+                input_dim=50,
+                latent_dim=8,
+                hidden_dims=[16, 8],
+                codebook_size=64,
+            )
+        )
+        single_vector_batch = torch.randn(6, 50)
+        dataloader = torch.utils.data.DataLoader(single_vector_batch, batch_size=2)
+        loaders = DatasetLoaders(train=dataloader, validation=dataloader, test=dataloader)
+
+        buffer = io.StringIO()
+        with self.assertRaises(SystemExit) as context:
+            with redirect_stdout(buffer):
+                train_common.validate_model_input_compatibility(args, model, loaders)
+
+        output = buffer.getvalue()
+        self.assertEqual(context.exception.code, 2)
+        self.assertIn("INPUT MISMATCH", output)
+        self.assertIn("vqvae cannot train on glove", output)
+        self.assertIn("B x T x D", output)
+        self.assertIn("pqvae", output)
 
 
 if __name__ == "__main__":

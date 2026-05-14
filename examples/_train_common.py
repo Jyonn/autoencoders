@@ -381,3 +381,54 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
         value = _format_parameter_value(_resolve_parameter_value(model, args, parameter_name))
         _print_parameter_row(parameter_name, value, description)
     print()
+
+
+def validate_model_input_compatibility(args: argparse.Namespace, model, dataloaders) -> None:
+    first_batch = next(iter(dataloaders.train))
+    actual_rank = first_batch.dim()
+    required_rank = model.min_input_rank
+    if actual_rank >= required_rank:
+        return
+
+    header = style(" INPUT MISMATCH ", fg="white", bg="red", bold=True)
+    summary = style(f"{args.model} cannot train on {args.dataset}", fg="white", bold=True)
+
+    print()
+    print(f"{header} {summary}")
+    _print_section("Why this stopped")
+    print(
+        "  "
+        + style(
+            f"{model.__class__.__name__} expects each sample to contain multiple vectors, "
+            f"but `{args.dataset}` currently yields single vectors with batch shape {tuple(first_batch.shape)}.",
+            fg="white",
+            bold=True,
+        )
+    )
+
+    _print_section("What this model expects")
+    _print_parameter_row("required_rank", str(required_rank), "Minimum tensor rank accepted by this model.")
+    _print_parameter_row("received_shape", str(tuple(first_batch.shape)), "First training batch produced by the selected dataset.")
+    _print_parameter_row("expected_examples", "B x T x D", "Typical multi-vector layout, for example token grids or spatial embedding maps.")
+
+    _print_section("How to fix it")
+    if args.model in {"vqvae", "gumbelvq", "vqvae2"}:
+        print(
+            "  "
+            + style(
+                "Use a multi-vector dataset for this model, or switch to `pqvae`, `rqvae`, `fsq`, or `rfsq` for single-vector embedding datasets such as GloVe.",
+                fg="green",
+                bold=True,
+            )
+        )
+    else:
+        print(
+            "  "
+            + style(
+                "Choose a dataset that yields higher-rank samples, or select a model family that supports single-vector embeddings.",
+                fg="green",
+                bold=True,
+            )
+        )
+    print()
+    raise SystemExit(2)
