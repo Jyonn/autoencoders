@@ -19,6 +19,7 @@ from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoenco
 from autoencoders.models.cae.modeling_cae import ContractiveAutoencoderModel
 from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
 from autoencoders.models.dvae.modeling_dvae import DenoisingVariationalAutoencoderModel
+from autoencoders.models.factorvae.modeling_factorvae import FactorVariationalAutoencoderModel
 from autoencoders.models.fsq.modeling_fsq import FiniteScalarQuantizedAutoencoderModel
 from autoencoders.models.hvae.modeling_hvae import HierarchicalVariationalAutoencoderModel
 from autoencoders.models.infovae.modeling_infovae import InformationVariationalAutoencoderModel
@@ -113,6 +114,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_vampprior_variational_autoencoder(self) -> None:
         model = load_model("vamppriorvae", input_dim=16, latent_dim=4, hidden_dims=[8], num_pseudo_inputs=32)
         self.assertIsInstance(model, VampPriorVariationalAutoencoderModel)
+
+    def test_load_model_returns_factor_variational_autoencoder(self) -> None:
+        model = load_model("factorvae", input_dim=16, latent_dim=4, hidden_dims=[8], tc_weight=10.0)
+        self.assertIsInstance(model, FactorVariationalAutoencoderModel)
 
     def test_load_model_returns_wasserstein_autoencoder(self) -> None:
         model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)

@@ -87,6 +87,14 @@ class VampPriorVariationalAutoencoderOutput(VariationalAutoencoderOutput):
 
 
 @dataclass
+class FactorVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for FactorVAE models."""
+
+    total_correlation_loss: Any = None
+    discriminator_loss: Any = None
+
+
+@dataclass
 class InformationVariationalAutoencoderOutput(VariationalAutoencoderOutput):
     """Output for InfoVAE-style variational autoencoders."""
 

@@ -73,6 +73,21 @@ class AdversarialAutoencoderTrainingArguments(TrainingArguments):
             raise ValueError("discriminator_steps must be greater than 0.")
 
 
+@dataclass
+class FactorVariationalAutoencoderTrainingArguments(TrainingArguments):
+    """Training settings specific to FactorVAE models."""
+
+    discriminator_learning_rate: float | None = None
+    discriminator_steps: int = 1
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.discriminator_learning_rate is not None and self.discriminator_learning_rate <= 0:
+            raise ValueError("discriminator_learning_rate must be greater than 0 when provided.")
+        if self.discriminator_steps <= 0:
+            raise ValueError("discriminator_steps must be greater than 0.")
+
+
 class AETrainer:
     """Shared trainer for deterministic autoencoder-style models."""
 
@@ -275,6 +290,83 @@ class AETrainer:
 
 class VAETrainer(AETrainer):
     """Trainer for variational autoencoder families."""
+
+
+class FactorVAETrainer(VAETrainer):
+    """Trainer with alternating VAE and latent-discriminator updates for FactorVAE."""
+
+    def __init__(
+        self,
+        model,
+        args: FactorVariationalAutoencoderTrainingArguments,
+        optimizer: torch.optim.Optimizer | None = None,
+        display: TrainerDisplayConfig | TrainerDisplay | None = None,
+    ) -> None:
+        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
+        autoencoder_parameters = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
+        autoencoder_parameters.extend(self.model.mean_projection.parameters())
+        autoencoder_parameters.extend(self.model.logvar_projection.parameters())
+        self.optimizer = optimizer or torch.optim.Adam(autoencoder_parameters, lr=args.learning_rate)
+        discriminator_learning_rate = args.discriminator_learning_rate or args.learning_rate
+        self.discriminator_optimizer = torch.optim.Adam(
+            self.model.discriminator.parameters(),
+            lr=discriminator_learning_rate,
+        )
+
+    @property
+    def factor_args(self) -> FactorVariationalAutoencoderTrainingArguments:
+        return self.args
+
+    def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        total_examples = 0
+        total_batches = len(dataloader)
+
+        for batch_index, batch in enumerate(dataloader, start=1):
+            batch = batch.to(self.device)
+            batch_global_step = self.global_step + 1 if training else None
+
+            if training:
+                self.optimizer.zero_grad()
+                outputs = self.model(inputs=batch, global_step=batch_global_step, current_epoch=self.current_epoch)
+                outputs.loss.backward()
+                self.optimizer.step()
+
+                for _ in range(self.factor_args.discriminator_steps):
+                    self.discriminator_optimizer.zero_grad()
+                    with torch.no_grad():
+                        posterior_mean, posterior_logvar = self.model.encode(batch)
+                        latents = self.model.sample_latents(
+                            posterior_mean=posterior_mean,
+                            posterior_logvar=posterior_logvar,
+                            sample_posterior=True,
+                        )
+                        permuted_latents = self.model.permute_dims(latents)
+                    discriminator_loss = self.model.compute_discriminator_loss(latents, permuted_latents)
+                    discriminator_loss.backward()
+                    self.discriminator_optimizer.step()
+
+                self.global_step += 1
+
+            with torch.no_grad():
+                outputs = self.model(inputs=batch, global_step=batch_global_step, current_epoch=self.current_epoch)
+
+            batch_size = batch.shape[0]
+            total_examples += batch_size
+            batch_metrics = self.extract_batch_metrics(outputs, loss=outputs.loss)
+            for name, value in batch_metrics.items():
+                totals[name] = totals.get(name, 0.0) + value * batch_size
+            if training:
+                running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
+                self.display.log_batch_progress(
+                    epoch_label=self.format_epoch_label(),
+                    phase=self.current_phase(),
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    metrics=running_metrics,
+                )
+
+        return {name: total / max(total_examples, 1) for name, total in totals.items()}
 
 
 class VQTrainer(AETrainer):

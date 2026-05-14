@@ -10,6 +10,7 @@ from .modeling_outputs import (
     ContractiveAutoencoderOutput,
     DenoisingAutoencoderOutput,
     DenoisingVariationalAutoencoderOutput,
+    FactorVariationalAutoencoderOutput,
     FiniteScalarQuantizedAutoencoderOutput,
     HierarchicalVariationalAutoencoderOutput,
     InformationVariationalAutoencoderOutput,
@@ -29,6 +30,7 @@ from .models.base.configuration_vq import BaseVectorQuantizedAutoencoderConfig
 from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConfig
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
 from .models.dvae.configuration_dvae import DenoisingVariationalAutoencoderConfig
+from .models.factorvae.configuration_factorvae import FactorVariationalAutoencoderConfig
 from .models.fsq.configuration_fsq import FiniteScalarQuantizedAutoencoderConfig
 from .models.hvae.configuration_hvae import HierarchicalVariationalAutoencoderConfig
 from .models.infovae.configuration_infovae import InformationVariationalAutoencoderConfig
@@ -59,6 +61,8 @@ __all__ = [
     "DenoisingAutoencoderOutput",
     "DenoisingVariationalAutoencoderConfig",
     "DenoisingVariationalAutoencoderOutput",
+    "FactorVariationalAutoencoderConfig",
+    "FactorVariationalAutoencoderOutput",
     "FiniteScalarQuantizedAutoencoderConfig",
     "FiniteScalarQuantizedAutoencoderOutput",
     "HierarchicalVariationalAutoencoderConfig",
@@ -116,6 +120,7 @@ try:
     from .models.cae.modeling_cae import ContractiveAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
     from .models.dvae.modeling_dvae import DenoisingVariationalAutoencoderModel
+    from .models.factorvae.modeling_factorvae import FactorVariationalAutoencoderModel
     from .models.fsq.modeling_fsq import FiniteScalarQuantizedAutoencoderModel
     from .models.hvae.modeling_hvae import HierarchicalVariationalAutoencoderModel
     from .models.infovae.modeling_infovae import InformationVariationalAutoencoderModel
@@ -133,6 +138,8 @@ try:
         AETrainer,
         AdversarialAutoencoderTrainer,
         AdversarialAutoencoderTrainingArguments,
+        FactorVAETrainer,
+        FactorVariationalAutoencoderTrainingArguments,
         TrainerDisplay,
         TrainerDisplayConfig,
         TrainingArguments,
@@ -169,6 +176,9 @@ else:
             "DenoisingVariationalAutoencoderModel",
             "EmbeddingMatrix",
             "EmbeddingTensorDataset",
+            "FactorVAETrainer",
+            "FactorVariationalAutoencoderModel",
+            "FactorVariationalAutoencoderTrainingArguments",
             "FastTextEnglishDataset",
             "FiniteScalarQuantizedAutoencoderModel",
             "Flickr30kDataset",
