@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/framework-PyTorch-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch" />
   <img src="https://img.shields.io/badge/model_families-16%2B-111827" alt="16+ model families" />
-  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch-0F766E" alt="Datasets" />
+  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch%20%7C%20snli%20%7C%20multinli-0F766E" alt="Datasets" />
   <img src="https://img.shields.io/badge/checkpoints-save__pretrained%20%2F%20from__pretrained-7C3AED" alt="Checkpoint API" />
 </p>
 
@@ -99,6 +99,18 @@ Install with PyTorch dependencies:
 pip install "autoencoders[torch]"
 ```
 
+Install with encoder-backed text dataset support:
+
+```bash
+pip install "autoencoders[text]"
+```
+
+Install everything commonly needed for experiments:
+
+```bash
+pip install "autoencoders[all]"
+```
+
 If you are working from source and plan to build or publish packages:
 
 ```bash
@@ -183,6 +195,8 @@ The library currently ships with embedding-first datasets:
 - `glove`
 - `fasttext`
 - `numberbatch`
+- `snli`
+- `multinli`
 
 Load a dataset directly:
 
@@ -190,6 +204,17 @@ Load a dataset directly:
 from autoencoders import load_dataset
 
 dataset = load_dataset("glove", dim=50, max_vectors=50000)
+loaders = dataset.get_dataloaders(batch_size=256)
+```
+
+Encoder-backed sentence datasets materialize embeddings during `prepare()` and cache the result just like static embedding tables:
+
+```python
+dataset = load_dataset(
+    "snli",
+    encoder_name="sentence-transformers/all-MiniLM-L6-v2",
+    max_vectors=50000,
+)
 loaders = dataset.get_dataloaders(batch_size=256)
 ```
 
@@ -290,7 +315,7 @@ Each wrapper includes model-specific defaults and still accepts extra CLI overri
 
 - `🗃️ Checkpoints`: `save_pretrained()` and `from_pretrained()`
 - `📤 Exports`: standardized latent artifact export across model families
-- `📚 Real datasets`: GloVe, fastText, and ConceptNet Numberbatch
+- `📚 Real datasets`: static embedding tables plus encoder-backed sentence corpora
 - `🎛️ Family-specific trainers`: deterministic, variational, quantized, and adversarial flows
 - `🧪 Packaging`: buildable `sdist` and wheel, ready for PyPI publication
 

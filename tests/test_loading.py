@@ -6,7 +6,13 @@ import unittest
 
 from autoencoders import load_dataset, load_model
 from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
-from autoencoders.data import ConceptNetNumberbatchDataset, FastTextEnglishDataset, GloVeDataset
+from autoencoders.data import (
+    ConceptNetNumberbatchDataset,
+    FastTextEnglishDataset,
+    GloVeDataset,
+    MultiNLIDataset,
+    SNLIDataset,
+)
 from autoencoders.models.ae.modeling_ae import AutoencoderModel
 from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
 from autoencoders.models.cae.modeling_cae import ContractiveAutoencoderModel
@@ -37,6 +43,14 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_dataset_returns_numberbatch(self) -> None:
         dataset = load_dataset("numberbatch", dim=300, max_vectors=32)
         self.assertIsInstance(dataset, ConceptNetNumberbatchDataset)
+
+    def test_load_dataset_returns_snli(self) -> None:
+        dataset = load_dataset("snli", max_vectors=32)
+        self.assertIsInstance(dataset, SNLIDataset)
+
+    def test_load_dataset_returns_multinli(self) -> None:
+        dataset = load_dataset("multinli", max_vectors=32)
+        self.assertIsInstance(dataset, MultiNLIDataset)
 
     def test_load_model_returns_autoencoder(self) -> None:
         model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8])

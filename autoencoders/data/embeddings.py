@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,6 +21,8 @@ class EmbeddingMatrix:
     token_to_index: dict[str, int]
     source_path: str | None = None
     name: str | None = None
+    texts: list[str] | None = None
+    metadata: dict[str, Any] | None = None
 
     @property
     def num_embeddings(self) -> int:
@@ -109,16 +112,23 @@ def save_embedding_artifact(embedding_matrix: EmbeddingMatrix, output_dir: str |
 
     tensor_path = save_dir / "embeddings.pt"
     tokens_path = save_dir / "tokens.txt"
+    texts_path = save_dir / "texts.txt"
     metadata_path = save_dir / "metadata.json"
 
     torch.save(embedding_matrix.matrix, tensor_path)
     tokens_path.write_text("\n".join(embedding_matrix.tokens) + "\n", encoding="utf-8")
+    if embedding_matrix.texts is not None:
+        if len(embedding_matrix.texts) != embedding_matrix.num_embeddings:
+            raise ValueError("embedding_matrix.texts must align with the number of embeddings.")
+        texts_path.write_text("\n".join(embedding_matrix.texts) + "\n", encoding="utf-8")
     metadata = {
         "name": embedding_matrix.name,
         "source_path": embedding_matrix.source_path,
         "num_embeddings": embedding_matrix.num_embeddings,
         "embedding_dim": embedding_matrix.embedding_dim,
     }
+    if embedding_matrix.metadata is not None:
+        metadata["artifact_metadata"] = embedding_matrix.metadata
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return save_dir
 
@@ -129,12 +139,14 @@ def load_embedding_artifact(path: str | Path) -> EmbeddingMatrix:
     load_dir = Path(path)
     tensor_path = load_dir / "embeddings.pt"
     tokens_path = load_dir / "tokens.txt"
+    texts_path = load_dir / "texts.txt"
     metadata_path = load_dir / "metadata.json"
 
     matrix = torch.load(tensor_path, map_location="cpu")
     tokens = tokens_path.read_text(encoding="utf-8").splitlines()
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     token_to_index = {token: index for index, token in enumerate(tokens)}
+    texts = texts_path.read_text(encoding="utf-8").splitlines() if texts_path.exists() else None
 
     return EmbeddingMatrix(
         tokens=tokens,
@@ -142,4 +154,6 @@ def load_embedding_artifact(path: str | Path) -> EmbeddingMatrix:
         token_to_index=token_to_index,
         source_path=metadata.get("source_path"),
         name=metadata.get("name"),
+        texts=texts,
+        metadata=metadata.get("artifact_metadata"),
     )

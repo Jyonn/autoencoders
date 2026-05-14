@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from autoencoders import TrainingArguments, load_dataset, set_seed
 
 
-DATASET_CHOICES = ["glove", "fasttext", "numberbatch"]
+DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli"]
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
@@ -22,6 +22,17 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
     parser.add_argument("--max-vectors", type=int, default=None, help="Optional dataset cap for faster experiments.")
+    parser.add_argument(
+        "--encoder",
+        default=None,
+        help="Optional encoder name for encoder-backed datasets such as SNLI and MultiNLI.",
+    )
+    parser.add_argument(
+        "--encoder-batch-size",
+        type=int,
+        default=128,
+        help="Batch size for encoder-backed dataset materialization.",
+    )
     parser.add_argument("--validation-ratio", type=float, default=0.1, help="Validation split ratio.")
     parser.add_argument("--test-ratio", type=float, default=0.1, help="Test split ratio.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for dataset splitting and training.")
@@ -55,11 +66,14 @@ def build_dataset(args: argparse.Namespace):
     dim = args.dim
     if args.dataset in {"fasttext", "numberbatch"} and dim == 50:
         dim = 300
-    return load_dataset(
-        args.dataset,
-        dim=dim,
-        max_vectors=args.max_vectors,
-    )
+    if args.dataset in {"snli", "multinli"}:
+        return load_dataset(
+            args.dataset,
+            encoder_name=args.encoder,
+            encoder_batch_size=args.encoder_batch_size,
+            max_vectors=args.max_vectors,
+        )
+    return load_dataset(args.dataset, dim=dim, max_vectors=args.max_vectors)
 
 
 def prepare_training(args: argparse.Namespace):

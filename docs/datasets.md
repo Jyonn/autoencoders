@@ -30,6 +30,9 @@ The repository now includes a reusable dataset layer:
 
 - [autoencoders/data/base.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/base.py): base dataset contracts, cache layout, deterministic splitting, and dataloader helpers
 - [autoencoders/data/glove.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/glove.py): a concrete `GloVeDataset` with download, cache, prepare, split, and dataloader support
+- [autoencoders/data/text.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/text.py): shared infrastructure for encoder-backed text datasets
+- [autoencoders/data/snli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/snli.py): `SNLIDataset`, which materializes sentence embeddings from SNLI
+- [autoencoders/data/multinli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/multinli.py): `MultiNLIDataset`, which materializes sentence embeddings from MultiNLI
 
 The intended usage is:
 
@@ -37,6 +40,17 @@ The intended usage is:
 from autoencoders.data import load_dataset
 
 dataset = load_dataset("glove", dim=50, max_vectors=50000)
+loaders = dataset.get_dataloaders(batch_size=256)
+```
+
+For encoder-backed sentence datasets:
+
+```python
+dataset = load_dataset(
+    "snli",
+    encoder_name="sentence-transformers/all-MiniLM-L6-v2",
+    max_vectors=50000,
+)
 loaders = dataset.get_dataloaders(batch_size=256)
 ```
 
@@ -64,6 +78,13 @@ The first call will automatically:
 - extract `glove.6B.50d.txt`
 - convert it into a torch-friendly artifact with `embeddings.pt`, `tokens.txt`, and `metadata.json`
 - cache everything under the global autoencoders cache
+
+For encoder-backed datasets such as `snli` and `multinli`, the first call will instead:
+
+- download the raw sentence corpus
+- encode the texts with a configured sentence encoder such as `sentence-transformers/all-MiniLM-L6-v2`
+- save a cached embedding artifact with `embeddings.pt`, `tokens.txt`, `texts.txt`, and `metadata.json`
+- reuse that artifact for future training runs
 
 ## Train The Basic AE
 
@@ -112,7 +133,7 @@ Besides GloVe, the next most reasonable datasets for this library are:
 - `GloVe 840B 300d`: still classic and real, but much larger and better treated as a later-stage benchmark
 - `word2vec Google News 300d`: historically important, but distributed in a less convenient binary format
 - `ConceptNet Numberbatch`: useful if we want semantically enriched word embeddings rather than purely distributional ones
-- derived encoder features such as CLIP text or image embeddings: especially good once we start validating multimodal autoencoders
+- sentence-encoder materializations such as `snli` and `multinli`: useful once we want to validate latent models beyond static word vectors
 
 ## How To Choose
 

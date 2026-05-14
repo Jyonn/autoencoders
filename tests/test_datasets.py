@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 import zipfile
 import gzip
+import json
 from pathlib import Path
 
 import torch
@@ -16,6 +17,8 @@ from autoencoders.data import (
     ConceptNetNumberbatchDataset,
     FastTextEnglishDataset,
     GloVeDataset,
+    MultiNLIDataset,
+    SNLIDataset,
     create_dataloaders,
     default_cache_dir,
     load_dataset,
@@ -43,6 +46,17 @@ class FakeResponse:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self._buffer.close()
+
+
+class FakeTextEncoder:
+    def __init__(self, model_name: str = "fake-encoder") -> None:
+        self.model_name = model_name
+
+    def encode_texts(self, texts: list[str]) -> torch.Tensor:
+        rows = []
+        for index, text in enumerate(texts):
+            rows.append([float(len(text)), float(index), float(len(text.split())), 1.0])
+        return torch.tensor(rows, dtype=torch.float32)
 
 
 class DatasetUtilitiesTest(unittest.TestCase):
@@ -187,6 +201,94 @@ class DatasetUtilitiesTest(unittest.TestCase):
         numberbatch = load_dataset("numberbatch", dim=300, max_vectors=10)
         self.assertIsInstance(fasttext, FastTextEnglishDataset)
         self.assertIsInstance(numberbatch, ConceptNetNumberbatchDataset)
+
+    def test_snli_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = SNLIDataset(max_vectors=3)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+
+                with zipfile.ZipFile(dataset.archive_path, "w") as archive:
+                    archive.writestr(
+                        "snli_1.0/snli_1.0_train.jsonl",
+                        "\n".join(
+                            [
+                                json.dumps({"sentence1": "A cat sits.", "sentence2": "An animal rests."}),
+                                json.dumps({"sentence1": "A cat sits.", "sentence2": "A dog runs."}),
+                            ]
+                        )
+                        + "\n",
+                    )
+                    archive.writestr(
+                        "snli_1.0/snli_1.0_dev.jsonl",
+                        json.dumps({"sentence1": "Birds fly.", "sentence2": "Creatures move."}) + "\n",
+                    )
+                    archive.writestr(
+                        "snli_1.0/snli_1.0_test.jsonl",
+                        json.dumps({"sentence1": "Snow falls.", "sentence2": "Weather changes."}) + "\n",
+                    )
+
+                with mock.patch.object(dataset, "build_encoder", return_value=FakeTextEncoder("fake-snli")):
+                    artifact_dir = dataset.ensure_prepared(download=False)
+                    self.assertTrue(artifact_dir.exists())
+                    embedding_matrix = dataset.load_embedding_matrix(download=False)
+
+                self.assertEqual(embedding_matrix.num_embeddings, 3)
+                self.assertEqual(embedding_matrix.embedding_dim, 4)
+                self.assertEqual(embedding_matrix.metadata["encoder_name"], "fake-snli")
+                self.assertEqual(embedding_matrix.texts, ["A cat sits.", "An animal rests.", "A dog runs."])
+
+    def test_multinli_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = MultiNLIDataset(max_vectors=4)
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+
+                with zipfile.ZipFile(dataset.archive_path, "w") as archive:
+                    archive.writestr(
+                        "multinli_1.0/multinli_1.0_train.jsonl",
+                        "\n".join(
+                            [
+                                json.dumps({"sentence1": "People are talking.", "sentence2": "Humans converse."}),
+                                json.dumps({"sentence1": "People are talking.", "sentence2": "Silence fills the room."}),
+                            ]
+                        )
+                        + "\n",
+                    )
+                    archive.writestr(
+                        "multinli_1.0/multinli_1.0_dev_matched.jsonl",
+                        json.dumps({"sentence1": "Lights are bright.", "sentence2": "The room glows."}) + "\n",
+                    )
+                    archive.writestr(
+                        "multinli_1.0/multinli_1.0_dev_mismatched.jsonl",
+                        json.dumps({"sentence1": "Cars move fast.", "sentence2": "Vehicles accelerate."}) + "\n",
+                    )
+
+                with mock.patch.object(dataset, "build_encoder", return_value=FakeTextEncoder("fake-multinli")):
+                    artifact_dir = dataset.ensure_prepared(download=False)
+                    self.assertTrue(artifact_dir.exists())
+                    embedding_matrix = dataset.load_embedding_matrix(download=False)
+
+                self.assertEqual(embedding_matrix.num_embeddings, 4)
+                self.assertEqual(embedding_matrix.embedding_dim, 4)
+                self.assertEqual(embedding_matrix.metadata["encoder_name"], "fake-multinli")
+                self.assertEqual(
+                    embedding_matrix.texts,
+                    [
+                        "People are talking.",
+                        "Humans converse.",
+                        "Silence fills the room.",
+                        "Lights are bright.",
+                    ],
+                )
+
+    def test_load_dataset_returns_encoder_backed_sentence_datasets(self) -> None:
+        snli = load_dataset("snli", max_vectors=10)
+        multinli = load_dataset("multinli", max_vectors=10)
+        self.assertIsInstance(snli, SNLIDataset)
+        self.assertIsInstance(multinli, MultiNLIDataset)
 
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))
