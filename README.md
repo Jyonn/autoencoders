@@ -1,121 +1,258 @@
 # autoencoders
 
-`autoencoders` is a unified library for building, training, and serving autoencoder-family models across continuous, variational, quantized, and masked latent spaces.
+`autoencoders` is a PyTorch-first library for autoencoder-family models across deterministic, variational, and quantized latent spaces.
 
-The goal is simple: make autoencoders feel as composable and reusable as `transformers`.
+The project goal is simple: make autoencoders feel composable, serializable, and reusable in the same way `transformers` did for sequence models.
 
-## Mission
+## What It Covers
 
-Build the standard interface layer for latent models.
+Current model families include:
 
-## Positioning
+- Deterministic models: `AE`, `DAE`, `CAE`, `SAE`, `TopKSAE`, `KLSAE`, `WAE`, `AAE`
+- Variational models: `VAE`, `DVAE`, `BetaVAE`, `HVAE`
+- Quantized models: `VQVAE`, `FSQ`, `PQVAE`, `RQVAE`
 
-`autoencoders` is not just a collection of reconstruction models. It is a foundation for latent representation learning.
+Core interfaces include:
 
-We aim to provide:
+- `Config + Model + Output + Export`
+- `save_pretrained()` / `from_pretrained()`
+- `encode()` / `decode()` / `reconstruct()` / `export()`
+- family-specific trainers for deterministic, variational, and quantized models
 
-- A unified interface for `AE`, `VAE`, `VQ-VAE`, `AutoencoderKL`, `MAE`, and future multimodal autoencoder variants
-- A consistent `Config + Model + Output + Processor + Pipeline` developer experience
-- A shared abstraction over continuous, probabilistic, discrete, and masked latent spaces
-- Pretrained model loading and reusable checkpoints through `from_pretrained()` and `save_pretrained()`
+## Installation
 
-## Design Principles
+Install the package:
 
-### 1. One interface, many latent spaces
-
-Different autoencoder families should feel native inside one library, even when their latent variables behave differently.
-
-### 2. Latent-first, modality-aware
-
-The core library should model latents and feature spaces cleanly, while modality-specific frontends handle raw inputs such as images, text, audio, video, and multimodal dictionaries.
-
-### 3. Research-friendly, production-usable
-
-Models should be easy to prototype, train, serialize, share, and serve without turning the library into a paper zoo.
-
-## What We Are Not
-
-- Not only a VAE benchmark repo
-- Not only a diffusion-side image VAE toolkit
-- Not only a learned compression library
-
-## Model Families We Want To Support
-
-- Vanilla and regularized autoencoders
-- Variational autoencoders
-- Vector-quantized autoencoders
-- Masked autoencoders
-- Latent autoencoders used by diffusion systems
-- Multimodal latent autoencoders
-
-## Library Shape
-
-The long-term shape of the project should feel familiar:
-
-```python
-from autoencoders import AutoencoderModel
-
-model = AutoencoderModel.from_pretrained("org/model-name")
-outputs = model(inputs)
-
-latents = outputs.latents
-reconstruction = outputs.reconstruction
+```bash
+pip install autoencoders
 ```
 
-With task-friendly layers on top:
+Install with PyTorch dependencies:
 
-- `Processor` for raw modality inputs
-- `Pipeline` for reconstruction, encoding, sampling, and compression-like workflows
-- Structured outputs for reconstruction, posterior parameters, codebook indices, masks, and losses
+```bash
+pip install "autoencoders[torch]"
+```
 
-## First Milestone
+If you are working from source and plan to build or publish packages:
 
-The first usable version should likely focus on:
+```bash
+pip install "autoencoders[dev]"
+```
 
-- `AutoencoderModel`
-- `VariationalAutoencoderModel`
-- `VectorQuantizedAutoencoderModel`
-- `AutoencoderKLModel`
-- `MaskedAutoencoderModel`
+## Quick Start
 
-Along with:
+Create a basic autoencoder:
 
-- `BaseAutoencoderConfig`
+```python
+from autoencoders import AutoencoderConfig, AutoencoderModel
+
+config = AutoencoderConfig(
+    input_dim=50,
+    latent_dim=16,
+    hidden_dims=[128, 64],
+)
+
+model = AutoencoderModel(config)
+```
+
+Run a forward pass:
+
+```python
+import torch
+
+inputs = torch.randn(32, 50)
+outputs = model(inputs)
+
+print(outputs.loss)
+print(outputs.latents.shape)
+print(outputs.reconstruction.shape)
+```
+
+Save and load checkpoints:
+
+```python
+model.save_pretrained("artifacts/ae")
+restored = AutoencoderModel.from_pretrained("artifacts/ae")
+```
+
+Export model artifacts for downstream use:
+
+```python
+artifact = model.export(inputs)
+
+print(artifact.latents.shape)
+print(artifact.reconstruction.shape)
+```
+
+## Model Loading
+
+Load a model dynamically by name:
+
+```python
+from autoencoders import load_model
+
+model = load_model(
+    "vae",
+    input_dim=50,
+    latent_dim=16,
+    hidden_dims=[128, 64],
+    kl_weight=0.1,
+    free_bits=0.02,
+    kl_warmup_epochs=20,
+)
+```
+
+## Datasets
+
+The library currently ships with embedding-first datasets:
+
+- `glove`
+- `fasttext`
+- `numberbatch`
+
+Load a dataset directly:
+
+```python
+from autoencoders import load_dataset
+
+dataset = load_dataset("glove", dim=50, max_vectors=50000)
+loaders = dataset.get_dataloaders(batch_size=256)
+```
+
+Downloaded datasets use a global cache:
+
+- default: `~/.cache/autoencoders`
+- override with: `AUTOENCODERS_CACHE=/your/cache/path`
+
+## Training API
+
+Deterministic training:
+
+```python
+from autoencoders import AETrainer, TrainingArguments
+
+trainer = AETrainer(
+    model=model,
+    args=TrainingArguments(
+        output_dir="artifacts/ae-run",
+        epochs=5,
+        batch_size=256,
+    ),
+)
+
+trainer.fit(loaders, metadata={"dataset": "glove", "model": "ae"})
+```
+
+Variational training:
+
+```python
+from autoencoders import VAETrainer
+
+trainer = VAETrainer(
+    model=load_model(
+        "vae",
+        input_dim=50,
+        latent_dim=16,
+        hidden_dims=[128, 64],
+        kl_weight=0.1,
+        free_bits=0.02,
+        kl_warmup_epochs=20,
+    ),
+    args=TrainingArguments(output_dir="artifacts/vae-run", epochs=10),
+)
+```
+
+Quantized training:
+
+```python
+from autoencoders import VQTrainer
+
+trainer = VQTrainer(
+    model=load_model(
+        "rqvae",
+        input_dim=50,
+        latent_dim=16,
+        hidden_dims=[128, 64],
+        codebook_size=256,
+        num_quantizers=4,
+        use_ema_codebook=True,
+        dead_code_reset=True,
+    ),
+    args=TrainingArguments(output_dir="artifacts/rqvae-run", epochs=10),
+)
+```
+
+## Training Scripts
+
+From a source checkout, there are family-specific entrypoints:
+
+- `examples/train_ae.py`
+- `examples/train_vae.py`
+- `examples/train_vq.py`
+
+There are also convenience shell wrappers for common dataset/model combinations:
+
+- `scripts/train_glove_*.sh`
+- `scripts/train_fasttext_ae.sh`
+- `scripts/train_numberbatch_ae.sh`
+
+Examples:
+
+```bash
+bash scripts/train_glove_ae.sh
+bash scripts/train_glove_vae.sh
+bash scripts/train_glove_rqvae.sh
+bash scripts/train_fasttext_ae.sh
+```
+
+Each wrapper includes model-specific defaults and still accepts extra CLI overrides.
+
+## Design Direction
+
+The library is organized around latent model families rather than a single monolithic interface:
+
 - `BaseAutoencoderModel`
-- `PreTrainedAutoencoderModel`
-- `AutoencoderOutput`
-- `AutoencoderProcessor`
-- `AutoencoderPipeline`
+- `BaseVariationalAutoencoderModel`
+- `BaseVectorQuantizedAutoencoderModel`
 
-## Why Now
+Matching outputs are also family-specific:
 
-The current ecosystem is fragmented:
+- `BaseAutoencoderOutput`
+- `VariationalAutoencoderOutput`
+- `QuantizedAutoencoderOutput`
 
-- Research-oriented VAE libraries exist
-- Diffusion libraries include some latent autoencoders
-- Compression libraries focus on codecs
-- MAE-style models live elsewhere
+This keeps the shared API stable without flattening away meaningful model differences such as posterior statistics or codebook indices.
 
-But there is still no widely adopted standard library for the full autoencoder family.
+## Current Scope
 
-## Status
+`autoencoders` is intentionally embedding-first right now. The current core is aimed at:
 
-This repository is at the very beginning. The immediate next step is to turn this positioning into a minimal but stable core architecture.
+- representation learning on embedding matrices
+- latent compression
+- variational latent modeling
+- quantized latent tokenization
 
-## Real Data
+Future raw-modality frontends and multimodal adapters can be layered on top of this core.
 
-The first recommended real embedding matrix for training and testing is **Stanford GloVe `glove.6B.50d`**.
+## Repository Status
 
-Downloadable datasets use a global cache by default at `~/.cache/autoencoders`, and you can override it with `AUTOENCODERS_CACHE`.
+This project is still early, but the current package already supports:
 
-- Dataset notes: [docs/datasets.md](/Users/jyonn/Projects/Libraries/autoencoders/docs/datasets.md)
-- Deterministic training example: [examples/train_ae.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_ae.py)
-- Variational training example: [examples/train_vae.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_vae.py)
-- Quantized training example: [examples/train_vq.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_vq.py)
+- trainable deterministic, variational, and quantized autoencoder families
+- reusable checkpoints
+- exportable latent artifacts
+- real embedding datasets with download and cache support
 
-The training flow is now also exposed as library primitives:
+## Development
 
-- `TrainingArguments`
-- `AETrainer`
-- `VAETrainer`
-- `VQTrainer`
+Build the package locally:
+
+```bash
+python -m build
+```
+
+Check the generated distribution:
+
+```bash
+twine check dist/*
+```
