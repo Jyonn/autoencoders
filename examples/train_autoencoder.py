@@ -80,7 +80,7 @@ def parse_args() -> argparse.Namespace:
         "--dead-code-reset",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Whether QuantizedAutoencoderTrainer should reset dead VQ codes after training epochs.",
+        help="Whether VQ-family models should reset dead codes at the end of each training epoch.",
     )
     parser.add_argument("--dead-code-threshold", type=int, default=0, help="Reset VQ codes whose epoch usage count is at or below this threshold.")
 
@@ -240,6 +240,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "use_ema_codebook": args.use_ema_codebook,
                 "ema_decay": args.ema_decay,
                 "ema_epsilon": args.ema_epsilon,
+                "dead_code_reset": args.dead_code_reset,
+                "dead_code_threshold": args.dead_code_threshold,
             }
         )
     if args.model == "fsq":
@@ -259,6 +261,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "use_ema_codebook": args.use_ema_codebook,
                 "ema_decay": args.ema_decay,
                 "ema_epsilon": args.ema_epsilon,
+                "dead_code_reset": args.dead_code_reset,
+                "dead_code_threshold": args.dead_code_threshold,
             }
         )
     if args.model == "rqvae":
@@ -271,6 +275,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
                 "use_ema_codebook": args.use_ema_codebook,
                 "ema_decay": args.ema_decay,
                 "ema_epsilon": args.ema_epsilon,
+                "dead_code_reset": args.dead_code_reset,
+                "dead_code_threshold": args.dead_code_threshold,
             }
         )
 
@@ -304,11 +310,7 @@ def build_trainer(args: argparse.Namespace, model):
         )
         return AdversarialAutoencoderTrainer(model=model, args=training_args)
     if args.model == "vqvae" or args.model == "fsq" or args.model == "pqvae" or args.model == "rqvae":
-        training_args = QuantizedAutoencoderTrainingArguments(
-            dead_code_reset=args.dead_code_reset,
-            dead_code_threshold=args.dead_code_threshold,
-            **common_kwargs,
-        )
+        training_args = QuantizedAutoencoderTrainingArguments(**common_kwargs)
         return QuantizedAutoencoderTrainer(model=model, args=training_args)
 
     training_args = TrainingArguments(**common_kwargs)

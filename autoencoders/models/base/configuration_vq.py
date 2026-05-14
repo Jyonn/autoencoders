@@ -25,6 +25,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         use_ema_codebook: bool = False,
         ema_decay: float = 0.99,
         ema_epsilon: float = 1e-5,
+        dead_code_reset: bool = False,
+        dead_code_threshold: int = 0,
         **kwargs,
     ) -> None:
         if codebook_size <= 0:
@@ -37,6 +39,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("ema_decay must be in the range [0, 1).")
         if ema_epsilon <= 0:
             raise ValueError("ema_epsilon must be positive.")
+        if dead_code_threshold < 0:
+            raise ValueError("dead_code_threshold must be non-negative.")
 
         super().__init__(
             input_dim=input_dim,
@@ -52,5 +56,7 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             use_ema_codebook=use_ema_codebook,
             ema_decay=ema_decay,
             ema_epsilon=ema_epsilon,
+            dead_code_reset=dead_code_reset,
+            dead_code_threshold=dead_code_threshold,
             **kwargs,
         )

@@ -17,6 +17,12 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
 
     config_class = BaseVectorQuantizedAutoencoderConfig
 
+    def __init__(self, config: BaseVectorQuantizedAutoencoderConfig) -> None:
+        super().__init__(config)
+        self.register_buffer("_code_usage_counts", torch.zeros(0, dtype=torch.long), persistent=False)
+        self._reference_latent_batches: list[torch.Tensor] = []
+        self._last_dead_code_reset_count = 0
+
     @abstractmethod
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Map encoded latents to quantized latents and discrete indices."""
@@ -49,16 +55,83 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         return {
             "codebook_size": self.config.codebook_size,
             "use_ema_codebook": self.config.use_ema_codebook,
+            "dead_code_reset": self.config.dead_code_reset,
+            "dead_code_threshold": self.config.dead_code_threshold,
         }
+
+    def consume_dead_code_reset_count(self) -> int:
+        dead_code_reset_count = self._last_dead_code_reset_count
+        self._last_dead_code_reset_count = 0
+        return dead_code_reset_count
+
+    def _prepare_code_usage_counts(self, codebook_indices: torch.Tensor) -> None:
+        if codebook_indices.ndim == 1:
+            expected_shape = (self.config.codebook_size,)
+        elif codebook_indices.ndim == 2:
+            expected_shape = (codebook_indices.shape[1], self.config.codebook_size)
+        else:
+            raise ValueError("Quantized models expect codebook_indices with rank 1 or 2.")
+
+        if tuple(self._code_usage_counts.shape) != expected_shape or self._code_usage_counts.device != codebook_indices.device:
+            self._code_usage_counts = torch.zeros(expected_shape, dtype=torch.long, device=codebook_indices.device)
+
+    def _accumulate_code_usage(self, codebook_indices: torch.Tensor) -> None:
+        self._prepare_code_usage_counts(codebook_indices)
+        if codebook_indices.ndim == 1:
+            self._code_usage_counts += torch.bincount(
+                codebook_indices.reshape(-1),
+                minlength=self.config.codebook_size,
+            )
+            return
+
+        for codebook_index in range(codebook_indices.shape[1]):
+            self._code_usage_counts[codebook_index] += torch.bincount(
+                codebook_indices[:, codebook_index].reshape(-1),
+                minlength=self.config.codebook_size,
+            )
+
+    def _maybe_reset_dead_codes(
+        self,
+        *,
+        encoded: torch.Tensor,
+        codebook_indices: torch.Tensor,
+        is_last_train_step: bool | None,
+    ) -> None:
+        self._last_dead_code_reset_count = 0
+        if not self.training or not self.config.dead_code_reset:
+            return
+        if is_last_train_step is None:
+            raise ValueError("is_last_train_step must be provided when dead_code_reset is enabled during training.")
+
+        self._accumulate_code_usage(codebook_indices.detach())
+        self._reference_latent_batches.append(encoded.detach())
+        if not is_last_train_step:
+            return
+
+        dead_code_mask = self._code_usage_counts <= self.config.dead_code_threshold
+        reference_latents = (
+            torch.cat(self._reference_latent_batches, dim=0)
+            if self._reference_latent_batches
+            else None
+        )
+        self._last_dead_code_reset_count = int(self.reset_dead_codes(dead_code_mask, reference_latents))
+        self._code_usage_counts.zero_()
+        self._reference_latent_batches.clear()
 
     def forward(
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
+        is_last_train_step: bool | None = None,
         **kwargs: object,
     ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         quantized_latents, codebook_indices = self.quantize(encoded)
+        self._maybe_reset_dead_codes(
+            encoded=encoded,
+            codebook_indices=codebook_indices,
+            is_last_train_step=is_last_train_step,
+        )
         latents = encoded + (quantized_latents - encoded).detach()
         reconstruction = self.decode(latents)
 

@@ -124,6 +124,37 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.equal(model.codebook.weight[~dead_code_mask], original_codebook[~dead_code_mask]))
         self.assertFalse(torch.equal(model.codebook.weight[dead_code_mask], original_codebook[dead_code_mask]))
 
+    def test_dead_code_reset_requires_last_step_signal_when_enabled(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=16,
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=32,
+            dead_code_reset=True,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        model.train()
+
+        with self.assertRaisesRegex(ValueError, "is_last_train_step"):
+            model(inputs=self.inputs)
+
+    def test_dead_code_reset_count_is_recorded_on_last_train_step(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=16,
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=32,
+            dead_code_reset=True,
+            dead_code_threshold=100,
+        )
+        model = VectorQuantizedAutoencoderModel(config)
+        model.train()
+
+        _ = model(inputs=self.inputs, is_last_train_step=True)
+
+        self.assertGreater(model.consume_dead_code_reset_count(), 0)
+        self.assertEqual(model.consume_dead_code_reset_count(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

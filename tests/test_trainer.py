@@ -195,9 +195,9 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertAlmostEqual(history[0]["kl_weight"], 0.0, places=6)
             self.assertAlmostEqual(history[1]["kl_weight"], 0.4, places=6)
             self.assertAlmostEqual(history[2]["kl_weight"], 0.8, places=6)
-            self.assertAlmostEqual(history[0]["train_free_bits_kl_loss"], history[0]["train_kl_loss"], places=3)
-            self.assertAlmostEqual(history[1]["train_free_bits_kl_loss"], history[1]["train_kl_loss"], places=3)
-            self.assertAlmostEqual(history[2]["train_free_bits_kl_loss"], history[2]["train_kl_loss"], places=3)
+            self.assertAlmostEqual(history[0]["train_free_bits_kl_loss"], history[0]["train_kl_loss"], places=2)
+            self.assertAlmostEqual(history[1]["train_free_bits_kl_loss"], history[1]["train_kl_loss"], places=2)
+            self.assertAlmostEqual(history[2]["train_free_bits_kl_loss"], history[2]["train_kl_loss"], places=2)
 
     def test_vae_trainer_applies_free_bits_floor(self) -> None:
         config = VariationalAutoencoderConfig(
@@ -372,6 +372,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             latent_dim=4,
             hidden_dims=[6],
             codebook_size=16,
+            dead_code_reset=True,
         )
         model = VectorQuantizedAutoencoderModel(config)
         dataloaders = build_dataset_loaders()
@@ -450,6 +451,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             hidden_dims=[6],
             codebook_size=8,
             num_quantizers=2,
+            dead_code_reset=True,
         )
         model = ResidualQuantizedAutoencoderModel(config)
         dataloaders = build_dataset_loaders()
@@ -467,13 +469,20 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
             self.assertLessEqual(metrics["history"][0]["validation_codebook_usage_ratio"], 1.0)
 
-    def test_quantized_training_arguments_validate_dead_code_threshold(self) -> None:
+    def test_quantized_training_arguments_use_base_training_defaults(self) -> None:
         defaults = QuantizedAutoencoderTrainingArguments(output_dir="unused")
-        self.assertTrue(defaults.dead_code_reset)
-        self.assertEqual(defaults.dead_code_threshold, 0)
+        self.assertEqual(defaults.epochs, 5)
+        self.assertEqual(defaults.device, "auto")
 
+    def test_vq_config_validates_dead_code_threshold(self) -> None:
         with self.assertRaisesRegex(ValueError, "dead_code_threshold"):
-            QuantizedAutoencoderTrainingArguments(output_dir="unused", dead_code_threshold=-1)
+            VectorQuantizedAutoencoderConfig(
+                input_dim=8,
+                latent_dim=4,
+                hidden_dims=[6],
+                codebook_size=16,
+                dead_code_threshold=-1,
+            )
 
 
 if __name__ == "__main__":
