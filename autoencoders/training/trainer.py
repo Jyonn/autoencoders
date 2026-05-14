@@ -122,16 +122,6 @@ class TrainingArguments:
 
 
 @dataclass
-class VAETrainingArguments(TrainingArguments):
-    """Compatibility alias for generic training arguments."""
-
-
-@dataclass
-class QuantizedAutoencoderTrainingArguments(TrainingArguments):
-    """Compatibility alias for generic training arguments."""
-
-
-@dataclass
 class AdversarialAutoencoderTrainingArguments(TrainingArguments):
     """Training settings specific to adversarial autoencoders."""
 
@@ -797,22 +787,13 @@ class AutoencoderTrainer:
         separator = _style(self.display.separator, fg="magenta", dim=True)
         return separator.join(segment for segment in segments if segment)
 
-
-class ContractiveAutoencoderTrainer(AutoencoderTrainer):
-    """Compatibility alias for the generic autoencoder trainer."""
-
-
-class VAETrainer(AutoencoderTrainer):
-    """Compatibility alias for the generic autoencoder trainer."""
-
-
 class QuantizedAutoencoderTrainer(AutoencoderTrainer):
     """Trainer with codebook-usage evaluation hooks for quantized autoencoders."""
 
     def __init__(
         self,
         model,
-        args: QuantizedAutoencoderTrainingArguments,
+        args: TrainingArguments,
         optimizer: torch.optim.Optimizer | None = None,
         display: TrainerDisplayConfig | None = None,
     ) -> None:

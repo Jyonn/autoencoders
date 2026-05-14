@@ -30,14 +30,12 @@ from autoencoders import (
     TopKSparseAutoencoderConfig,
     TopKSparseAutoencoderModel,
     QuantizedAutoencoderTrainer,
-    QuantizedAutoencoderTrainingArguments,
     ProductQuantizedAutoencoderConfig,
     ProductQuantizedAutoencoderModel,
     ResidualQuantizedAutoencoderConfig,
     ResidualQuantizedAutoencoderModel,
     TrainerDisplayConfig,
     TrainingArguments,
-    VAETrainingArguments,
     VariationalAutoencoderConfig,
     VariationalAutoencoderModel,
     VectorQuantizedAutoencoderConfig,
@@ -150,11 +148,6 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(len(metrics["history"]), 4)
             self.assertEqual(metrics["final_test_loss"], 3.5)
 
-    def test_vae_training_arguments_use_base_training_defaults(self) -> None:
-        defaults = VAETrainingArguments(output_dir="unused")
-        self.assertEqual(defaults.epochs, 5)
-        self.assertEqual(defaults.device, "auto")
-
     def test_trainer_display_config_validates_progress_width(self) -> None:
         display = TrainerDisplayConfig()
         self.assertEqual(display.progress_width, 18)
@@ -176,7 +169,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            args = VAETrainingArguments(
+            args = TrainingArguments(
                 output_dir=tmpdir,
                 epochs=3,
                 patience=None,
@@ -206,7 +199,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             free_bits=0.25,
         )
         model = VariationalAutoencoderModel(config)
-        args = VAETrainingArguments(
+        args = TrainingArguments(
             output_dir="unused",
             epochs=1,
             device="cpu",
@@ -286,7 +279,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             )
             dvae_metrics = AutoencoderTrainer(
                 model=dvae_model,
-                args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
             self.assertIn("train_kl_loss", dvae_metrics["history"][0])
 
@@ -302,7 +295,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             )
             hvae_metrics = AutoencoderTrainer(
                 model=hvae_model,
-                args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
             self.assertIn("train_hierarchical_kl_loss", hvae_metrics["history"][0])
 
@@ -317,7 +310,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            args = QuantizedAutoencoderTrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
+            args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
             trainer = QuantizedAutoencoderTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
@@ -376,7 +369,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            args = QuantizedAutoencoderTrainingArguments(
+            args = TrainingArguments(
                 output_dir=tmpdir,
                 epochs=2,
                 patience=None,
@@ -409,7 +402,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             codebook_size=4,
         )
         model = VectorQuantizedAutoencoderModel(config)
-        args = QuantizedAutoencoderTrainingArguments(output_dir="unused", device="cpu")
+        args = TrainingArguments(output_dir="unused", device="cpu")
         trainer = QuantizedAutoencoderTrainer(model=model, args=args)
 
         counts = torch.tensor([3, 1, 0, 0], dtype=torch.long)
@@ -430,7 +423,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             num_codebooks=2,
         )
         model = ProductQuantizedAutoencoderModel(config)
-        args = QuantizedAutoencoderTrainingArguments(output_dir="unused", device="cpu")
+        args = TrainingArguments(output_dir="unused", device="cpu")
         trainer = QuantizedAutoencoderTrainer(model=model, args=args)
 
         counts = torch.tensor([[3, 1, 0, 0], [0, 2, 2, 0]], dtype=torch.long)
@@ -455,7 +448,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            args = QuantizedAutoencoderTrainingArguments(
+            args = TrainingArguments(
                 output_dir=tmpdir,
                 epochs=1,
                 device="cpu",
@@ -466,11 +459,6 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertIn("train_active_codes", metrics["history"][0])
             self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
             self.assertLessEqual(metrics["history"][0]["validation_codebook_usage_ratio"], 1.0)
-
-    def test_quantized_training_arguments_use_base_training_defaults(self) -> None:
-        defaults = QuantizedAutoencoderTrainingArguments(output_dir="unused")
-        self.assertEqual(defaults.epochs, 5)
-        self.assertEqual(defaults.device, "auto")
 
     def test_vq_config_validates_dead_code_threshold(self) -> None:
         with self.assertRaisesRegex(ValueError, "dead_code_threshold"):
