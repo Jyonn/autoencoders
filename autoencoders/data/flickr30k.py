@@ -60,21 +60,14 @@ class Flickr30kDataset(CLIPBackedDataset):
 
     @staticmethod
     def _extract_captions(record: dict) -> list[str]:
-        for field_name in ("caption", "captions", "original_alt_text", "alt_text"):
-            value = record.get(field_name)
-            if value is None:
-                continue
-            if isinstance(value, str):
-                normalized = value.strip()
-                return [normalized] if normalized else []
-            if isinstance(value, list):
-                captions = [str(item).strip() for item in value if str(item).strip()]
-                if captions:
-                    return captions
-        raise KeyError(
-            "Flickr30k record did not contain a supported caption field. "
-            "Expected one of: 'caption', 'captions', 'original_alt_text', 'alt_text'."
-        )
+        value = record["original_alt_text"]
+        if isinstance(value, str):
+            normalized = value.strip()
+            return [normalized] if normalized else []
+        captions = [str(item).strip() for item in value if str(item).strip()]
+        if captions:
+            return captions
+        raise ValueError("AnyModal/flickr30k record contains an empty original_alt_text field.")
 
     def load_records(self) -> list[CLIPRecord]:
         records: list[CLIPRecord] = []
