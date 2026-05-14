@@ -1,8 +1,49 @@
+<div align="center">
+
 # autoencoders
+
+**A latent-model toolkit for deterministic, variational, and quantized autoencoders**
+
+<p>
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
+  <img src="https://img.shields.io/badge/framework-PyTorch-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch" />
+  <img src="https://img.shields.io/badge/model_families-16%2B-111827" alt="16+ model families" />
+  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch-0F766E" alt="Datasets" />
+  <img src="https://img.shields.io/badge/checkpoints-save__pretrained%20%2F%20from__pretrained-7C3AED" alt="Checkpoint API" />
+</p>
+
+<p>
+  <strong>Build, train, serialize, and export latent models with one consistent API.</strong>
+</p>
+
+</div>
 
 `autoencoders` is a PyTorch-first library for autoencoder-family models across deterministic, variational, and quantized latent spaces.
 
 The project goal is simple: make autoencoders feel composable, serializable, and reusable in the same way `transformers` did for sequence models.
+
+## Why autoencoders
+
+<table>
+  <tr>
+    <td valign="top" width="25%">
+      <strong>🧩 Unified API</strong><br />
+      One package shape across `AE`, `VAE`, `VQ-VAE`, `PQ-VAE`, `RQ-VAE`, `WAE`, `AAE`, and more.
+    </td>
+    <td valign="top" width="25%">
+      <strong>🧠 Latent-first design</strong><br />
+      Treat reconstruction, posterior statistics, quantized codes, and exported latents as first-class outputs.
+    </td>
+    <td valign="top" width="25%">
+      <strong>📦 Reusable checkpoints</strong><br />
+      Use `save_pretrained()` and `from_pretrained()` for stable, shareable model artifacts.
+    </td>
+    <td valign="top" width="25%">
+      <strong>🚀 Real training flow</strong><br />
+      Ship with trainers, datasets, shell wrappers, and packaging hooks for end-to-end experiments.
+    </td>
+  </tr>
+</table>
 
 ## What It Covers
 
@@ -18,6 +59,31 @@ Core interfaces include:
 - `save_pretrained()` / `from_pretrained()`
 - `encode()` / `decode()` / `reconstruct()` / `export()`
 - family-specific trainers for deterministic, variational, and quantized models
+
+## At a Glance
+
+<table>
+  <tr>
+    <th align="left">Family</th>
+    <th align="left">Examples</th>
+    <th align="left">Key outputs</th>
+  </tr>
+  <tr>
+    <td><strong>Deterministic</strong></td>
+    <td>`AE`, `DAE`, `CAE`, `SAE`, `TopKSAE`, `KLSAE`</td>
+    <td>`reconstruction`, `latents`, sparse and contractive penalties</td>
+  </tr>
+  <tr>
+    <td><strong>Variational</strong></td>
+    <td>`VAE`, `DVAE`, `BetaVAE`, `HVAE`</td>
+    <td>`posterior_mean`, `posterior_logvar`, `kl_loss`, `free_bits_kl_loss`</td>
+  </tr>
+  <tr>
+    <td><strong>Quantized</strong></td>
+    <td>`VQVAE`, `FSQ`, `PQVAE`, `RQVAE`</td>
+    <td>`quantized_latents`, `codebook_indices`, usage and perplexity metrics</td>
+  </tr>
+</table>
 
 ## Installation
 
@@ -84,6 +150,14 @@ print(artifact.latents.shape)
 print(artifact.reconstruction.shape)
 ```
 
+## Product Surface
+
+Use the package at three different layers:
+
+- `Model layer`: build or load latent models with typed configs
+- `Training layer`: train deterministic, variational, or quantized families with dedicated trainers
+- `Experiment layer`: run curated shell scripts with model-specific defaults on real datasets
+
 ## Model Loading
 
 Load a model dynamically by name:
@@ -123,6 +197,11 @@ Downloaded datasets use a global cache:
 
 - default: `~/.cache/autoencoders`
 - override with: `AUTOENCODERS_CACHE=/your/cache/path`
+
+This makes the package useful both as:
+
+- a standalone training library
+- a latent-model subsystem inside larger PyTorch projects
 
 ## Training API
 
@@ -207,6 +286,14 @@ bash scripts/train_fasttext_ae.sh
 
 Each wrapper includes model-specific defaults and still accepts extra CLI overrides.
 
+## Launch-Ready Features
+
+- `🗃️ Checkpoints`: `save_pretrained()` and `from_pretrained()`
+- `📤 Exports`: standardized latent artifact export across model families
+- `📚 Real datasets`: GloVe, fastText, and ConceptNet Numberbatch
+- `🎛️ Family-specific trainers`: deterministic, variational, quantized, and adversarial flows
+- `🧪 Packaging`: buildable `sdist` and wheel, ready for PyPI publication
+
 ## Design Direction
 
 The library is organized around latent model families rather than a single monolithic interface:
@@ -242,6 +329,7 @@ This project is still early, but the current package already supports:
 - reusable checkpoints
 - exportable latent artifacts
 - real embedding datasets with download and cache support
+- package metadata and distribution artifacts ready for publication workflows
 
 ## Development
 
