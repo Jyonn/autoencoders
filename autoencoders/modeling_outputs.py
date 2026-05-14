@@ -79,6 +79,13 @@ class HierarchicalVariationalAutoencoderOutput(VariationalAutoencoderOutput):
 
 
 @dataclass
+class InformationVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for InfoVAE-style variational autoencoders."""
+
+    mmd_loss: Any = None
+
+
+@dataclass
 class WassersteinAutoencoderOutput(BaseAutoencoderOutput):
     """Output for Wasserstein autoencoders."""
 

@@ -21,6 +21,7 @@ from autoencoders.models.dae.modeling_dae import DenoisingAutoencoderModel
 from autoencoders.models.dvae.modeling_dvae import DenoisingVariationalAutoencoderModel
 from autoencoders.models.fsq.modeling_fsq import FiniteScalarQuantizedAutoencoderModel
 from autoencoders.models.hvae.modeling_hvae import HierarchicalVariationalAutoencoderModel
+from autoencoders.models.infovae.modeling_infovae import InformationVariationalAutoencoderModel
 from autoencoders.models.klsae.modeling_klsae import KLSparseAutoencoderModel
 from autoencoders.models.pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
 from autoencoders.models.rqvae.modeling_rqvae import ResidualQuantizedAutoencoderModel
@@ -103,6 +104,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_hierarchical_variational_autoencoder(self) -> None:
         model = load_model("hvae", input_dim=16, latent_dim=4, hidden_dims=[8], top_latent_dim=2)
         self.assertIsInstance(model, HierarchicalVariationalAutoencoderModel)
+
+    def test_load_model_returns_information_variational_autoencoder(self) -> None:
+        model = load_model("infovae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)
+        self.assertIsInstance(model, InformationVariationalAutoencoderModel)
 
     def test_load_model_returns_wasserstein_autoencoder(self) -> None:
         model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)

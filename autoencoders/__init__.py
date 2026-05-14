@@ -12,6 +12,7 @@ from .modeling_outputs import (
     DenoisingVariationalAutoencoderOutput,
     FiniteScalarQuantizedAutoencoderOutput,
     HierarchicalVariationalAutoencoderOutput,
+    InformationVariationalAutoencoderOutput,
     KLSparseAutoencoderOutput,
     QuantizedAutoencoderOutput,
     SparseAutoencoderOutput,
@@ -29,6 +30,7 @@ from .models.dae.configuration_dae import DenoisingAutoencoderConfig
 from .models.dvae.configuration_dvae import DenoisingVariationalAutoencoderConfig
 from .models.fsq.configuration_fsq import FiniteScalarQuantizedAutoencoderConfig
 from .models.hvae.configuration_hvae import HierarchicalVariationalAutoencoderConfig
+from .models.infovae.configuration_infovae import InformationVariationalAutoencoderConfig
 from .models.klsae.configuration_klsae import KLSparseAutoencoderConfig
 from .models.pqvae.configuration_pqvae import ProductQuantizedAutoencoderConfig
 from .models.rqvae.configuration_rqvae import ResidualQuantizedAutoencoderConfig
@@ -59,6 +61,8 @@ __all__ = [
     "FiniteScalarQuantizedAutoencoderOutput",
     "HierarchicalVariationalAutoencoderConfig",
     "HierarchicalVariationalAutoencoderOutput",
+    "InformationVariationalAutoencoderConfig",
+    "InformationVariationalAutoencoderOutput",
     "KLSparseAutoencoderConfig",
     "KLSparseAutoencoderOutput",
     "PretrainedConfig",
@@ -110,6 +114,7 @@ try:
     from .models.dvae.modeling_dvae import DenoisingVariationalAutoencoderModel
     from .models.fsq.modeling_fsq import FiniteScalarQuantizedAutoencoderModel
     from .models.hvae.modeling_hvae import HierarchicalVariationalAutoencoderModel
+    from .models.infovae.modeling_infovae import InformationVariationalAutoencoderModel
     from .models.klsae.modeling_klsae import KLSparseAutoencoderModel
     from .models.loading import load_model
     from .models.pqvae.modeling_pqvae import ProductQuantizedAutoencoderModel
@@ -164,6 +169,7 @@ else:
             "Flickr30kDataset",
             "GloVeDataset",
             "HierarchicalVariationalAutoencoderModel",
+            "InformationVariationalAutoencoderModel",
             "KLSparseAutoencoderModel",
             "OpenCLIPEmbeddingEncoder",
             "PreTrainedAutoencoderModel",
