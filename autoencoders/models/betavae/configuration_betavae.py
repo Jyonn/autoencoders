@@ -20,6 +20,7 @@ class BetaVariationalAutoencoderConfig(VariationalAutoencoderConfig):
         use_bias: bool = True,
         reconstruction_loss: str = "mse",
         beta: float = 4.0,
+        free_bits: float = 0.02,
         use_mean_in_eval: bool = True,
         **kwargs,
     ) -> None:
@@ -39,6 +40,7 @@ class BetaVariationalAutoencoderConfig(VariationalAutoencoderConfig):
             use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             kl_weight=kl_weight,
+            free_bits=free_bits,
             use_mean_in_eval=use_mean_in_eval,
             beta=kl_weight,
             **kwargs,

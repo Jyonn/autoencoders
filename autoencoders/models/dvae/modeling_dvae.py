@@ -49,13 +49,15 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
             model_inputs = inputs
 
         posterior_mean, posterior_logvar = self.encode(model_inputs)
-        if sample_posterior is None:
-            sample_posterior = self.training or not self.config.use_mean_in_eval
-        latents = self.reparameterize(posterior_mean, posterior_logvar) if sample_posterior else posterior_mean
+        latents = self.sample_latents(
+            posterior_mean=posterior_mean,
+            posterior_logvar=posterior_logvar,
+            sample_posterior=sample_posterior,
+        )
         reconstruction = self.decode(latents)
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
-        loss = reconstruction_loss + self.config.kl_weight * kl_loss
+        loss = self.compute_total_loss(reconstruction_loss, kl_loss)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:

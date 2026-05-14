@@ -1,14 +1,14 @@
-"""Configuration for vector-quantized variational autoencoders."""
+"""Base configuration shared by vector-quantized autoencoder families."""
 
 from __future__ import annotations
 
-from ..base.configuration_vq import BaseVectorQuantizedAutoencoderConfig
+from ..ae.configuration_ae import AutoencoderConfig
 
 
-class VectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencoderConfig):
-    """Configuration for a vector-quantized autoencoder."""
+class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
+    """Base config for VQ-style autoencoders."""
 
-    model_type = "vector_quantized_autoencoder"
+    model_type = "base_vector_quantized_autoencoder"
 
     def __init__(
         self,
@@ -27,6 +27,17 @@ class VectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencoderConfig):
         ema_epsilon: float = 1e-5,
         **kwargs,
     ) -> None:
+        if codebook_size <= 0:
+            raise ValueError("codebook_size must be a positive integer.")
+        if commitment_weight < 0:
+            raise ValueError("commitment_weight must be non-negative.")
+        if codebook_weight < 0:
+            raise ValueError("codebook_weight must be non-negative.")
+        if not 0 <= ema_decay < 1:
+            raise ValueError("ema_decay must be in the range [0, 1).")
+        if ema_epsilon <= 0:
+            raise ValueError("ema_epsilon must be positive.")
+
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,

@@ -156,14 +156,11 @@ class AutoencoderTrainerTest(unittest.TestCase):
         defaults = VAETrainingArguments(output_dir="unused")
         self.assertEqual(defaults.kl_warmup_epochs, 20)
         self.assertEqual(defaults.kl_start_weight, 0.0)
-        self.assertEqual(defaults.free_bits, 0.02)
 
         with self.assertRaisesRegex(ValueError, "kl_warmup_epochs"):
             VAETrainingArguments(output_dir="unused", kl_warmup_epochs=-1)
         with self.assertRaisesRegex(ValueError, "kl_start_weight"):
             VAETrainingArguments(output_dir="unused", kl_start_weight=-0.1)
-        with self.assertRaisesRegex(ValueError, "free_bits"):
-            VAETrainingArguments(output_dir="unused", free_bits=-0.1)
 
     def test_trainer_display_config_validates_progress_width(self) -> None:
         display = TrainerDisplayConfig()
@@ -213,13 +210,13 @@ class AutoencoderTrainerTest(unittest.TestCase):
             latent_dim=4,
             hidden_dims=[6],
             kl_weight=0.5,
+            free_bits=0.25,
         )
         model = VariationalAutoencoderModel(config)
         args = VAETrainingArguments(
             output_dir="unused",
             epochs=1,
             device="cpu",
-            free_bits=0.25,
         )
         trainer = VAETrainer(model=model, args=args)
 

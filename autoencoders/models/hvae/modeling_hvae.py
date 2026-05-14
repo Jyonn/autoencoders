@@ -8,11 +8,11 @@ import torch
 from torch import nn
 
 from ...modeling_outputs import AutoencoderOutput
-from ..base.modeling_base import BaseAutoencoderModel
+from ..base.modeling_vae import BaseVariationalAutoencoderModel
 from .configuration_hvae import HierarchicalVariationalAutoencoderConfig
 
 
-class HierarchicalVariationalAutoencoderModel(BaseAutoencoderModel):
+class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     """A two-level latent VAE for vector-like embeddings."""
 
     config_class = HierarchicalVariationalAutoencoderConfig
@@ -48,18 +48,6 @@ class HierarchicalVariationalAutoencoderModel(BaseAutoencoderModel):
     def decode(self, latents: torch.Tensor) -> torch.Tensor:
         return self.decoder(latents)
 
-    def reparameterize(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
-        std = torch.exp(0.5 * posterior_logvar)
-        epsilon = torch.randn_like(std)
-        return posterior_mean + epsilon * std
-
-    def compute_kl_loss(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
-        kl_per_example = -0.5 * torch.sum(
-            1 + posterior_logvar - posterior_mean.pow(2) - posterior_logvar.exp(),
-            dim=-1,
-        )
-        return kl_per_example.mean()
-
     def forward(
         self,
         inputs: torch.Tensor,
@@ -83,7 +71,7 @@ class HierarchicalVariationalAutoencoderModel(BaseAutoencoderModel):
         top_kl_loss = self.compute_kl_loss(top_mean, top_logvar)
         bottom_kl_loss = self.compute_kl_loss(bottom_mean, bottom_logvar)
         kl_loss = top_kl_loss + bottom_kl_loss
-        loss = reconstruction_loss + self.config.kl_weight * kl_loss
+        loss = self.compute_total_loss(reconstruction_loss, kl_loss)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
         if not use_return_dict:

@@ -6,6 +6,8 @@ from .modeling_outputs import AutoencoderExport, AutoencoderOutput
 from .models.ae.configuration_ae import AutoencoderConfig
 from .models.cae.configuration_cae import ContractiveAutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
+from .models.base.configuration_vae import BaseVariationalAutoencoderConfig
+from .models.base.configuration_vq import BaseVectorQuantizedAutoencoderConfig
 from .models.betavae.configuration_betavae import BetaVariationalAutoencoderConfig
 from .models.dae.configuration_dae import DenoisingAutoencoderConfig
 from .models.dvae.configuration_dvae import DenoisingVariationalAutoencoderConfig
@@ -26,6 +28,8 @@ __all__ = [
     "AutoencoderExport",
     "AutoencoderOutput",
     "BaseAutoencoderConfig",
+    "BaseVariationalAutoencoderConfig",
+    "BaseVectorQuantizedAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",
     "ContractiveAutoencoderConfig",
     "DenoisingAutoencoderConfig",
@@ -64,6 +68,8 @@ try:
     )
     from .models.ae.modeling_ae import AutoencoderModel
     from .models.base.modeling_base import BaseAutoencoderModel
+    from .models.base.modeling_vae import BaseVariationalAutoencoderModel
+    from .models.base.modeling_vq import BaseVectorQuantizedAutoencoderModel
     from .models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
     from .models.cae.modeling_cae import ContractiveAutoencoderModel
     from .models.dae.modeling_dae import DenoisingAutoencoderModel
@@ -106,6 +112,8 @@ else:
             "AutoencoderTrainer",
             "AutoencoderDataset",
             "BaseAutoencoderModel",
+            "BaseVariationalAutoencoderModel",
+            "BaseVectorQuantizedAutoencoderModel",
             "BetaVariationalAutoencoderModel",
             "CachedDataset",
             "ContractiveAutoencoderModel",

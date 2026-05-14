@@ -180,12 +180,14 @@ def build_model(args: argparse.Namespace, input_dim: int):
         model_kwargs.update(
             {
                 "kl_weight": args.kl_weight,
+                "free_bits": args.free_bits,
             }
         )
     if args.model == "dvae":
         model_kwargs.update(
             {
                 "kl_weight": args.kl_weight,
+                "free_bits": args.free_bits,
                 "noise_type": args.noise_type,
                 "noise_std": args.noise_std,
                 "masking_ratio": args.masking_ratio,
@@ -196,12 +198,14 @@ def build_model(args: argparse.Namespace, input_dim: int):
         model_kwargs.update(
             {
                 "beta": args.beta,
+                "free_bits": args.free_bits,
             }
         )
     if args.model == "hvae":
         model_kwargs.update(
             {
                 "kl_weight": args.kl_weight,
+                "free_bits": args.free_bits,
                 "top_latent_dim": args.top_latent_dim,
             }
         )
@@ -281,7 +285,6 @@ def build_trainer(args: argparse.Namespace, model):
         training_args = VAETrainingArguments(
             kl_warmup_epochs=args.kl_warmup_epochs,
             kl_start_weight=args.kl_start_weight,
-            free_bits=args.free_bits,
             **common_kwargs,
         )
         return VAETrainer(model=model, args=training_args)

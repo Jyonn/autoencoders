@@ -6,12 +6,11 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from ...modeling_outputs import AutoencoderExport, AutoencoderOutput
-from ..ae.modeling_ae import AutoencoderModel
+from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae import VectorQuantizedAutoencoderConfig
 
 
-class VectorQuantizedAutoencoderModel(AutoencoderModel):
+class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """A simple MLP VQ-VAE for vector-like feature inputs."""
 
     config_class = VectorQuantizedAutoencoderConfig
@@ -87,69 +86,10 @@ class VectorQuantizedAutoencoderModel(AutoencoderModel):
         quantized_latents = self.codebook(codebook_indices)
         return quantized_latents, codebook_indices
 
-    def forward(
-        self,
-        inputs: torch.Tensor,
-        return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        encoded = self.encode(inputs)
-        quantized_latents, codebook_indices = self.quantize(encoded)
-        latents = encoded + (quantized_latents - encoded).detach()
-        reconstruction = self.decode(latents)
+    def on_quantizer_training_step(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
+        self._update_ema_codebook(encoded, codebook_indices)
 
-        reconstruction_loss = self.compute_loss(reconstruction, inputs)
-        commitment_loss = F.mse_loss(encoded, quantized_latents.detach())
-        if self.training and self.config.use_ema_codebook:
-            self._update_ema_codebook(encoded.detach(), codebook_indices.detach())
-            codebook_loss = torch.zeros_like(commitment_loss)
-            loss = reconstruction_loss + self.config.commitment_weight * commitment_loss
-        else:
-            codebook_loss = F.mse_loss(quantized_latents, encoded.detach())
-            loss = (
-                reconstruction_loss
-                + self.config.commitment_weight * commitment_loss
-                + self.config.codebook_weight * codebook_loss
-            )
-        use_return_dict = self.config.return_dict if return_dict is None else return_dict
-
-        if not use_return_dict:
-            return loss, reconstruction, latents
-
-        return AutoencoderOutput(
-            loss=loss,
-            reconstruction=reconstruction,
-            latents=latents,
-            encoded=encoded,
-            quantized_latents=quantized_latents,
-            codebook_indices=codebook_indices,
-            reconstruction_loss=reconstruction_loss,
-            commitment_loss=commitment_loss,
-            codebook_loss=codebook_loss,
-            loss_dict={
-                "loss": loss,
-                "reconstruction_loss": reconstruction_loss,
-                "commitment_loss": commitment_loss,
-                "codebook_loss": codebook_loss,
-            },
-        )
-
-    def _build_export(
-        self,
-        *,
-        inputs: torch.Tensor,
-        outputs: AutoencoderOutput,
-        include_reconstruction: bool,
-        metadata: dict[str, object] | None,
-    ) -> AutoencoderExport:
-        artifact = super()._build_export(
-            inputs=inputs,
-            outputs=outputs,
-            include_reconstruction=include_reconstruction,
-            metadata=metadata,
-        )
-        artifact.quantized_latents = outputs.quantized_latents
-        artifact.codebook_indices = outputs.codebook_indices
-        artifact.extras["codebook_size"] = self.config.codebook_size
-        artifact.extras["use_ema_codebook"] = self.config.use_ema_codebook
-        artifact.extras["codebook"] = self.codebook.weight.detach().clone()
-        return artifact
+    def get_quantized_export_extras(self) -> dict[str, object]:
+        extras = super().get_quantized_export_extras()
+        extras["codebook"] = self.codebook.weight.detach().clone()
+        return extras

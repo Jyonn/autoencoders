@@ -1,14 +1,14 @@
-"""Configuration for variational autoencoders."""
+"""Base configuration shared by variational autoencoder families."""
 
 from __future__ import annotations
 
-from ..base.configuration_vae import BaseVariationalAutoencoderConfig
+from ..ae.configuration_ae import AutoencoderConfig
 
 
-class VariationalAutoencoderConfig(BaseVariationalAutoencoderConfig):
-    """Configuration for a variational autoencoder."""
+class BaseVariationalAutoencoderConfig(AutoencoderConfig):
+    """Base config for VAE-style autoencoders."""
 
-    model_type = "variational_autoencoder"
+    model_type = "base_variational_autoencoder"
 
     def __init__(
         self,
@@ -24,6 +24,11 @@ class VariationalAutoencoderConfig(BaseVariationalAutoencoderConfig):
         use_mean_in_eval: bool = True,
         **kwargs,
     ) -> None:
+        if kl_weight < 0:
+            raise ValueError("kl_weight must be non-negative.")
+        if free_bits < 0:
+            raise ValueError("free_bits must be non-negative.")
+
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,

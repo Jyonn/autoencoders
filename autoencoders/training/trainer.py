@@ -127,7 +127,6 @@ class VAETrainingArguments(TrainingArguments):
 
     kl_warmup_epochs: int = 20
     kl_start_weight: float = 0.0
-    free_bits: float = 0.02
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -135,8 +134,6 @@ class VAETrainingArguments(TrainingArguments):
             raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
         if self.kl_start_weight < 0:
             raise ValueError("kl_start_weight must be non-negative.")
-        if self.free_bits < 0:
-            raise ValueError("free_bits must be non-negative.")
 
 
 @dataclass
@@ -840,7 +837,6 @@ class VAETrainer(AutoencoderTrainer):
 
     def get_epoch_metrics(self) -> dict[str, float | int]:
         return {
-            "free_bits": self.vae_args.free_bits,
             "kl_weight": self.get_current_kl_weight(),
         }
 
@@ -855,7 +851,7 @@ class VAETrainer(AutoencoderTrainer):
             - outputs.posterior_logvar.exp()
         )
         mean_kl_per_dim = kl_per_dim.mean(dim=0)
-        return torch.clamp(mean_kl_per_dim, min=self.vae_args.free_bits).sum()
+        return torch.clamp(mean_kl_per_dim, min=float(self.model.config.free_bits)).sum()
 
     def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
         if outputs.reconstruction_loss is None or outputs.kl_loss is None:
