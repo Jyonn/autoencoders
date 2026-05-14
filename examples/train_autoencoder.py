@@ -15,12 +15,8 @@ from autoencoders import (
     AdversarialAutoencoderTrainer,
     AdversarialAutoencoderTrainingArguments,
     AutoencoderTrainer,
-    ContractiveAutoencoderTrainer,
     QuantizedAutoencoderTrainer,
-    QuantizedAutoencoderTrainingArguments,
     TrainingArguments,
-    VAETrainer,
-    VAETrainingArguments,
     load_dataset,
     load_model,
     set_seed,
@@ -295,12 +291,6 @@ def build_trainer(args: argparse.Namespace, model):
         "show_only_best_epochs": args.show_only_best_epochs,
     }
 
-    if args.model == "vae" or args.model == "dvae" or args.model == "betavae" or args.model == "hvae":
-        training_args = VAETrainingArguments(**common_kwargs)
-        return VAETrainer(model=model, args=training_args)
-    if args.model == "cae":
-        training_args = TrainingArguments(**common_kwargs)
-        return ContractiveAutoencoderTrainer(model=model, args=training_args)
     if args.model == "aae":
         training_args = AdversarialAutoencoderTrainingArguments(
             discriminator_learning_rate=args.discriminator_learning_rate,
@@ -310,7 +300,7 @@ def build_trainer(args: argparse.Namespace, model):
         )
         return AdversarialAutoencoderTrainer(model=model, args=training_args)
     if args.model == "vqvae" or args.model == "fsq" or args.model == "pqvae" or args.model == "rqvae":
-        training_args = QuantizedAutoencoderTrainingArguments(**common_kwargs)
+        training_args = TrainingArguments(**common_kwargs)
         return QuantizedAutoencoderTrainer(model=model, args=training_args)
 
     training_args = TrainingArguments(**common_kwargs)

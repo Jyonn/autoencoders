@@ -123,12 +123,12 @@ class TrainingArguments:
 
 @dataclass
 class VAETrainingArguments(TrainingArguments):
-    """Training settings specific to variational autoencoders."""
+    """Compatibility alias for generic training arguments."""
 
 
 @dataclass
 class QuantizedAutoencoderTrainingArguments(TrainingArguments):
-    """Training settings specific to quantized autoencoders."""
+    """Compatibility alias for generic training arguments."""
 
 
 @dataclass
@@ -253,6 +253,8 @@ class AutoencoderTrainer:
 
     def evaluate(self, dataloader) -> dict[str, float]:
         self.model.eval()
+        if self.requires_grad_in_eval():
+            return self._run_epoch(dataloader, training=False)
         with torch.no_grad():
             return self._run_epoch(dataloader, training=False)
 
@@ -336,7 +338,14 @@ class AutoencoderTrainer:
         self.current_epoch = epoch
 
     def get_epoch_metrics(self) -> dict[str, float | int]:
-        return {}
+        if not hasattr(self.model, "get_current_kl_weight"):
+            return {}
+        return {
+            "kl_weight": self.model.get_current_kl_weight(current_epoch=self.current_epoch),
+        }
+
+    def requires_grad_in_eval(self) -> bool:
+        return bool(getattr(self.model, "requires_grad_in_eval", False))
 
     def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
@@ -352,6 +361,7 @@ class AutoencoderTrainer:
             if training:
                 loss.backward()
                 self.optimizer.step()
+                self.global_step += 1
 
             batch_size = batch.shape[0]
             total_examples += batch_size
@@ -788,36 +798,12 @@ class AutoencoderTrainer:
         return separator.join(segment for segment in segments if segment)
 
 
-class VAETrainer(AutoencoderTrainer):
-    """Trainer with VAE-specific objective scheduling hooks."""
-
-    def __init__(
-        self,
-        model,
-        args: VAETrainingArguments,
-        optimizer: torch.optim.Optimizer | None = None,
-        display: TrainerDisplayConfig | None = None,
-    ) -> None:
-        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
-
-    @property
-    def vae_args(self) -> VAETrainingArguments:
-        return self.args
-
-    def get_epoch_metrics(self) -> dict[str, float | int]:
-        if not hasattr(self.model, "get_current_kl_weight"):
-            return {}
-        return {
-            "kl_weight": self.model.get_current_kl_weight(current_epoch=self.current_epoch),
-        }
-
-
 class ContractiveAutoencoderTrainer(AutoencoderTrainer):
-    """Trainer that keeps gradients enabled during evaluation for contractive penalties."""
+    """Compatibility alias for the generic autoencoder trainer."""
 
-    def evaluate(self, dataloader) -> dict[str, float]:
-        self.model.eval()
-        return self._run_epoch(dataloader, training=False)
+
+class VAETrainer(AutoencoderTrainer):
+    """Compatibility alias for the generic autoencoder trainer."""
 
 
 class QuantizedAutoencoderTrainer(AutoencoderTrainer):

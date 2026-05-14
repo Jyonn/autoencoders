@@ -15,6 +15,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     """Shared model skeleton for deterministic autoencoders."""
 
     config_class = BaseAutoencoderConfig
+    requires_grad_in_eval = False
 
     def __init__(self, config: BaseAutoencoderConfig) -> None:
         super().__init__(config)

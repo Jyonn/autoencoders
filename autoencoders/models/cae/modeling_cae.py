@@ -13,6 +13,7 @@ class ContractiveAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder with a contractive encoder penalty."""
 
     config_class = ContractiveAutoencoderConfig
+    requires_grad_in_eval = True
 
     def __init__(self, config: ContractiveAutoencoderConfig) -> None:
         super().__init__(config)

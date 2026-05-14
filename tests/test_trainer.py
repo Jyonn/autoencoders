@@ -19,7 +19,6 @@ from autoencoders import (
     AutoencoderTrainer,
     ContractiveAutoencoderConfig,
     ContractiveAutoencoderModel,
-    ContractiveAutoencoderTrainer,
     DenoisingVariationalAutoencoderConfig,
     DenoisingVariationalAutoencoderModel,
     FiniteScalarQuantizedAutoencoderConfig,
@@ -38,7 +37,6 @@ from autoencoders import (
     ResidualQuantizedAutoencoderModel,
     TrainerDisplayConfig,
     TrainingArguments,
-    VAETrainer,
     VAETrainingArguments,
     VariationalAutoencoderConfig,
     VariationalAutoencoderModel,
@@ -165,7 +163,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "progress_width"):
             TrainerDisplayConfig(progress_width=0)
 
-    def test_vae_trainer_tracks_effective_kl_weight(self) -> None:
+    def test_base_trainer_tracks_effective_kl_weight_for_vae_models(self) -> None:
         config = VariationalAutoencoderConfig(
             input_dim=8,
             latent_dim=4,
@@ -187,7 +185,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 device="cpu",
                 seed=123,
             )
-            trainer = VAETrainer(model=model, args=args)
+            trainer = AutoencoderTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             history = metrics["history"]
@@ -199,7 +197,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertAlmostEqual(history[1]["train_free_bits_kl_loss"], history[1]["train_kl_loss"], places=2)
             self.assertAlmostEqual(history[2]["train_free_bits_kl_loss"], history[2]["train_kl_loss"], places=2)
 
-    def test_vae_trainer_applies_free_bits_floor(self) -> None:
+    def test_base_trainer_applies_free_bits_floor_for_vae_models(self) -> None:
         config = VariationalAutoencoderConfig(
             input_dim=8,
             latent_dim=4,
@@ -213,14 +211,14 @@ class AutoencoderTrainerTest(unittest.TestCase):
             epochs=1,
             device="cpu",
         )
-        trainer = VAETrainer(model=model, args=args)
+        trainer = AutoencoderTrainer(model=model, args=args)
 
         outputs = model(inputs=torch.zeros(4, 8), current_epoch=1)
         effective_kl_loss = outputs.free_bits_kl_loss
 
         self.assertGreaterEqual(float(effective_kl_loss.item()), 1.0)
 
-    def test_contractive_trainer_tracks_contractive_loss_in_eval(self) -> None:
+    def test_base_trainer_tracks_contractive_loss_in_eval_for_cae_models(self) -> None:
         config = ContractiveAutoencoderConfig(
             input_dim=8,
             latent_dim=4,
@@ -232,7 +230,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
-            trainer = ContractiveAutoencoderTrainer(model=model, args=args)
+            trainer = AutoencoderTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             self.assertIn("validation_contractive_loss", metrics["history"][0])
@@ -279,14 +277,14 @@ class AutoencoderTrainerTest(unittest.TestCase):
             ).fit(dataloaders)
             self.assertIn("train_kl_sparsity_loss", klsae_metrics["history"][0])
 
-    def test_dvae_and_hvae_train_with_vae_trainer(self) -> None:
+    def test_dvae_and_hvae_train_with_base_trainer(self) -> None:
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             dvae_model = DenoisingVariationalAutoencoderModel(
                 DenoisingVariationalAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], kl_weight=0.5)
             )
-            dvae_metrics = VAETrainer(
+            dvae_metrics = AutoencoderTrainer(
                 model=dvae_model,
                 args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
@@ -302,7 +300,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                     kl_weight=0.5,
                 )
             )
-            hvae_metrics = VAETrainer(
+            hvae_metrics = AutoencoderTrainer(
                 model=hvae_model,
                 args=VAETrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
