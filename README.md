@@ -109,9 +109,13 @@ The first recommended real embedding matrix for training and testing is **Stanfo
 Downloadable datasets use a global cache by default at `~/.cache/autoencoders`, and you can override it with `AUTOENCODERS_CACHE`.
 
 - Dataset notes: [docs/datasets.md](/Users/jyonn/Projects/Libraries/autoencoders/docs/datasets.md)
-- Generic training example: [examples/train_autoencoder.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_autoencoder.py)
+- Deterministic training example: [examples/train_ae.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_ae.py)
+- Variational training example: [examples/train_vae.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_vae.py)
+- Quantized training example: [examples/train_vq.py](/Users/jyonn/Projects/Libraries/autoencoders/examples/train_vq.py)
 
 The training flow is now also exposed as library primitives:
 
 - `TrainingArguments`
-- `AutoencoderTrainer`
+- `AETrainer`
+- `VAETrainer`
+- `VQTrainer`

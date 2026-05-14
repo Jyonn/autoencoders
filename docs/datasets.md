@@ -70,19 +70,19 @@ The first call will automatically:
 The training example follows the same pattern and does not require an explicit prepare step:
 
 ```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model ae --dim 50 --max-vectors 50000
+/Users/jyonn/Projects/venv/library/bin/python examples/train_ae.py --dataset glove --model ae --dim 50 --max-vectors 50000
 ```
 
 For the denoising autoencoder:
 
 ```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model dae --dim 50 --max-vectors 50000
+/Users/jyonn/Projects/venv/library/bin/python examples/train_ae.py --dataset glove --model dae --dim 50 --max-vectors 50000
 ```
 
 For the variational autoencoder:
 
 ```bash
-/Users/jyonn/Projects/venv/library/bin/python examples/train_autoencoder.py --dataset glove --model vae --dim 50 --max-vectors 50000
+/Users/jyonn/Projects/venv/library/bin/python examples/train_vae.py --dataset glove --model vae --dim 50 --max-vectors 50000
 ```
 
 The VAE training defaults are tuned to avoid immediate collapse:

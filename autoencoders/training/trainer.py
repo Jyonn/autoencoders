@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
-import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -12,71 +10,7 @@ from typing import Any
 import torch
 
 from ..data.base import DatasetLoaders
-
-
-ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-FG = {
-    "black": "30",
-    "red": "31",
-    "green": "32",
-    "yellow": "33",
-    "blue": "34",
-    "magenta": "35",
-    "cyan": "36",
-    "white": "37",
-}
-BG = {
-    "black": "40",
-    "red": "41",
-    "green": "42",
-    "yellow": "43",
-    "blue": "44",
-    "magenta": "45",
-    "cyan": "46",
-    "white": "47",
-}
-
-
-def _style(
-    text: str,
-    *,
-    fg: str | None = None,
-    bg: str | None = None,
-    bold: bool = False,
-    dim: bool = False,
-) -> str:
-    codes: list[str] = []
-    if bold:
-        codes.append(BOLD[2:-1])
-    if dim:
-        codes.append(DIM[2:-1])
-    if fg is not None:
-        codes.append(FG[fg])
-    if bg is not None:
-        codes.append(BG[bg])
-    if not codes:
-        return text
-    return f"\033[{';'.join(codes)}m{text}{RESET}"
-
-
-def _visible_len(text: str) -> int:
-    return len(ANSI_RE.sub("", text))
-
-
-def _format_label(name: str, *, fg: str, bg: str) -> str:
-    return _style(f" {name} ", fg=fg, bg=bg, bold=True)
-
-
-def _format_metric(name: str, value: str, *, value_fg: str = "white") -> str:
-    return f"{_style(name, fg='cyan', dim=True)} {_style(value, fg=value_fg, bold=True)}"
-
-
-def _join_segments(*segments: str) -> str:
-    separator = _style(" • ", fg="magenta", dim=True)
-    return separator.join(segment for segment in segments if segment)
+from .display import TrainerDisplay, TrainerDisplayConfig
 
 
 def resolve_device(device_name: str) -> torch.device:
@@ -139,97 +73,25 @@ class AdversarialAutoencoderTrainingArguments(TrainingArguments):
             raise ValueError("discriminator_steps must be greater than 0.")
 
 
-@dataclass
-class TrainerDisplayConfig:
-    """Terminal display settings for trainer logs."""
-
-    separator: str = " • "
-    progress_width: int = 18
-    progress_fill: str = "█"
-    progress_empty: str = "·"
-    run_label_fg: str = "white"
-    run_label_bg: str = "blue"
-    best_label_fg: str = "white"
-    best_label_bg: str = "green"
-    epoch_label_fg: str = "white"
-    epoch_label_bg: str = "cyan"
-    final_label_fg: str = "white"
-    final_label_bg: str = "magenta"
-    save_label_fg: str = "black"
-    save_label_bg: str = "yellow"
-    phase_fg: str = "white"
-    phase_bg: str = "cyan"
-    epoch_index_fg: str = "yellow"
-    batch_index_fg: str = "blue"
-    progress_fg: str = "green"
-    metric_name_fg: str = "cyan"
-    metric_value_fg: str = "white"
-    recon_value_fg: str = "green"
-    kl_value_fg: str = "magenta"
-    sparse_value_fg: str = "yellow"
-    contractive_value_fg: str = "blue"
-    free_kl_value_fg: str = "blue"
-    mmd_value_fg: str = "yellow"
-    adversarial_value_fg: str = "magenta"
-    discriminator_value_fg: str = "red"
-    commitment_value_fg: str = "cyan"
-    codebook_value_fg: str = "red"
-    meta_value_fg: str = "yellow"
-
-    def __post_init__(self) -> None:
-        if self.progress_width <= 0:
-            raise ValueError("progress_width must be greater than 0.")
-        for color_name in (
-            self.run_label_fg,
-            self.run_label_bg,
-            self.best_label_fg,
-            self.best_label_bg,
-            self.epoch_label_fg,
-            self.epoch_label_bg,
-            self.final_label_fg,
-            self.final_label_bg,
-            self.save_label_fg,
-            self.save_label_bg,
-            self.phase_fg,
-            self.phase_bg,
-            self.epoch_index_fg,
-            self.batch_index_fg,
-            self.progress_fg,
-            self.metric_name_fg,
-            self.metric_value_fg,
-            self.recon_value_fg,
-            self.kl_value_fg,
-            self.sparse_value_fg,
-            self.contractive_value_fg,
-            self.free_kl_value_fg,
-            self.mmd_value_fg,
-            self.adversarial_value_fg,
-            self.discriminator_value_fg,
-            self.commitment_value_fg,
-            self.codebook_value_fg,
-            self.meta_value_fg,
-        ):
-            if color_name not in FG and color_name not in BG:
-                raise ValueError(f"Unsupported display color: {color_name}")
-
-
-class AutoencoderTrainer:
-    """A small trainer for autoencoder-family models."""
+class AETrainer:
+    """Shared trainer for deterministic autoencoder-style models."""
 
     def __init__(
         self,
         model,
         args: TrainingArguments,
         optimizer: torch.optim.Optimizer | None = None,
-        display: TrainerDisplayConfig | None = None,
+        display: TrainerDisplayConfig | TrainerDisplay | None = None,
     ) -> None:
         self.model = model
         self.args = args
-        self.display = display or TrainerDisplayConfig()
+        if isinstance(display, TrainerDisplay):
+            self.display = display
+        else:
+            self.display = TrainerDisplay(display)
         self.current_epoch = 0
         self.global_step = 0
         self.max_epochs: int | None = None
-        self._last_live_line_length = 0
         self.device = resolve_device(args.device)
         self.model.to(self.device)
         self.optimizer = optimizer or torch.optim.Adam(
@@ -239,14 +101,14 @@ class AutoencoderTrainer:
 
     def train_epoch(self, dataloader) -> dict[str, float]:
         self.model.train()
-        return self._run_epoch(dataloader, training=True)
+        return self.run_epoch(dataloader, training=True)
 
     def evaluate(self, dataloader) -> dict[str, float]:
         self.model.eval()
         if self.requires_grad_in_eval():
-            return self._run_epoch(dataloader, training=False)
+            return self.run_epoch(dataloader, training=False)
         with torch.no_grad():
-            return self._run_epoch(dataloader, training=False)
+            return self.run_epoch(dataloader, training=False)
 
     def fit(
         self,
@@ -262,7 +124,13 @@ class AutoencoderTrainer:
         epoch = 0
         max_epochs = self.args.epochs if self.args.epochs > 0 else None
         self.max_epochs = max_epochs
-        self._log_run_start(metadata=metadata, max_epochs=max_epochs)
+
+        self.display.log_run_start(
+            model_name=metadata.get("model", self.model.__class__.__name__) if metadata else self.model.__class__.__name__,
+            dataset_name=metadata.get("dataset", "unknown") if metadata else "unknown",
+            device=str(self.device),
+            epoch_budget="early-stop" if max_epochs is None else str(max_epochs),
+        )
 
         while max_epochs is None or epoch < max_epochs:
             epoch += 1
@@ -281,14 +149,25 @@ class AutoencoderTrainer:
                 best_epoch = epoch
                 epochs_without_improvement = 0
                 self.model.save_pretrained(output_dir / "best")
-                self._clear_live_line()
-                self._log_best_epoch(epoch_metrics)
+                self.display.clear_live_line()
+                self.display.log_best_epoch(
+                    epoch_label=self.format_epoch_label(),
+                    epoch_metrics=epoch_metrics,
+                )
             else:
                 if self.args.show_only_best_epochs:
-                    self._log_epoch_summary(epoch_metrics, persist=False)
+                    self.display.log_epoch_summary(
+                        epoch_label=self.format_epoch_label(),
+                        epoch_metrics=epoch_metrics,
+                        persist=False,
+                    )
                 else:
-                    self._clear_live_line()
-                    self._log_epoch_summary(epoch_metrics, persist=True)
+                    self.display.clear_live_line()
+                    self.display.log_epoch_summary(
+                        epoch_label=self.format_epoch_label(),
+                        epoch_metrics=epoch_metrics,
+                        persist=True,
+                    )
                 epochs_without_improvement += 1
                 if self.args.patience is not None and epochs_without_improvement >= self.args.patience:
                     stopped_early = True
@@ -315,12 +194,13 @@ class AutoencoderTrainer:
         metrics_path = output_dir / "metrics.json"
         metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-        self._log_run_end(
+        self.display.log_run_end(
             test_metrics=test_metrics,
             output_dir=output_dir,
             metrics_path=metrics_path,
             stopped_early=stopped_early,
             best_epoch=best_epoch,
+            current_epoch=self.current_epoch,
         )
         return metrics
 
@@ -336,7 +216,7 @@ class AutoencoderTrainer:
     def requires_grad_in_eval(self) -> bool:
         return self.model.requires_grad_in_eval
 
-    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+    def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
         total_examples = 0
         total_batches = len(dataloader)
@@ -354,12 +234,18 @@ class AutoencoderTrainer:
 
             batch_size = batch.shape[0]
             total_examples += batch_size
-            batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
+            batch_metrics = self.extract_batch_metrics(outputs, loss=loss)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
             if training:
                 running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
-                self._log_batch_progress(batch_index, total_batches, running_metrics)
+                self.display.log_batch_progress(
+                    epoch_label=self.format_epoch_label(),
+                    phase=self.current_phase(),
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    metrics=running_metrics,
+                )
 
         return {name: total / max(total_examples, 1) for name, total in totals.items()}
 
@@ -370,435 +256,31 @@ class AutoencoderTrainer:
     def compute_batch_loss(self, outputs, *, training: bool) -> torch.Tensor:
         return outputs.loss
 
-    def _extract_batch_metrics(self, outputs, *, loss: torch.Tensor, training: bool) -> dict[str, float]:
+    def extract_batch_metrics(self, outputs, *, loss: torch.Tensor) -> dict[str, float]:
         metrics: dict[str, float] = {"loss": float(loss.detach().item())}
         for name, value in outputs.loss_dict.items():
             if name == "loss":
                 continue
-            else:
-                metrics[name] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
+            metrics[name] = float(value.detach().item()) if hasattr(value, "detach") else float(value)
         return metrics
 
-    def _log_run_start(self, metadata: dict[str, Any] | None, max_epochs: int | None) -> None:
-        model_name = metadata.get("model", self.model.__class__.__name__) if metadata else self.model.__class__.__name__
-        dataset_name = metadata.get("dataset", "unknown") if metadata else "unknown"
-        epoch_budget = "early-stop" if max_epochs is None else str(max_epochs)
-        self._print_log(
-            "RUN",
-            self._join_segments(
-                self._format_metric("model", model_name, value_fg=self.display.metric_value_fg),
-                self._format_metric("dataset", dataset_name, value_fg=self.display.metric_value_fg),
-                self._format_metric("device", str(self.device), value_fg=self.display.meta_value_fg),
-                self._format_metric("epochs", epoch_budget, value_fg=self.display.progress_fg),
-            ),
-            fg=self.display.run_label_fg,
-            bg=self.display.run_label_bg,
-        )
-
-    def _log_batch_progress(self, batch_index: int, total_batches: int, metrics: dict[str, float]) -> None:
-        progress_width = self.display.progress_width
-        filled = int(progress_width * batch_index / max(total_batches, 1))
-        bar = self.display.progress_fill * filled + self.display.progress_empty * (progress_width - filled)
-        parts = [
-            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
-            _style(self._current_phase().upper(), fg=self.display.phase_fg, bg=self.display.phase_bg, bold=True),
-            _style(f"{batch_index:>3}/{total_batches:<3}", fg=self.display.batch_index_fg, bold=True),
-            _style(bar, fg=self.display.progress_fg, bold=True),
-            self._format_metric("loss", f"{metrics['loss']:.4f}", value_fg=self.display.metric_value_fg),
-        ]
-        if "reconstruction_loss" in metrics:
-            parts.append(self._format_metric("recon", f"{metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
-        if "sparsity_loss" in metrics:
-            parts.append(self._format_metric("sparse", f"{metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
-        if "topk_sparsity" in metrics:
-            parts.append(self._format_metric("topk", f"{metrics['topk_sparsity']:.4f}", value_fg=self.display.sparse_value_fg))
-        if "kl_sparsity_loss" in metrics:
-            parts.append(self._format_metric("kl-sparse", f"{metrics['kl_sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
-        if "contractive_loss" in metrics:
-            parts.append(self._format_metric("contract", f"{metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg))
-        if "mmd_loss" in metrics:
-            parts.append(self._format_metric("mmd", f"{metrics['mmd_loss']:.4f}", value_fg=self.display.mmd_value_fg))
-        if "adversarial_loss" in metrics:
-            parts.append(self._format_metric("adv", f"{metrics['adversarial_loss']:.4f}", value_fg=self.display.adversarial_value_fg))
-        if "discriminator_loss" in metrics:
-            parts.append(self._format_metric("disc", f"{metrics['discriminator_loss']:.4f}", value_fg=self.display.discriminator_value_fg))
-        if "commitment_loss" in metrics:
-            parts.append(self._format_metric("commit", f"{metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
-        if "codebook_loss" in metrics:
-            parts.append(self._format_metric("book", f"{metrics['codebook_loss']:.4f}", value_fg=self.display.codebook_value_fg))
-        if "kl_loss" in metrics:
-            parts.append(self._format_metric("kl", f"{metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
-        self._write_live_line(self._join_segments(*parts))
-
-    def _log_epoch_summary(
-        self,
-        epoch_metrics: dict[str, float | int],
-        *,
-        persist: bool,
-    ) -> None:
-        summary_parts = [
-            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
-            _style("EVAL", fg=self.display.phase_fg, bg=self.display.phase_bg, bold=True),
-            self._format_metric("train", f"{float(epoch_metrics['train_loss']):.4f}", value_fg=self.display.metric_value_fg),
-            self._format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg=self.display.metric_value_fg),
-        ]
-
-        if "train_reconstruction_loss" in epoch_metrics and "validation_reconstruction_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "recon",
-                    f"{float(epoch_metrics['train_reconstruction_loss']):.4f}/{float(epoch_metrics['validation_reconstruction_loss']):.4f}",
-                    value_fg=self.display.recon_value_fg,
-                )
-            )
-        if "train_sparsity_loss" in epoch_metrics and "validation_sparsity_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "sparse",
-                    f"{float(epoch_metrics['train_sparsity_loss']):.4f}/{float(epoch_metrics['validation_sparsity_loss']):.4f}",
-                    value_fg=self.display.sparse_value_fg,
-                )
-            )
-        if "train_topk_sparsity" in epoch_metrics and "validation_topk_sparsity" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "topk",
-                    f"{float(epoch_metrics['train_topk_sparsity']):.4f}/{float(epoch_metrics['validation_topk_sparsity']):.4f}",
-                    value_fg=self.display.sparse_value_fg,
-                )
-            )
-        if "train_kl_sparsity_loss" in epoch_metrics and "validation_kl_sparsity_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "kl-sparse",
-                    f"{float(epoch_metrics['train_kl_sparsity_loss']):.4f}/{float(epoch_metrics['validation_kl_sparsity_loss']):.4f}",
-                    value_fg=self.display.sparse_value_fg,
-                )
-            )
-        if "train_contractive_loss" in epoch_metrics and "validation_contractive_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "contract",
-                    f"{float(epoch_metrics['train_contractive_loss']):.4f}/{float(epoch_metrics['validation_contractive_loss']):.4f}",
-                    value_fg=self.display.contractive_value_fg,
-                )
-            )
-        if "train_mmd_loss" in epoch_metrics and "validation_mmd_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "mmd",
-                    f"{float(epoch_metrics['train_mmd_loss']):.4f}/{float(epoch_metrics['validation_mmd_loss']):.4f}",
-                    value_fg=self.display.mmd_value_fg,
-                )
-            )
-        if "train_adversarial_loss" in epoch_metrics and "validation_adversarial_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "adv",
-                    f"{float(epoch_metrics['train_adversarial_loss']):.4f}/{float(epoch_metrics['validation_adversarial_loss']):.4f}",
-                    value_fg=self.display.adversarial_value_fg,
-                )
-            )
-        if "train_discriminator_loss" in epoch_metrics and "validation_discriminator_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "disc",
-                    f"{float(epoch_metrics['train_discriminator_loss']):.4f}/{float(epoch_metrics['validation_discriminator_loss']):.4f}",
-                    value_fg=self.display.discriminator_value_fg,
-                )
-            )
-        if "train_commitment_loss" in epoch_metrics and "validation_commitment_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "commit",
-                    f"{float(epoch_metrics['train_commitment_loss']):.4f}/{float(epoch_metrics['validation_commitment_loss']):.4f}",
-                    value_fg=self.display.commitment_value_fg,
-                )
-            )
-        if "train_codebook_loss" in epoch_metrics and "validation_codebook_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "book",
-                    f"{float(epoch_metrics['train_codebook_loss']):.4f}/{float(epoch_metrics['validation_codebook_loss']):.4f}",
-                    value_fg=self.display.codebook_value_fg,
-                )
-            )
-        if "validation_active_codes" in epoch_metrics and "validation_codebook_size" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "codes",
-                    f"{int(epoch_metrics['validation_active_codes'])}/{int(epoch_metrics['validation_codebook_size'])}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_codebook_usage_ratio" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "usage",
-                    f"{float(epoch_metrics['validation_codebook_usage_ratio']):.3f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_codebook_perplexity" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "ppl",
-                    f"{float(epoch_metrics['validation_codebook_perplexity']):.2f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_dead_code_ratio" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "dead",
-                    f"{float(epoch_metrics['validation_dead_code_ratio']):.3f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "train_kl_loss" in epoch_metrics and "validation_kl_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "kl",
-                    f"{float(epoch_metrics['train_kl_loss']):.4f}/{float(epoch_metrics['validation_kl_loss']):.4f}",
-                    value_fg=self.display.kl_value_fg,
-                )
-            )
-        if "train_free_bits_kl_loss" in epoch_metrics and "validation_free_bits_kl_loss" in epoch_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "free-kl",
-                    f"{float(epoch_metrics['train_free_bits_kl_loss']):.4f}/{float(epoch_metrics['validation_free_bits_kl_loss']):.4f}",
-                    value_fg=self.display.free_kl_value_fg,
-                )
-            )
-
-        line = self._join_segments(*summary_parts)
-        if persist:
-            self._print_log("EPOCH", line, fg=self.display.epoch_label_fg, bg=self.display.epoch_label_bg)
-        else:
-            self._write_live_line(line)
-
-    def _log_best_epoch(self, epoch_metrics: dict[str, float | int]) -> None:
-        parts = [
-            _style(self._format_epoch_label(), fg=self.display.epoch_index_fg, bold=True),
-            self._format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg=self.display.metric_value_fg),
-        ]
-        if "validation_reconstruction_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric("recon", f"{float(epoch_metrics['validation_reconstruction_loss']):.4f}", value_fg=self.display.recon_value_fg)
-            )
-        if "validation_sparsity_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric("sparse", f"{float(epoch_metrics['validation_sparsity_loss']):.4f}", value_fg=self.display.sparse_value_fg)
-            )
-        if "validation_topk_sparsity" in epoch_metrics:
-            parts.append(
-                self._format_metric("topk", f"{float(epoch_metrics['validation_topk_sparsity']):.4f}", value_fg=self.display.sparse_value_fg)
-            )
-        if "validation_kl_sparsity_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "kl-sparse",
-                    f"{float(epoch_metrics['validation_kl_sparsity_loss']):.4f}",
-                    value_fg=self.display.sparse_value_fg,
-                )
-            )
-        if "validation_contractive_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "contract",
-                    f"{float(epoch_metrics['validation_contractive_loss']):.4f}",
-                    value_fg=self.display.contractive_value_fg,
-                )
-            )
-        if "validation_mmd_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric("mmd", f"{float(epoch_metrics['validation_mmd_loss']):.4f}", value_fg=self.display.mmd_value_fg)
-            )
-        if "validation_adversarial_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "adv",
-                    f"{float(epoch_metrics['validation_adversarial_loss']):.4f}",
-                    value_fg=self.display.adversarial_value_fg,
-                )
-            )
-        if "validation_discriminator_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "disc",
-                    f"{float(epoch_metrics['validation_discriminator_loss']):.4f}",
-                    value_fg=self.display.discriminator_value_fg,
-                )
-            )
-        if "validation_commitment_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric("commit", f"{float(epoch_metrics['validation_commitment_loss']):.4f}", value_fg=self.display.commitment_value_fg)
-            )
-        if "validation_codebook_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric("book", f"{float(epoch_metrics['validation_codebook_loss']):.4f}", value_fg=self.display.codebook_value_fg)
-            )
-        if "validation_kl_loss" in epoch_metrics:
-            parts.append(self._format_metric("kl", f"{float(epoch_metrics['validation_kl_loss']):.4f}", value_fg=self.display.kl_value_fg))
-        if "validation_free_bits_kl_loss" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "free-kl",
-                    f"{float(epoch_metrics['validation_free_bits_kl_loss']):.4f}",
-                    value_fg=self.display.free_kl_value_fg,
-                )
-            )
-        if "validation_active_codes" in epoch_metrics and "validation_codebook_size" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "codes",
-                    f"{int(epoch_metrics['validation_active_codes'])}/{int(epoch_metrics['validation_codebook_size'])}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_codebook_usage_ratio" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "usage",
-                    f"{float(epoch_metrics['validation_codebook_usage_ratio']):.3f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_codebook_perplexity" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "ppl",
-                    f"{float(epoch_metrics['validation_codebook_perplexity']):.2f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "validation_dead_code_ratio" in epoch_metrics:
-            parts.append(
-                self._format_metric(
-                    "dead",
-                    f"{float(epoch_metrics['validation_dead_code_ratio']):.3f}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        self._print_log("BEST", self._join_segments(*parts), fg=self.display.best_label_fg, bg=self.display.best_label_bg)
-
-    def _log_run_end(
-        self,
-        test_metrics: dict[str, float],
-        output_dir: Path,
-        metrics_path: Path,
-        stopped_early: bool,
-        best_epoch: int | None,
-    ) -> None:
-        summary_parts = [self._format_metric("test", f"{test_metrics['loss']:.4f}", value_fg=self.display.metric_value_fg)]
-        if "reconstruction_loss" in test_metrics:
-            summary_parts.append(self._format_metric("recon", f"{test_metrics['reconstruction_loss']:.4f}", value_fg=self.display.recon_value_fg))
-        if "sparsity_loss" in test_metrics:
-            summary_parts.append(self._format_metric("sparse", f"{test_metrics['sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg))
-        if "topk_sparsity" in test_metrics:
-            summary_parts.append(self._format_metric("topk", f"{test_metrics['topk_sparsity']:.4f}", value_fg=self.display.sparse_value_fg))
-        if "kl_sparsity_loss" in test_metrics:
-            summary_parts.append(
-                self._format_metric("kl-sparse", f"{test_metrics['kl_sparsity_loss']:.4f}", value_fg=self.display.sparse_value_fg)
-            )
-        if "contractive_loss" in test_metrics:
-            summary_parts.append(
-                self._format_metric("contract", f"{test_metrics['contractive_loss']:.4f}", value_fg=self.display.contractive_value_fg)
-            )
-        if "mmd_loss" in test_metrics:
-            summary_parts.append(self._format_metric("mmd", f"{test_metrics['mmd_loss']:.4f}", value_fg=self.display.mmd_value_fg))
-        if "adversarial_loss" in test_metrics:
-            summary_parts.append(
-                self._format_metric("adv", f"{test_metrics['adversarial_loss']:.4f}", value_fg=self.display.adversarial_value_fg)
-            )
-        if "discriminator_loss" in test_metrics:
-            summary_parts.append(
-                self._format_metric("disc", f"{test_metrics['discriminator_loss']:.4f}", value_fg=self.display.discriminator_value_fg)
-            )
-        if "commitment_loss" in test_metrics:
-            summary_parts.append(self._format_metric("commit", f"{test_metrics['commitment_loss']:.4f}", value_fg=self.display.commitment_value_fg))
-        if "codebook_loss" in test_metrics:
-            summary_parts.append(self._format_metric("book", f"{test_metrics['codebook_loss']:.4f}", value_fg=self.display.codebook_value_fg))
-        if "kl_loss" in test_metrics:
-            summary_parts.append(self._format_metric("kl", f"{test_metrics['kl_loss']:.4f}", value_fg=self.display.kl_value_fg))
-        if "free_bits_kl_loss" in test_metrics:
-            summary_parts.append(self._format_metric("free-kl", f"{test_metrics['free_bits_kl_loss']:.4f}", value_fg=self.display.free_kl_value_fg))
-        if "active_codes" in test_metrics and "codebook_size" in test_metrics:
-            summary_parts.append(
-                self._format_metric(
-                    "codes",
-                    f"{int(test_metrics['active_codes'])}/{int(test_metrics['codebook_size'])}",
-                    value_fg=self.display.meta_value_fg,
-                )
-            )
-        if "codebook_usage_ratio" in test_metrics:
-            summary_parts.append(
-                self._format_metric("usage", f"{test_metrics['codebook_usage_ratio']:.3f}", value_fg=self.display.meta_value_fg)
-            )
-        if "codebook_perplexity" in test_metrics:
-            summary_parts.append(
-                self._format_metric("ppl", f"{test_metrics['codebook_perplexity']:.2f}", value_fg=self.display.meta_value_fg)
-            )
-        if "dead_code_ratio" in test_metrics:
-            summary_parts.append(
-                self._format_metric("dead", f"{test_metrics['dead_code_ratio']:.3f}", value_fg=self.display.meta_value_fg)
-            )
-        if stopped_early and best_epoch is not None:
-            summary_parts.append(self._format_metric("best", str(best_epoch), value_fg=self.display.meta_value_fg))
-            summary_parts.append(self._format_metric("stopped", str(self.current_epoch), value_fg=self.display.meta_value_fg))
-        self._clear_live_line()
-        self._print_log("FINAL", self._join_segments(*summary_parts), fg=self.display.final_label_fg, bg=self.display.final_label_bg)
-        self._print_log("SAVE", f"best -> {output_dir / 'best'}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
-        self._print_log("SAVE", f"final -> {output_dir / 'final'}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
-        self._print_log("SAVE", f"metrics -> {metrics_path}", fg=self.display.save_label_fg, bg=self.display.save_label_bg)
-
-    def _format_epoch_label(self) -> str:
+    def format_epoch_label(self) -> str:
         if self.max_epochs is None:
             return f"{self.current_epoch:03d}"
         return f"{self.current_epoch:03d}/{self.max_epochs:03d}"
 
-    def _current_phase(self) -> str:
+    def current_phase(self) -> str:
         return "train" if self.model.training else "eval"
 
-    def _write_live_line(self, text: str) -> None:
-        visible_length = _visible_len(text)
-        padding = max(self._last_live_line_length - visible_length, 0)
-        sys.stdout.write("\r" + text + (" " * padding))
-        sys.stdout.flush()
-        self._last_live_line_length = visible_length
 
-    def _clear_live_line(self) -> None:
-        if self._last_live_line_length == 0:
-            return
-        sys.stdout.write("\r" + (" " * self._last_live_line_length) + "\r")
-        sys.stdout.flush()
-        self._last_live_line_length = 0
+class VAETrainer(AETrainer):
+    """Trainer for variational autoencoder families."""
 
-    @staticmethod
-    def _print_log(label: str, text: str, *, fg: str, bg: str) -> None:
-        print(f"{_format_label(label, fg=fg, bg=bg)} {text}")
 
-    def _format_metric(self, name: str, value: str, *, value_fg: str) -> str:
-        return f"{_style(name, fg=self.display.metric_name_fg, dim=True)} {_style(value, fg=value_fg, bold=True)}"
+class VQTrainer(AETrainer):
+    """Trainer with codebook usage evaluation for quantized autoencoders."""
 
-    def _join_segments(self, *segments: str) -> str:
-        separator = _style(self.display.separator, fg="magenta", dim=True)
-        return separator.join(segment for segment in segments if segment)
-
-class QuantizedAutoencoderTrainer(AutoencoderTrainer):
-    """Trainer with codebook-usage evaluation hooks for quantized autoencoders."""
-
-    def __init__(
-        self,
-        model,
-        args: TrainingArguments,
-        optimizer: torch.optim.Optimizer | None = None,
-        display: TrainerDisplayConfig | None = None,
-    ) -> None:
-        super().__init__(model=model, args=args, optimizer=optimizer, display=display)
-
-    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+    def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
         total_examples = 0
         total_batches = len(dataloader)
@@ -822,13 +304,18 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
             batch_size = batch.shape[0]
             total_examples += batch_size
             code_counts = self.accumulate_code_counts(code_counts, outputs.codebook_indices)
-
-            batch_metrics = self._extract_batch_metrics(outputs, loss=loss, training=training)
+            batch_metrics = self.extract_batch_metrics(outputs, loss=loss)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
             if training:
                 running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
-                self._log_batch_progress(batch_index, total_batches, running_metrics)
+                self.display.log_batch_progress(
+                    epoch_label=self.format_epoch_label(),
+                    phase=self.current_phase(),
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    metrics=running_metrics,
+                )
 
         metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
         metrics.update(self.compute_codebook_metrics(code_counts))
@@ -860,9 +347,6 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
             code_counts += torch.bincount(codebook_indices.reshape(-1), minlength=code_counts.shape[-1])
             return code_counts
 
-        if codebook_indices.ndim != 2:
-            raise ValueError("QuantizedAutoencoderTrainer expects codebook_indices with rank 1 or 2.")
-
         if code_counts.ndim == 1:
             code_counts = torch.zeros(
                 codebook_indices.shape[1],
@@ -879,7 +363,6 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
 
     def compute_codebook_metrics(self, code_counts: torch.Tensor) -> dict[str, float]:
         if code_counts.ndim == 2:
-            total_codes = float(code_counts.sum().item())
             active_counts = (code_counts > 0).sum(dim=1)
             active_codes = int(active_counts.sum().item())
             codebook_size = int(code_counts.numel())
@@ -929,7 +412,7 @@ class QuantizedAutoencoderTrainer(AutoencoderTrainer):
         }
 
 
-class AdversarialAutoencoderTrainer(AutoencoderTrainer):
+class AdversarialAutoencoderTrainer(AETrainer):
     """Trainer with alternating reconstruction, discriminator, and encoder-adversarial updates."""
 
     def __init__(
@@ -937,14 +420,11 @@ class AdversarialAutoencoderTrainer(AutoencoderTrainer):
         model,
         args: AdversarialAutoencoderTrainingArguments,
         optimizer: torch.optim.Optimizer | None = None,
-        display: TrainerDisplayConfig | None = None,
+        display: TrainerDisplayConfig | TrainerDisplay | None = None,
     ) -> None:
         super().__init__(model=model, args=args, optimizer=optimizer, display=display)
         autoencoder_parameters = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
-        self.optimizer = optimizer or torch.optim.Adam(
-            autoencoder_parameters,
-            lr=args.learning_rate,
-        )
+        self.optimizer = optimizer or torch.optim.Adam(autoencoder_parameters, lr=args.learning_rate)
         generator_learning_rate = args.generator_learning_rate or args.learning_rate
         discriminator_learning_rate = args.discriminator_learning_rate or args.learning_rate
         self.generator_optimizer = torch.optim.Adam(self.model.encoder.parameters(), lr=generator_learning_rate)
@@ -957,7 +437,7 @@ class AdversarialAutoencoderTrainer(AutoencoderTrainer):
     def adversarial_args(self) -> AdversarialAutoencoderTrainingArguments:
         return self.args
 
-    def _run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
+    def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
         total_examples = 0
         total_batches = len(dataloader)
@@ -999,11 +479,17 @@ class AdversarialAutoencoderTrainer(AutoencoderTrainer):
 
             batch_size = batch.shape[0]
             total_examples += batch_size
-            batch_metrics = self._extract_batch_metrics(outputs, loss=outputs.loss, training=training)
+            batch_metrics = self.extract_batch_metrics(outputs, loss=outputs.loss)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
             if training:
                 running_metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
-                self._log_batch_progress(batch_index, total_batches, running_metrics)
+                self.display.log_batch_progress(
+                    epoch_label=self.format_epoch_label(),
+                    phase=self.current_phase(),
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    metrics=running_metrics,
+                )
 
         return {name: total / max(total_examples, 1) for name, total in totals.items()}

@@ -10,13 +10,13 @@ from pathlib import Path
 import torch
 
 from autoencoders import (
+    AETrainer,
     AdversarialAutoencoderConfig,
     AdversarialAutoencoderModel,
     AdversarialAutoencoderTrainer,
     AdversarialAutoencoderTrainingArguments,
     AutoencoderConfig,
     AutoencoderModel,
-    AutoencoderTrainer,
     ContractiveAutoencoderConfig,
     ContractiveAutoencoderModel,
     DenoisingVariationalAutoencoderConfig,
@@ -29,15 +29,17 @@ from autoencoders import (
     KLSparseAutoencoderModel,
     TopKSparseAutoencoderConfig,
     TopKSparseAutoencoderModel,
-    QuantizedAutoencoderTrainer,
     ProductQuantizedAutoencoderConfig,
     ProductQuantizedAutoencoderModel,
     ResidualQuantizedAutoencoderConfig,
     ResidualQuantizedAutoencoderModel,
+    TrainerDisplay,
     TrainerDisplayConfig,
     TrainingArguments,
+    VAETrainer,
     VariationalAutoencoderConfig,
     VariationalAutoencoderModel,
+    VQTrainer,
     VectorQuantizedAutoencoderConfig,
     VectorQuantizedAutoencoderModel,
     WassersteinAutoencoderConfig,
@@ -76,7 +78,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 device="cpu",
                 seed=123,
             )
-            trainer = AutoencoderTrainer(model=model, args=args)
+            trainer = AETrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders, metadata={"dataset": "dummy", "model": "ae"})
 
             self.assertIn("best_validation_loss", metrics)
@@ -113,7 +115,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         model = AutoencoderModel(config)
         dataloaders = build_dataset_loaders()
 
-        class ScriptedTrainer(AutoencoderTrainer):
+        class ScriptedTrainer(AETrainer):
             def __init__(self, *args, **kwargs) -> None:
                 super().__init__(*args, **kwargs)
                 self.validation_losses = iter([5.0, 4.0, 4.5, 4.6])
@@ -152,6 +154,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         display = TrainerDisplayConfig()
         self.assertEqual(display.progress_width, 18)
         self.assertEqual(display.separator, " • ")
+        self.assertIsInstance(TrainerDisplay(display), TrainerDisplay)
 
         with self.assertRaisesRegex(ValueError, "progress_width"):
             TrainerDisplayConfig(progress_width=0)
@@ -178,7 +181,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 device="cpu",
                 seed=123,
             )
-            trainer = AutoencoderTrainer(model=model, args=args)
+            trainer = VAETrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             history = metrics["history"]
@@ -204,7 +207,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             epochs=1,
             device="cpu",
         )
-        trainer = AutoencoderTrainer(model=model, args=args)
+        trainer = VAETrainer(model=model, args=args)
 
         outputs = model(inputs=torch.zeros(4, 8), current_epoch=1)
         effective_kl_loss = outputs.free_bits_kl_loss
@@ -223,7 +226,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
-            trainer = AutoencoderTrainer(model=model, args=args)
+            trainer = AETrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             self.assertIn("validation_contractive_loss", metrics["history"][0])
@@ -241,7 +244,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
-            trainer = AutoencoderTrainer(model=model, args=args)
+            trainer = AETrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             self.assertIn("train_mmd_loss", metrics["history"][0])
@@ -254,7 +257,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             topk_model = TopKSparseAutoencoderModel(
                 TopKSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], topk=2)
             )
-            topk_metrics = AutoencoderTrainer(
+            topk_metrics = AETrainer(
                 model=topk_model,
                 args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
@@ -264,7 +267,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             klsae_model = KLSparseAutoencoderModel(
                 KLSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], sparsity_weight=0.1, target_activation=0.05)
             )
-            klsae_metrics = AutoencoderTrainer(
+            klsae_metrics = AETrainer(
                 model=klsae_model,
                 args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
@@ -277,7 +280,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             dvae_model = DenoisingVariationalAutoencoderModel(
                 DenoisingVariationalAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], kl_weight=0.5)
             )
-            dvae_metrics = AutoencoderTrainer(
+            dvae_metrics = VAETrainer(
                 model=dvae_model,
                 args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
@@ -293,7 +296,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                     kl_weight=0.5,
                 )
             )
-            hvae_metrics = AutoencoderTrainer(
+            hvae_metrics = VAETrainer(
                 model=hvae_model,
                 args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu"),
             ).fit(dataloaders)
@@ -311,7 +314,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             args = TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu")
-            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            trainer = VQTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             self.assertIn("train_active_codes", metrics["history"][0])
@@ -378,7 +381,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 device="cpu",
                 seed=123,
             )
-            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            trainer = VQTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             history = metrics["history"]
@@ -403,7 +406,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         )
         model = VectorQuantizedAutoencoderModel(config)
         args = TrainingArguments(output_dir="unused", device="cpu")
-        trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+        trainer = VQTrainer(model=model, args=args)
 
         counts = torch.tensor([3, 1, 0, 0], dtype=torch.long)
         metrics = trainer.compute_codebook_metrics(counts)
@@ -424,7 +427,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         )
         model = ProductQuantizedAutoencoderModel(config)
         args = TrainingArguments(output_dir="unused", device="cpu")
-        trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+        trainer = VQTrainer(model=model, args=args)
 
         counts = torch.tensor([[3, 1, 0, 0], [0, 2, 2, 0]], dtype=torch.long)
         metrics = trainer.compute_codebook_metrics(counts)
@@ -453,7 +456,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 epochs=1,
                 device="cpu",
             )
-            trainer = QuantizedAutoencoderTrainer(model=model, args=args)
+            trainer = VQTrainer(model=model, args=args)
             metrics = trainer.fit(dataloaders)
 
             self.assertIn("train_active_codes", metrics["history"][0])

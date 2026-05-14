@@ -115,12 +115,14 @@ try:
     from .models.wae.modeling_wae import WassersteinAutoencoderModel
     from .models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
     from .training import (
+        AETrainer,
         AdversarialAutoencoderTrainer,
         AdversarialAutoencoderTrainingArguments,
-        AutoencoderTrainer,
-        QuantizedAutoencoderTrainer,
+        TrainerDisplay,
         TrainerDisplayConfig,
         TrainingArguments,
+        VAETrainer,
+        VQTrainer,
         resolve_device,
         set_seed,
     )
@@ -130,11 +132,11 @@ except ModuleNotFoundError as exc:
 else:
     __all__.extend(
         [
+            "AETrainer",
             "AdversarialAutoencoderModel",
             "AdversarialAutoencoderTrainer",
             "AdversarialAutoencoderTrainingArguments",
             "AutoencoderModel",
-            "AutoencoderTrainer",
             "AutoencoderDataset",
             "BaseAutoencoderModel",
             "BaseVariationalAutoencoderModel",
@@ -156,13 +158,15 @@ else:
             "KLSparseAutoencoderModel",
             "PreTrainedAutoencoderModel",
             "ProductQuantizedAutoencoderModel",
-            "QuantizedAutoencoderTrainer",
             "ResidualQuantizedAutoencoderModel",
             "SparseAutoencoderModel",
             "TopKSparseAutoencoderModel",
+            "TrainerDisplay",
             "TrainerDisplayConfig",
             "TrainingArguments",
+            "VAETrainer",
             "VariationalAutoencoderModel",
+            "VQTrainer",
             "VectorQuantizedAutoencoderModel",
             "WassersteinAutoencoderModel",
             "create_dataloaders",
