@@ -65,8 +65,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-        global_step: int | None = None,
-        current_epoch: int | None = None,
+        **kwargs: object,
     ) -> BaseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)

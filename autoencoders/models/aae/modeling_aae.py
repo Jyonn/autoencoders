@@ -46,10 +46,8 @@ class AdversarialAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-        global_step: int | None = None,
-        current_epoch: int | None = None,
+        **kwargs: object,
     ) -> AdversarialAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        del global_step, current_epoch
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)

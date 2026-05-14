@@ -38,10 +38,8 @@ class DenoisingAutoencoderModel(AutoencoderModel):
         return_dict: bool | None = None,
         add_noise: bool | None = None,
         corrupted_inputs: torch.Tensor | None = None,
-        global_step: int | None = None,
-        current_epoch: int | None = None,
+        **kwargs: object,
     ) -> DenoisingAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        del global_step, current_epoch
         apply_noise = self.training if add_noise is None else add_noise
         if not self.training and add_noise is None:
             apply_noise = self.config.apply_noise_in_eval
