@@ -364,6 +364,16 @@ class DatasetUtilitiesTest(unittest.TestCase):
         dataset = Flickr30kDataset(max_vectors=10)
         self.assertEqual(dataset.hf_dataset_name, "AnyModal/flickr30k")
 
+    def test_flickr30k_extract_captions_supports_anymodal_schema(self) -> None:
+        self.assertEqual(
+            Flickr30kDataset._extract_captions({"original_alt_text": ["first caption", "second caption"]}),
+            ["first caption", "second caption"],
+        )
+        self.assertEqual(
+            Flickr30kDataset._extract_captions({"alt_text": ["single caption"]}),
+            ["single caption"],
+        )
+
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))
 

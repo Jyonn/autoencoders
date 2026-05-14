@@ -50,12 +50,31 @@ class Flickr30kDataset(CLIPBackedDataset):
                 image_path = self.images_dir / filename
                 if force or not image_path.exists():
                     image.save(image_path)
+                captions = self._extract_captions(record)
                 payload = {
                     "image_id": str(record["img_id"]),
                     "filename": filename,
-                    "captions": list(record["caption"]),
+                    "captions": captions,
                 }
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _extract_captions(record: dict) -> list[str]:
+        for field_name in ("caption", "captions", "original_alt_text", "alt_text"):
+            value = record.get(field_name)
+            if value is None:
+                continue
+            if isinstance(value, str):
+                normalized = value.strip()
+                return [normalized] if normalized else []
+            if isinstance(value, list):
+                captions = [str(item).strip() for item in value if str(item).strip()]
+                if captions:
+                    return captions
+        raise KeyError(
+            "Flickr30k record did not contain a supported caption field. "
+            "Expected one of: 'caption', 'captions', 'original_alt_text', 'alt_text'."
+        )
 
     def load_records(self) -> list[CLIPRecord]:
         records: list[CLIPRecord] = []
