@@ -315,7 +315,11 @@ class AETrainer:
             advice.extend(self._generate_vq_advice(final_test_metrics))
         if "sparse_autoencoder" in model_type or "topk_sparse" in model_type or "kl_sparse" in model_type:
             advice.extend(self._generate_sparse_advice(final_test_metrics))
-        if "wasserstein_autoencoder" in model_type or "information_variational_autoencoder" in model_type:
+        if (
+            "wasserstein_autoencoder" in model_type
+            or "information_variational_autoencoder" in model_type
+            or "mmd_variational_autoencoder" in model_type
+        ):
             advice.extend(self._generate_mmd_advice(final_test_metrics))
         if "factor_variational_autoencoder" in model_type:
             advice.extend(self._generate_factor_advice(final_test_metrics))

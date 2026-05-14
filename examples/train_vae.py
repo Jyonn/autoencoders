@@ -19,7 +19,7 @@ from autoencoders import (
 )
 
 
-MODEL_CHOICES = ["vae", "dvae", "betavae", "hvae", "infovae", "vamppriorvae", "factorvae"]
+MODEL_CHOICES = ["vae", "dvae", "betavae", "hvae", "infovae", "mmdvae", "vamppriorvae", "factorvae", "dipvae", "betatcvae"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,6 +39,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-pseudo-inputs", type=int, default=128, help="VampPriorVAE number of learned pseudo-inputs.")
     parser.add_argument("--pseudo-input-std", type=float, default=0.01, help="VampPriorVAE pseudo-input initialization std.")
     parser.add_argument("--tc-weight", type=float, default=10.0, help="FactorVAE total-correlation penalty weight.")
+    parser.add_argument("--mutual-information-weight", type=float, default=1.0, help="Beta-TCVAE mutual-information term weight.")
+    parser.add_argument("--total-correlation-weight", type=float, default=6.0, help="Beta-TCVAE total-correlation term weight.")
+    parser.add_argument("--dimension-wise-kl-weight", type=float, default=1.0, help="Beta-TCVAE dimension-wise KL term weight.")
+    parser.add_argument("--dip-weight", type=float, default=10.0, help="DIP-VAE covariance regularization strength.")
+    parser.add_argument("--dip-offdiag-weight", type=float, default=1.0, help="DIP-VAE off-diagonal covariance penalty weight.")
+    parser.add_argument("--dip-diag-weight", type=float, default=1.0, help="DIP-VAE diagonal covariance penalty weight.")
     parser.add_argument("--discriminator-hidden-dims", type=int, nargs="+", default=[128, 64], help="FactorVAE discriminator hidden dims.")
     parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional FactorVAE discriminator optimizer learning rate.")
     parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of FactorVAE discriminator updates per batch.")
@@ -76,6 +82,11 @@ def build_model(args: argparse.Namespace, input_dim: int):
             mmd_weight=args.mmd_weight,
             mmd_bandwidths=list(args.mmd_bandwidths),
         )
+    if args.model == "mmdvae":
+        model_kwargs.update(
+            mmd_weight=args.mmd_weight,
+            mmd_bandwidths=list(args.mmd_bandwidths),
+        )
     if args.model == "vamppriorvae":
         model_kwargs.update(
             num_pseudo_inputs=args.num_pseudo_inputs,
@@ -85,6 +96,18 @@ def build_model(args: argparse.Namespace, input_dim: int):
         model_kwargs.update(
             tc_weight=args.tc_weight,
             discriminator_hidden_dims=list(args.discriminator_hidden_dims),
+        )
+    if args.model == "betatcvae":
+        model_kwargs.update(
+            mutual_information_weight=args.mutual_information_weight,
+            total_correlation_weight=args.total_correlation_weight,
+            dimension_wise_kl_weight=args.dimension_wise_kl_weight,
+        )
+    if args.model == "dipvae":
+        model_kwargs.update(
+            dip_weight=args.dip_weight,
+            dip_offdiag_weight=args.dip_offdiag_weight,
+            dip_diag_weight=args.dip_diag_weight,
         )
     if args.model == "dvae":
         model_kwargs.update(

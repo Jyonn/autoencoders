@@ -14,7 +14,7 @@ from _train_common import (
 from autoencoders import VQTrainer, load_model
 
 
-MODEL_CHOICES = ["vqvae", "fsq", "pqvae", "rqvae"]
+MODEL_CHOICES = ["vqvae", "fsq", "pqvae", "rqvae", "gumbelvq", "rfsq", "vqvae2"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,8 +30,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-levels", type=int, default=8, help="FSQ number of scalar quantization levels.")
     parser.add_argument("--num-codebooks", type=int, default=2, help="PQ-VAE number of product codebooks.")
     parser.add_argument("--num-quantizers", type=int, default=2, help="RQ-VAE number of residual quantizers.")
+    parser.add_argument("--top-latent-dim", type=int, default=None, help="VQ-VAE-2 top-level latent width.")
     parser.add_argument("--commitment-weight", type=float, default=0.25, help="Commitment loss weight.")
     parser.add_argument("--codebook-weight", type=float, default=1.0, help="Codebook loss weight.")
+    parser.add_argument("--temperature", type=float, default=1.0, help="Gumbel-VQ softmax temperature.")
+    parser.add_argument(
+        "--straight-through",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether Gumbel-VQ uses hard straight-through assignments.",
+    )
     parser.add_argument(
         "--use-ema-codebook",
         action=argparse.BooleanOptionalAction,
@@ -60,6 +68,22 @@ def build_model(args: argparse.Namespace, input_dim: int):
     }
     if args.model == "fsq":
         model_kwargs.update(num_levels=args.num_levels, commitment_weight=args.commitment_weight)
+    elif args.model == "rfsq":
+        model_kwargs.update(
+            num_levels=args.num_levels,
+            commitment_weight=args.commitment_weight,
+            num_quantizers=args.num_quantizers,
+        )
+    elif args.model == "gumbelvq":
+        model_kwargs.update(
+            codebook_size=args.codebook_size,
+            commitment_weight=args.commitment_weight,
+            codebook_weight=args.codebook_weight,
+            dead_code_reset=args.dead_code_reset,
+            dead_code_threshold=args.dead_code_threshold,
+            temperature=args.temperature,
+            straight_through=args.straight_through,
+        )
     else:
         model_kwargs.update(
             codebook_size=args.codebook_size,
@@ -75,6 +99,8 @@ def build_model(args: argparse.Namespace, input_dim: int):
             model_kwargs.update(num_codebooks=args.num_codebooks)
         if args.model == "rqvae":
             model_kwargs.update(num_quantizers=args.num_quantizers)
+        if args.model == "vqvae2":
+            model_kwargs.update(top_latent_dim=args.top_latent_dim)
     return load_model(args.model, **model_kwargs)
 
 

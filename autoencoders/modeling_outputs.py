@@ -95,8 +95,31 @@ class FactorVariationalAutoencoderOutput(VariationalAutoencoderOutput):
 
 
 @dataclass
+class DIPVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for DIP-VAE models."""
+
+    dip_loss: Any = None
+
+
+@dataclass
+class BetaTCVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for Beta-TCVAE models."""
+
+    mutual_information_loss: Any = None
+    total_correlation_loss: Any = None
+    dimension_wise_kl_loss: Any = None
+
+
+@dataclass
 class InformationVariationalAutoencoderOutput(VariationalAutoencoderOutput):
     """Output for InfoVAE-style variational autoencoders."""
+
+    mmd_loss: Any = None
+
+
+@dataclass
+class MMDVariationalAutoencoderOutput(VariationalAutoencoderOutput):
+    """Output for MMD-VAE models."""
 
     mmd_loss: Any = None
 
@@ -129,6 +152,35 @@ class QuantizedAutoencoderOutput(BaseAutoencoderOutput):
 @dataclass
 class FiniteScalarQuantizedAutoencoderOutput(QuantizedAutoencoderOutput):
     """Output for finite scalar quantized autoencoders."""
+
+
+@dataclass
+class GumbelQuantizedAutoencoderOutput(QuantizedAutoencoderOutput):
+    """Output for Gumbel-softmax quantized autoencoders."""
+
+    assignment_entropy: Any = None
+    temperature: Any = None
+
+
+@dataclass
+class ResidualFiniteScalarQuantizedAutoencoderOutput(QuantizedAutoencoderOutput):
+    """Output for residual finite scalar quantized autoencoders."""
+
+    quantization_residual_loss: Any = None
+
+
+@dataclass
+class HierarchicalQuantizedAutoencoderOutput(QuantizedAutoencoderOutput):
+    """Output for hierarchical quantized autoencoders such as VQ-VAE-2."""
+
+    top_quantized_latents: Any = None
+    bottom_quantized_latents: Any = None
+    top_codebook_indices: Any = None
+    bottom_codebook_indices: Any = None
+    top_commitment_loss: Any = None
+    bottom_commitment_loss: Any = None
+    top_codebook_loss: Any = None
+    bottom_codebook_loss: Any = None
 
 
 # Backward-compatible alias for older integrations that imported AutoencoderOutput.

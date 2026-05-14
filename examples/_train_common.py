@@ -93,6 +93,11 @@ MODEL_PARAMETER_SECTIONS = {
         ("mmd_weight", "Weight of the MMD prior-matching penalty."),
         ("mmd_bandwidths", "Kernel bandwidths used by the MMD estimator."),
     ],
+    "mmdvae": [
+        ("mmd_weight", "Weight of the MMD prior-matching penalty."),
+        ("mmd_bandwidths", "Kernel bandwidths used by the MMD estimator."),
+        ("free_bits", "Minimum KL floor enforced per latent dimension."),
+    ],
     "vamppriorvae": [
         ("kl_weight", "Weight applied to KL regularization against the VampPrior."),
         ("free_bits", "Minimum KL floor enforced per latent dimension."),
@@ -111,6 +116,23 @@ MODEL_PARAMETER_SECTIONS = {
         ("discriminator_learning_rate", "Optional optimizer rate for the TC discriminator."),
         ("discriminator_steps", "How many TC discriminator updates run per training batch."),
     ],
+    "dipvae": [
+        ("kl_weight", "Weight applied to the base KL regularization term."),
+        ("free_bits", "Minimum KL floor enforced per latent dimension."),
+        ("kl_warmup_epochs", "Epochs used to ramp KL from the start weight to full strength."),
+        ("kl_start_weight", "Initial KL weight at the start of warmup."),
+        ("dip_weight", "Overall strength of covariance regularization."),
+        ("dip_offdiag_weight", "Penalty on off-diagonal latent covariance terms."),
+        ("dip_diag_weight", "Penalty on diagonal covariance drift from unit variance."),
+    ],
+    "betatcvae": [
+        ("mutual_information_weight", "Weight on the latent mutual-information term."),
+        ("total_correlation_weight", "Weight on the total-correlation disentanglement term."),
+        ("dimension_wise_kl_weight", "Weight on the dimension-wise prior matching term."),
+        ("free_bits", "Minimum KL floor enforced per latent dimension."),
+        ("kl_warmup_epochs", "Epochs used to ramp KL from the start weight to full strength."),
+        ("kl_start_weight", "Initial KL weight at the start of warmup."),
+    ],
     "vqvae": [
         ("codebook_size", "Number of discrete codes available in the codebook."),
         ("commitment_weight", "Strength that keeps encoder outputs close to chosen codes."),
@@ -121,9 +143,22 @@ MODEL_PARAMETER_SECTIONS = {
         ("dead_code_reset", "Whether unused codes are reset after each training epoch."),
         ("dead_code_threshold", "Usage count threshold below which a code is considered dead."),
     ],
+    "gumbelvq": [
+        ("codebook_size", "Number of discrete codes available in the codebook."),
+        ("temperature", "Softmax temperature for relaxed code assignments."),
+        ("straight_through", "Whether assignments are discretized with a straight-through estimator."),
+        ("commitment_weight", "Strength that keeps encoder outputs close to selected code mixtures."),
+        ("dead_code_reset", "Whether unused codes are reset after each training epoch."),
+        ("dead_code_threshold", "Usage count threshold below which a code is considered dead."),
+    ],
     "fsq": [
         ("num_levels", "Number of scalar quantization levels per latent dimension."),
         ("commitment_weight", "Strength that keeps encoder outputs near finite scalar bins."),
+    ],
+    "rfsq": [
+        ("num_levels", "Number of scalar quantization levels per residual stage."),
+        ("num_quantizers", "How many residual scalar quantizers are stacked in sequence."),
+        ("commitment_weight", "Strength that keeps encoder outputs near residual scalar bins."),
     ],
     "pqvae": [
         ("codebook_size", "Number of discrete codes in each product codebook."),
@@ -145,6 +180,16 @@ MODEL_PARAMETER_SECTIONS = {
         ("ema_decay", "EMA decay factor for codebook updates."),
         ("ema_epsilon", "Numerical stability constant for EMA updates."),
         ("dead_code_reset", "Whether unused codes are reset after each training epoch."),
+        ("dead_code_threshold", "Usage count threshold below which a code is considered dead."),
+    ],
+    "vqvae2": [
+        ("codebook_size", "Number of discrete codes shared by both hierarchy levels."),
+        ("top_latent_dim", "Latent width used by the top quantization hierarchy."),
+        ("commitment_weight", "Strength that keeps both hierarchy levels close to selected codes."),
+        ("codebook_weight", "Strength that moves hierarchy code vectors toward encoder outputs."),
+        ("use_ema_codebook", "Whether hierarchy codebooks update by EMA instead of gradient loss."),
+        ("ema_decay", "EMA decay factor for codebook updates."),
+        ("dead_code_reset", "Whether unused hierarchy codes are reset after each training epoch."),
         ("dead_code_threshold", "Usage count threshold below which a code is considered dead."),
     ],
 }
