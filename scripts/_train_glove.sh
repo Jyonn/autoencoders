@@ -9,7 +9,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-/Users/jyonn/Projects/venv/library/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 ENTRYPOINT="$1"
 MODEL_NAME="$2"
