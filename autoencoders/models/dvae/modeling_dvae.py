@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import DenoisingVariationalAutoencoderOutput
 from ..vae.modeling_vae import VariationalAutoencoderModel
 from .configuration_dvae import DenoisingVariationalAutoencoderConfig
 
@@ -36,7 +36,7 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
         sample_posterior: bool | None = None,
         add_noise: bool | None = None,
         corrupted_inputs: torch.Tensor | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> DenoisingVariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         apply_noise = self.training if add_noise is None else add_noise
         if not self.training and add_noise is None:
             apply_noise = self.config.apply_noise_in_eval
@@ -63,7 +63,7 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return DenoisingVariationalAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

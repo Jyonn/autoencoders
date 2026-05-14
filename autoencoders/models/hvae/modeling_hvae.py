@@ -7,7 +7,7 @@ from typing import Callable
 import torch
 from torch import nn
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import HierarchicalVariationalAutoencoderOutput
 from ..base.modeling_vae import BaseVariationalAutoencoderModel
 from .configuration_hvae import HierarchicalVariationalAutoencoderConfig
 
@@ -53,7 +53,7 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         inputs: torch.Tensor,
         return_dict: bool | None = None,
         sample_posterior: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> HierarchicalVariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         top_mean, top_logvar, bottom_mean, bottom_logvar = self.encode(inputs)
         if sample_posterior is None:
             sample_posterior = self.training or not self.config.use_mean_in_eval
@@ -77,7 +77,7 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return HierarchicalVariationalAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

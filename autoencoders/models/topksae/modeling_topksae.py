@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import TopKSparseAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_topksae import TopKSparseAutoencoderConfig
 
@@ -27,7 +27,7 @@ class TopKSparseAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> TopKSparseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.apply_topk(self.latent_transform(encoded))
         reconstruction = self.decode(latents)
@@ -39,7 +39,7 @@ class TopKSparseAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return reconstruction_loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return TopKSparseAutoencoderOutput(
             loss=reconstruction_loss,
             reconstruction=reconstruction,
             latents=latents,

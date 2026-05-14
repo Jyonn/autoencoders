@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from ...modeling_outputs import AutoencoderExport, AutoencoderOutput
+from ...modeling_outputs import AutoencoderExport, FiniteScalarQuantizedAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_fsq import FiniteScalarQuantizedAutoencoderConfig
 
@@ -37,7 +37,7 @@ class FiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> FiniteScalarQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         quantized_latents, codebook_indices = self.quantize(encoded)
         latents = encoded + (quantized_latents - encoded).detach()
@@ -50,7 +50,7 @@ class FiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return FiniteScalarQuantizedAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

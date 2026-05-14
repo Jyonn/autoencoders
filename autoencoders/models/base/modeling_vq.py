@@ -7,7 +7,7 @@ from abc import abstractmethod
 import torch
 import torch.nn.functional as F
 
-from ...modeling_outputs import AutoencoderExport, AutoencoderOutput
+from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput, QuantizedAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_vq import BaseVectorQuantizedAutoencoderConfig
 
@@ -55,7 +55,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         quantized_latents, codebook_indices = self.quantize(encoded)
         latents = encoded + (quantized_latents - encoded).detach()
@@ -75,7 +75,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return QuantizedAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,
@@ -97,7 +97,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         self,
         *,
         inputs: torch.Tensor,
-        outputs: AutoencoderOutput,
+        outputs: BaseAutoencoderOutput,
         include_reconstruction: bool,
         metadata: dict[str, object] | None,
     ) -> AutoencoderExport:

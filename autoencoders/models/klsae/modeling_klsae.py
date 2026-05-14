@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import KLSparseAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_klsae import KLSparseAutoencoderConfig
 
@@ -34,7 +34,7 @@ class KLSparseAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> KLSparseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)
@@ -47,7 +47,7 @@ class KLSparseAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return KLSparseAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

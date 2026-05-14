@@ -2,7 +2,23 @@
 
 from .models.aae.configuration_aae import AdversarialAutoencoderConfig
 from .configuration_utils import PretrainedConfig
-from .modeling_outputs import AutoencoderExport, AutoencoderOutput
+from .modeling_outputs import (
+    AdversarialAutoencoderOutput,
+    AutoencoderExport,
+    AutoencoderOutput,
+    BaseAutoencoderOutput,
+    ContractiveAutoencoderOutput,
+    DenoisingAutoencoderOutput,
+    DenoisingVariationalAutoencoderOutput,
+    FiniteScalarQuantizedAutoencoderOutput,
+    HierarchicalVariationalAutoencoderOutput,
+    KLSparseAutoencoderOutput,
+    QuantizedAutoencoderOutput,
+    SparseAutoencoderOutput,
+    TopKSparseAutoencoderOutput,
+    VariationalAutoencoderOutput,
+    WassersteinAutoencoderOutput,
+)
 from .models.ae.configuration_ae import AutoencoderConfig
 from .models.cae.configuration_cae import ContractiveAutoencoderConfig
 from .models.base.configuration_base import BaseAutoencoderConfig
@@ -24,26 +40,39 @@ from .models.vqvae.configuration_vqvae import VectorQuantizedAutoencoderConfig
 
 __all__ = [
     "AdversarialAutoencoderConfig",
+    "AdversarialAutoencoderOutput",
     "AutoencoderConfig",
     "AutoencoderExport",
     "AutoencoderOutput",
+    "BaseAutoencoderOutput",
     "BaseAutoencoderConfig",
     "BaseVariationalAutoencoderConfig",
     "BaseVectorQuantizedAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",
     "ContractiveAutoencoderConfig",
+    "ContractiveAutoencoderOutput",
     "DenoisingAutoencoderConfig",
+    "DenoisingAutoencoderOutput",
     "DenoisingVariationalAutoencoderConfig",
+    "DenoisingVariationalAutoencoderOutput",
     "FiniteScalarQuantizedAutoencoderConfig",
+    "FiniteScalarQuantizedAutoencoderOutput",
     "HierarchicalVariationalAutoencoderConfig",
+    "HierarchicalVariationalAutoencoderOutput",
     "KLSparseAutoencoderConfig",
+    "KLSparseAutoencoderOutput",
     "PretrainedConfig",
     "ProductQuantizedAutoencoderConfig",
+    "QuantizedAutoencoderOutput",
     "ResidualQuantizedAutoencoderConfig",
     "SparseAutoencoderConfig",
+    "SparseAutoencoderOutput",
     "TopKSparseAutoencoderConfig",
+    "TopKSparseAutoencoderOutput",
     "VariationalAutoencoderConfig",
+    "VariationalAutoencoderOutput",
     "WassersteinAutoencoderConfig",
+    "WassersteinAutoencoderOutput",
     "VectorQuantizedAutoencoderConfig",
 ]
 

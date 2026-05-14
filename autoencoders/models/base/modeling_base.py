@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn.functional as F
 
-from ...modeling_outputs import AutoencoderExport, AutoencoderOutput
+from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
 from .configuration_base import BaseAutoencoderConfig
 
@@ -65,7 +65,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> BaseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)
@@ -76,7 +76,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return BaseAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,
@@ -88,7 +88,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         self,
         *,
         inputs: torch.Tensor,
-        outputs: AutoencoderOutput,
+        outputs: BaseAutoencoderOutput,
         include_reconstruction: bool,
         metadata: dict[str, object] | None,
     ) -> AutoencoderExport:
@@ -104,9 +104,9 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             latents=outputs.latents,
             reconstruction=outputs.reconstruction if include_reconstruction else None,
             encoded=outputs.encoded,
-            posterior_mean=outputs.posterior_mean,
-            posterior_logvar=outputs.posterior_logvar,
-            quantized_latents=outputs.quantized_latents,
-            codebook_indices=outputs.codebook_indices,
+            posterior_mean=getattr(outputs, "posterior_mean", None),
+            posterior_logvar=getattr(outputs, "posterior_logvar", None),
+            quantized_latents=getattr(outputs, "quantized_latents", None),
+            codebook_indices=getattr(outputs, "codebook_indices", None),
             metadata=export_metadata,
         )

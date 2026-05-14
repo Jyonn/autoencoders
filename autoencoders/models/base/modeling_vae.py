@@ -6,7 +6,7 @@ from abc import abstractmethod
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import VariationalAutoencoderOutput
 from .configuration_vae import BaseVariationalAutoencoderConfig
 from .modeling_base import BaseAutoencoderModel
 
@@ -59,7 +59,7 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         inputs: torch.Tensor,
         return_dict: bool | None = None,
         sample_posterior: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> VariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         posterior_mean, posterior_logvar = self.encode(inputs)
         latents = self.sample_latents(
             posterior_mean=posterior_mean,
@@ -75,7 +75,7 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return VariationalAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

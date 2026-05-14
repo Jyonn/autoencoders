@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import ContractiveAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_cae import ContractiveAutoencoderConfig
 
@@ -35,7 +35,7 @@ class ContractiveAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> ContractiveAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         if torch.is_grad_enabled():
             encoder_inputs = inputs.detach().clone().requires_grad_(True)
         else:
@@ -56,7 +56,7 @@ class ContractiveAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return ContractiveAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

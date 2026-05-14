@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import AdversarialAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_aae import AdversarialAutoencoderConfig
 
@@ -46,7 +46,7 @@ class AdversarialAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> AdversarialAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)
@@ -61,7 +61,7 @@ class AdversarialAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return AdversarialAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

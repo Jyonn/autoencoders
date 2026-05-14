@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import DenoisingAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_dae import DenoisingAutoencoderConfig
 
@@ -38,7 +38,7 @@ class DenoisingAutoencoderModel(AutoencoderModel):
         return_dict: bool | None = None,
         add_noise: bool | None = None,
         corrupted_inputs: torch.Tensor | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> DenoisingAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         apply_noise = self.training if add_noise is None else add_noise
         if not self.training and add_noise is None:
             apply_noise = self.config.apply_noise_in_eval
@@ -60,7 +60,7 @@ class DenoisingAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return DenoisingAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,

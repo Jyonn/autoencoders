@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ...modeling_outputs import AutoencoderOutput
+from ...modeling_outputs import WassersteinAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_wae import WassersteinAutoencoderConfig
 
@@ -37,7 +37,7 @@ class WassersteinAutoencoderModel(AutoencoderModel):
         self,
         inputs: torch.Tensor,
         return_dict: bool | None = None,
-    ) -> AutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+    ) -> WassersteinAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)
@@ -51,7 +51,7 @@ class WassersteinAutoencoderModel(AutoencoderModel):
         if not use_return_dict:
             return loss, reconstruction, latents
 
-        return AutoencoderOutput(
+        return WassersteinAutoencoderOutput(
             loss=loss,
             reconstruction=reconstruction,
             latents=latents,
