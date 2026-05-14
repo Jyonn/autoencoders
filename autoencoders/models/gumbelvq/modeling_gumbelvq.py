@@ -17,6 +17,12 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """A vector quantized autoencoder using Gumbel-softmax assignments."""
 
     config_class = GumbelQuantizedAutoencoderConfig
+    min_input_rank = 3
+
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
+        if codebook_indices.ndim == 2:
+            return [codebook_indices.reshape(-1)]
+        return super().iter_codebook_index_sets(codebook_indices)
 
     def __init__(self, config: GumbelQuantizedAutoencoderConfig) -> None:
         super().__init__(config)
@@ -67,7 +73,7 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         if dead_count == 0:
             return 0
         if reference_latents is not None and reference_latents.numel() > 0:
-            reference_latents = reference_latents.detach().to(self.codebook.weight.device)
+            reference_latents = reference_latents.detach().to(self.codebook.weight.device).reshape(-1, self.config.latent_dim)
             sample_indices = torch.randint(0, reference_latents.shape[0], (dead_count,), device=self.codebook.weight.device)
             replacements = reference_latents[sample_indices]
         else:

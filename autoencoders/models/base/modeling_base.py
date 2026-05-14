@@ -16,6 +16,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
     config_class = BaseAutoencoderConfig
     requires_grad_in_eval = False
+    min_input_rank = 2
 
     def __init__(self, config: BaseAutoencoderConfig) -> None:
         super().__init__(config)
@@ -35,6 +36,13 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     def reconstruct(self, inputs: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
+
+    def validate_inputs(self, inputs: torch.Tensor) -> None:
+        if inputs.ndim < self.min_input_rank:
+            raise ValueError(
+                f"{self.__class__.__name__} expects inputs with rank >= {self.min_input_rank}, "
+                f"but received shape {tuple(inputs.shape)}."
+            )
 
     def get_epoch_metrics(
         self,
@@ -80,6 +88,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         return_dict: bool | None = None,
         **kwargs: object,
     ) -> BaseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
         latents = self.latent_transform(encoded)
         reconstruction = self.decode(latents)

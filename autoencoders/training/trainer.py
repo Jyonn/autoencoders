@@ -545,25 +545,29 @@ class VQTrainer(AETrainer):
         )
 
     def initialize_code_counts(self) -> torch.Tensor:
-        codebook_size = int(self.model.config.codebook_size)
-        return torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+        return torch.zeros(0, dtype=torch.long, device=self.device)
 
     def accumulate_code_counts(self, code_counts: torch.Tensor, codebook_indices: torch.Tensor) -> torch.Tensor:
-        if codebook_indices.ndim == 1:
-            code_counts += torch.bincount(codebook_indices.reshape(-1), minlength=code_counts.shape[-1])
+        index_sets = self.model.iter_codebook_index_sets(codebook_indices.detach())
+        codebook_size = int(self.model.config.codebook_size)
+
+        if len(index_sets) == 1:
+            if tuple(code_counts.shape) != (codebook_size,):
+                code_counts = torch.zeros(codebook_size, dtype=torch.long, device=self.device)
+            code_counts += torch.bincount(index_sets[0], minlength=codebook_size)
             return code_counts
 
-        if code_counts.ndim == 1:
+        if tuple(code_counts.shape) != (len(index_sets), codebook_size):
             code_counts = torch.zeros(
-                codebook_indices.shape[1],
-                code_counts.shape[0],
-                dtype=code_counts.dtype,
-                device=code_counts.device,
+                len(index_sets),
+                codebook_size,
+                dtype=torch.long,
+                device=self.device,
             )
-        for codebook_index in range(codebook_indices.shape[1]):
+        for codebook_index, flattened_indices in enumerate(index_sets):
             code_counts[codebook_index] += torch.bincount(
-                codebook_indices[:, codebook_index].reshape(-1),
-                minlength=code_counts.shape[-1],
+                flattened_indices,
+                minlength=codebook_size,
             )
         return code_counts
 

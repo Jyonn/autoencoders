@@ -64,29 +64,38 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         self._last_dead_code_reset_count = 0
         return dead_code_reset_count
 
-    def _prepare_code_usage_counts(self, codebook_indices: torch.Tensor) -> None:
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
         if codebook_indices.ndim == 1:
+            return [codebook_indices.reshape(-1)]
+        if codebook_indices.ndim == 2:
+            return [codebook_indices[:, codebook_index].reshape(-1) for codebook_index in range(codebook_indices.shape[1])]
+        if codebook_indices.ndim == 3:
+            return [codebook_indices[..., codebook_index].reshape(-1) for codebook_index in range(codebook_indices.shape[-1])]
+        raise ValueError("Quantized models expect codebook_indices with rank 1, 2, or 3.")
+
+    def _prepare_code_usage_counts(self, codebook_indices: torch.Tensor) -> None:
+        index_sets = self.iter_codebook_index_sets(codebook_indices)
+        if len(index_sets) == 1:
             expected_shape = (self.config.codebook_size,)
-        elif codebook_indices.ndim == 2:
-            expected_shape = (codebook_indices.shape[1], self.config.codebook_size)
         else:
-            raise ValueError("Quantized models expect codebook_indices with rank 1 or 2.")
+            expected_shape = (len(index_sets), self.config.codebook_size)
 
         if tuple(self._code_usage_counts.shape) != expected_shape or self._code_usage_counts.device != codebook_indices.device:
             self._code_usage_counts = torch.zeros(expected_shape, dtype=torch.long, device=codebook_indices.device)
 
     def _accumulate_code_usage(self, codebook_indices: torch.Tensor) -> None:
         self._prepare_code_usage_counts(codebook_indices)
-        if codebook_indices.ndim == 1:
+        index_sets = self.iter_codebook_index_sets(codebook_indices)
+        if len(index_sets) == 1:
             self._code_usage_counts += torch.bincount(
-                codebook_indices.reshape(-1),
+                index_sets[0],
                 minlength=self.config.codebook_size,
             )
             return
 
-        for codebook_index in range(codebook_indices.shape[1]):
+        for codebook_index, flattened_indices in enumerate(index_sets):
             self._code_usage_counts[codebook_index] += torch.bincount(
-                codebook_indices[:, codebook_index].reshape(-1),
+                flattened_indices,
                 minlength=self.config.codebook_size,
             )
 
@@ -104,7 +113,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
             raise ValueError("is_last_train_step must be provided when dead_code_reset is enabled during training.")
 
         self._accumulate_code_usage(codebook_indices.detach())
-        self._reference_latent_batches.append(encoded.detach())
+        self._reference_latent_batches.append(encoded.detach().reshape(-1, encoded.shape[-1]))
         if not is_last_train_step:
             return
 
@@ -125,6 +134,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         is_last_train_step: bool | None = None,
         **kwargs: object,
     ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
         quantized_latents, codebook_indices = self.quantize(encoded)
         self._maybe_reset_dead_codes(

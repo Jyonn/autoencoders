@@ -17,7 +17,7 @@ if torch is not None:
 @unittest.skipIf(torch is None, "torch is required for model tests")
 class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.inputs = torch.randn(4, 16)
+        self.inputs = torch.randn(4, 5, 16)
         self.config = VectorQuantizedAutoencoderConfig(
             input_dim=16,
             latent_dim=4,
@@ -32,10 +32,10 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
 
         outputs = model(inputs=self.inputs)
 
-        self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
-        self.assertEqual(tuple(outputs.latents.shape), (4, 4))
-        self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 4))
-        self.assertEqual(tuple(outputs.codebook_indices.shape), (4,))
+        self.assertEqual(tuple(outputs.reconstruction.shape), (4, 5, 16))
+        self.assertEqual(tuple(outputs.latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 5))
         self.assertIn("commitment_loss", outputs.loss_dict)
         self.assertIn("codebook_loss", outputs.loss_dict)
         expected_loss = (
@@ -72,14 +72,13 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         artifact = model.export(self.inputs, metadata={"split": "test"})
 
         self.assertEqual(artifact.model_type, "vector_quantized_autoencoder")
-        self.assertEqual(tuple(artifact.latents.shape), (4, 4))
-        self.assertEqual(tuple(artifact.encoded.shape), (4, 4))
-        self.assertEqual(tuple(artifact.reconstruction.shape), (4, 16))
-        self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 4))
-        self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
-        self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
-        self.assertEqual(artifact.metadata["input_shape"], [4, 16])
-        self.assertEqual(artifact.metadata["latent_shape"], [4, 4])
+        self.assertEqual(tuple(artifact.latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(artifact.encoded.shape), (4, 5, 4))
+        self.assertEqual(tuple(artifact.reconstruction.shape), (4, 5, 16))
+        self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(artifact.codebook_indices.shape), (4, 5))
+        self.assertEqual(artifact.metadata["input_shape"], [4, 5, 16])
+        self.assertEqual(artifact.metadata["latent_shape"], [4, 5, 4])
         self.assertEqual(artifact.metadata["split"], "test")
         self.assertEqual(artifact.extras["codebook_size"], 32)
         self.assertEqual(tuple(artifact.extras["codebook"].shape), (32, 4))
@@ -92,8 +91,8 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         artifact = model.export(self.inputs, include_reconstruction=False)
 
         self.assertIsNone(artifact.reconstruction)
-        self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 4))
-        self.assertEqual(tuple(artifact.codebook_indices.shape), (4,))
+        self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(artifact.codebook_indices.shape), (4, 5))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = VectorQuantizedAutoencoderModel(self.config)
@@ -137,6 +136,11 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "is_last_train_step"):
             model(inputs=self.inputs)
+
+    def test_vector_vq_requires_multi_vector_inputs(self) -> None:
+        model = VectorQuantizedAutoencoderModel(self.config)
+        with self.assertRaisesRegex(ValueError, "rank >= 3"):
+            model(inputs=torch.randn(4, 16))
 
     def test_dead_code_reset_count_is_recorded_on_last_train_step(self) -> None:
         config = VectorQuantizedAutoencoderConfig(

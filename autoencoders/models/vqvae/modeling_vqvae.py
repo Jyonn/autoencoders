@@ -14,6 +14,12 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """A simple MLP VQ-VAE for vector-like feature inputs."""
 
     config_class = VectorQuantizedAutoencoderConfig
+    min_input_rank = 3
+
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
+        if codebook_indices.ndim == 2:
+            return [codebook_indices.reshape(-1)]
+        return super().iter_codebook_index_sets(codebook_indices)
 
     def __init__(self, config: VectorQuantizedAutoencoderConfig) -> None:
         super().__init__(config)
@@ -33,9 +39,11 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         self.ema_weight_sum.copy_(self.codebook.weight.detach())
 
     def _update_ema_codebook(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
-        one_hot_assignments = F.one_hot(codebook_indices, num_classes=self.config.codebook_size).to(encoded.dtype)
+        flat_encoded = encoded.reshape(-1, encoded.shape[-1])
+        flat_indices = codebook_indices.reshape(-1)
+        one_hot_assignments = F.one_hot(flat_indices, num_classes=self.config.codebook_size).to(encoded.dtype)
         cluster_size_update = one_hot_assignments.sum(dim=0)
-        embedding_sum_update = one_hot_assignments.transpose(0, 1) @ encoded
+        embedding_sum_update = one_hot_assignments.transpose(0, 1) @ flat_encoded
 
         self.ema_cluster_size.mul_(self.config.ema_decay).add_(cluster_size_update, alpha=1 - self.config.ema_decay)
         self.ema_weight_sum.mul_(self.config.ema_decay).add_(embedding_sum_update, alpha=1 - self.config.ema_decay)
@@ -56,7 +64,7 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             return 0
 
         if reference_latents is not None and reference_latents.numel() > 0:
-            reference_latents = reference_latents.detach().to(self.codebook.weight.device)
+            reference_latents = reference_latents.detach().to(self.codebook.weight.device).reshape(-1, self.config.latent_dim)
             sample_indices = torch.randint(0, reference_latents.shape[0], (dead_count,), device=self.codebook.weight.device)
             replacement_embeddings = reference_latents[sample_indices]
         else:

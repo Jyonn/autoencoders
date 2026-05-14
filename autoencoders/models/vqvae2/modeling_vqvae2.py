@@ -15,6 +15,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     """A two-level vector quantized autoencoder for embedding inputs."""
 
     config_class = HierarchicalVectorQuantizedAutoencoderConfig
+    min_input_rank = 3
 
     def __init__(self, config: HierarchicalVectorQuantizedAutoencoderConfig) -> None:
         super().__init__(config)
@@ -87,7 +88,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         bottom_context = encoded + self.top_decoder(top_quantized)
         bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook)
         hierarchical_latents = torch.cat([top_quantized, bottom_quantized], dim=-1)
-        codebook_indices = torch.stack([top_indices, bottom_indices], dim=1)
+        codebook_indices = torch.stack([top_indices, bottom_indices], dim=-1)
         return hierarchical_latents, codebook_indices
 
     def compute_codebook_loss(self, encoded: torch.Tensor, quantized_latents: torch.Tensor) -> torch.Tensor:
@@ -110,13 +111,15 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         if not self.config.use_ema_codebook:
             return
         top_encoded = self.top_encoder(encoded)
-        top_indices = codebook_indices[:, 0]
+        top_indices = codebook_indices[..., 0].reshape(-1)
         top_one_hot = F.one_hot(top_indices, num_classes=self.config.codebook_size).to(encoded.dtype)
-        self._update_ema_slot(0, top_one_hot, top_encoded, self.top_codebook, self.config.top_latent_dim)
-        bottom_context = encoded + self.top_decoder(self.top_codebook(top_indices).detach())
-        bottom_indices = codebook_indices[:, 1]
+        top_values = top_encoded.reshape(-1, self.config.top_latent_dim)
+        self._update_ema_slot(0, top_one_hot, top_values, self.top_codebook, self.config.top_latent_dim)
+        bottom_context = encoded + self.top_decoder(self.top_codebook(codebook_indices[..., 0]).detach())
+        bottom_indices = codebook_indices[..., 1].reshape(-1)
         bottom_one_hot = F.one_hot(bottom_indices, num_classes=self.config.codebook_size).to(encoded.dtype)
-        self._update_ema_slot(1, bottom_one_hot, bottom_context, self.bottom_codebook, self.config.latent_dim)
+        bottom_values = bottom_context.reshape(-1, self.config.latent_dim)
+        self._update_ema_slot(1, bottom_one_hot, bottom_values, self.bottom_codebook, self.config.latent_dim)
 
     def _update_ema_slot(self, slot: int, one_hot: torch.Tensor, values: torch.Tensor, codebook: nn.Embedding, width: int) -> None:
         cluster_size_update = one_hot.sum(dim=0)
@@ -139,7 +142,11 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         dead_count = int(dead_code_mask.sum().item())
         if dead_count == 0:
             return 0
-        reference_latents = None if reference_latents is None else reference_latents.detach().to(self.top_codebook.weight.device)
+        reference_latents = (
+            None
+            if reference_latents is None
+            else reference_latents.detach().to(self.top_codebook.weight.device).reshape(-1, reference_latents.shape[-1])
+        )
         codebooks = ((self.top_codebook, self.config.top_latent_dim, 0), (self.bottom_codebook, self.config.latent_dim, 1))
         for slot, (codebook, width, ema_slot) in enumerate(codebooks):
             mask = dead_code_mask[slot]
@@ -172,12 +179,13 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         is_last_train_step: bool | None = None,
         **kwargs: object,
     ) -> HierarchicalQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
+        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
         top_encoded = self.top_encoder(encoded)
         top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook)
         bottom_context = encoded + self.top_decoder(top_quantized)
         bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook)
-        codebook_indices = torch.stack([top_indices, bottom_indices], dim=1)
+        codebook_indices = torch.stack([top_indices, bottom_indices], dim=-1)
         self._maybe_reset_dead_codes(encoded=encoded, codebook_indices=codebook_indices, is_last_train_step=is_last_train_step)
         top_latents = top_encoded + (top_quantized - top_encoded).detach()
         bottom_latents = bottom_context + (bottom_quantized - bottom_context).detach()

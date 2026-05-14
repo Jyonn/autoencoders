@@ -30,6 +30,9 @@ class FiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         quantized_latents = self.levels[codebook_indices]
         return quantized_latents, codebook_indices
 
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
+        return [codebook_indices[:, index].reshape(-1) for index in range(codebook_indices.shape[1])]
+
     def reset_dead_codes(self, dead_code_mask: torch.Tensor, reference_latents: torch.Tensor | None = None) -> int:
         return 0
 

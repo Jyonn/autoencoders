@@ -62,6 +62,25 @@ def build_dataset_loaders() -> DatasetLoaders:
     return DatasetLoaders(train=train_loader, validation=validation_loader, test=test_loader)
 
 
+def build_sequence_dataset_loaders() -> DatasetLoaders:
+    class TensorSequenceDataset(torch.utils.data.Dataset):
+        def __init__(self, tensor: torch.Tensor) -> None:
+            self.tensor = tensor
+
+        def __len__(self) -> int:
+            return int(self.tensor.shape[0])
+
+        def __getitem__(self, index: int) -> torch.Tensor:
+            return self.tensor[index]
+
+    tensor = torch.randn(24, 5, 8)
+    dataset = TensorSequenceDataset(tensor)
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=6, shuffle=False)
+    validation_loader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=False)
+    return DatasetLoaders(train=train_loader, validation=validation_loader, test=test_loader)
+
+
 class AutoencoderTrainerTest(unittest.TestCase):
     def test_trainer_fits_and_saves_outputs(self) -> None:
         config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
@@ -436,7 +455,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             dead_code_reset=True,
         )
         model = VectorQuantizedAutoencoderModel(config)
-        dataloaders = build_dataset_loaders()
+        dataloaders = build_sequence_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             args = TrainingArguments(
