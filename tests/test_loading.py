@@ -21,6 +21,7 @@ from autoencoders.models.sae.modeling_sae import SparseAutoencoderModel
 from autoencoders.models.topksae.modeling_topksae import TopKSparseAutoencoderModel
 from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
 from autoencoders.models.wae.modeling_wae import WassersteinAutoencoderModel
+from autoencoders.models.loading import get_model_modules
 from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
 
 
@@ -114,6 +115,12 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_residual_quantized_autoencoder(self) -> None:
         model = load_model("rqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_quantizers=2)
         self.assertIsInstance(model, ResidualQuantizedAutoencoderModel)
+
+    def test_model_module_discovery_excludes_internal_base_namespace(self) -> None:
+        model_modules = get_model_modules()
+        self.assertNotIn("base", model_modules)
+        self.assertIn("ae", model_modules)
+        self.assertIn("vqvae", model_modules)
 
 
 if __name__ == "__main__":

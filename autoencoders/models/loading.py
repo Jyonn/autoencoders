@@ -2,37 +2,37 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from importlib import import_module
 import inspect
+from pathlib import Path
 from typing import Any
 
 
-MODEL_MODULES: dict[str, str] = {
-    "ae": "autoencoders.models.ae.modeling_ae",
-    "dae": "autoencoders.models.dae.modeling_dae",
-    "cae": "autoencoders.models.cae.modeling_cae",
-    "sae": "autoencoders.models.sae.modeling_sae",
-    "topksae": "autoencoders.models.topksae.modeling_topksae",
-    "klsae": "autoencoders.models.klsae.modeling_klsae",
-    "vae": "autoencoders.models.vae.modeling_vae",
-    "dvae": "autoencoders.models.dvae.modeling_dvae",
-    "betavae": "autoencoders.models.betavae.modeling_betavae",
-    "hvae": "autoencoders.models.hvae.modeling_hvae",
-    "wae": "autoencoders.models.wae.modeling_wae",
-    "aae": "autoencoders.models.aae.modeling_aae",
-    "vqvae": "autoencoders.models.vqvae.modeling_vqvae",
-    "fsq": "autoencoders.models.fsq.modeling_fsq",
-    "pqvae": "autoencoders.models.pqvae.modeling_pqvae",
-    "rqvae": "autoencoders.models.rqvae.modeling_rqvae",
-}
+MODELS_ROOT = Path(__file__).resolve().parent
+
+
+def _discover_model_modules() -> dict[str, str]:
+    module_map: dict[str, str] = {}
+    for modeling_path in sorted(MODELS_ROOT.glob("*/modeling_*.py")):
+        namespace = modeling_path.parent.name
+        if namespace == "base":
+            continue
+        module_map[namespace] = f"autoencoders.models.{namespace}.{modeling_path.stem}"
+    return module_map
+
+
+@lru_cache(maxsize=1)
+def get_model_modules() -> dict[str, str]:
+    return _discover_model_modules()
 
 
 def get_model_class(name: str):
     """Dynamically import and return a named autoencoder model class."""
 
-    module_path = MODEL_MODULES.get(name)
+    module_path = get_model_modules().get(name)
     if module_path is None:
-        available = ", ".join(repr(model_name) for model_name in MODEL_MODULES)
+        available = ", ".join(repr(model_name) for model_name in get_model_modules())
         raise ValueError(f"Unknown model {name!r}. Available models: {available}.")
 
     module = import_module(module_path)
