@@ -9,6 +9,7 @@ from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
 from autoencoders.data import (
     ConceptNetNumberbatchDataset,
     FastTextEnglishDataset,
+    Flickr30kDataset,
     GloVeDataset,
     MultiNLIDataset,
     SNLIDataset,
@@ -51,6 +52,10 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_dataset_returns_multinli(self) -> None:
         dataset = load_dataset("multinli", max_vectors=32)
         self.assertIsInstance(dataset, MultiNLIDataset)
+
+    def test_load_dataset_returns_flickr30k(self) -> None:
+        dataset = load_dataset("flickr30k", max_vectors=32)
+        self.assertIsInstance(dataset, Flickr30kDataset)
 
     def test_load_model_returns_autoencoder(self) -> None:
         model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8])

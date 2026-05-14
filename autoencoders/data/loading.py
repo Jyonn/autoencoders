@@ -6,6 +6,7 @@ from typing import Any
 
 from .base import CachedDataset
 from .fasttext import FastTextEnglishDataset
+from .flickr30k import Flickr30kDataset
 from .glove import GloVeDataset
 from .multinli import MultiNLIDataset
 from .numberbatch import ConceptNetNumberbatchDataset
@@ -25,7 +26,9 @@ def load_dataset(name: str, **kwargs: Any) -> CachedDataset:
         return SNLIDataset(**kwargs)
     if name == "multinli":
         return MultiNLIDataset(**kwargs)
+    if name == "flickr30k":
+        return Flickr30kDataset(**kwargs)
     raise ValueError(
         "Unknown dataset "
-        f"{name!r}. Available datasets: 'glove', 'fasttext', 'numberbatch', 'snli', 'multinli'."
+        f"{name!r}. Available datasets: 'glove', 'fasttext', 'numberbatch', 'snli', 'multinli', 'flickr30k'."
     )

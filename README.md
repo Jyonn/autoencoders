@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/framework-PyTorch-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch" />
   <img src="https://img.shields.io/badge/model_families-16%2B-111827" alt="16+ model families" />
-  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch%20%7C%20snli%20%7C%20multinli-0F766E" alt="Datasets" />
+  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch%20%7C%20snli%20%7C%20multinli%20%7C%20flickr30k-0F766E" alt="Datasets" />
   <img src="https://img.shields.io/badge/checkpoints-save__pretrained%20%2F%20from__pretrained-7C3AED" alt="Checkpoint API" />
 </p>
 
@@ -105,6 +105,12 @@ Install with encoder-backed text dataset support:
 pip install "autoencoders[text]"
 ```
 
+Install with CLIP-backed multimodal dataset support:
+
+```bash
+pip install "autoencoders[clip]"
+```
+
 Install everything commonly needed for experiments:
 
 ```bash
@@ -197,6 +203,7 @@ The library currently ships with embedding-first datasets:
 - `numberbatch`
 - `snli`
 - `multinli`
+- `flickr30k`
 
 Load a dataset directly:
 
@@ -213,6 +220,19 @@ Encoder-backed sentence datasets materialize embeddings during `prepare()` and c
 dataset = load_dataset(
     "snli",
     encoder_name="sentence-transformers/all-MiniLM-L6-v2",
+    max_vectors=50000,
+)
+loaders = dataset.get_dataloaders(batch_size=256)
+```
+
+CLIP-backed multimodal datasets follow the same cached artifact pattern:
+
+```python
+dataset = load_dataset(
+    "flickr30k",
+    encoder_name="ViT-B-32",
+    encoder_pretrained="laion2b_s34b_b79k",
+    modality="both",
     max_vectors=50000,
 )
 loaders = dataset.get_dataloaders(batch_size=256)
@@ -315,7 +335,7 @@ Each wrapper includes model-specific defaults and still accepts extra CLI overri
 
 - `🗃️ Checkpoints`: `save_pretrained()` and `from_pretrained()`
 - `📤 Exports`: standardized latent artifact export across model families
-- `📚 Real datasets`: static embedding tables plus encoder-backed sentence corpora
+- `📚 Real datasets`: static embedding tables, sentence corpora, and CLIP-backed image-text corpora
 - `🎛️ Family-specific trainers`: deterministic, variational, quantized, and adversarial flows
 - `🧪 Packaging`: buildable `sdist` and wheel, ready for PyPI publication
 

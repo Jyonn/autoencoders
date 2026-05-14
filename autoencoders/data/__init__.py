@@ -9,6 +9,7 @@ from .base import (
     default_cache_dir,
     split_dataset,
 )
+from .clip import CLIPBackedDataset, CLIPEmbeddingEncoder, CLIPRecord, OpenCLIPEmbeddingEncoder
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -17,6 +18,7 @@ from .embeddings import (
     save_embedding_artifact,
 )
 from .fasttext import FastTextEnglishDataset
+from .flickr30k import Flickr30kDataset
 from .glove import GloVeDataset
 from .loading import load_dataset
 from .multinli import MultiNLIDataset
@@ -27,15 +29,20 @@ from .text import EncoderBackedTextDataset, SentenceTransformerTextEncoder, Text
 __all__ = [
     "AutoencoderDataset",
     "CachedDataset",
+    "CLIPBackedDataset",
+    "CLIPEmbeddingEncoder",
+    "CLIPRecord",
     "DatasetLoaders",
     "DatasetSplits",
     "EmbeddingMatrix",
     "EmbeddingTensorDataset",
     "EncoderBackedTextDataset",
     "FastTextEnglishDataset",
+    "Flickr30kDataset",
     "GloVeDataset",
     "ConceptNetNumberbatchDataset",
     "MultiNLIDataset",
+    "OpenCLIPEmbeddingEncoder",
     "SentenceTransformerTextEncoder",
     "SNLIDataset",
     "TextEmbeddingEncoder",

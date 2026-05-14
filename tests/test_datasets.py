@@ -16,6 +16,7 @@ import torch
 from autoencoders.data import (
     ConceptNetNumberbatchDataset,
     FastTextEnglishDataset,
+    Flickr30kDataset,
     GloVeDataset,
     MultiNLIDataset,
     SNLIDataset,
@@ -56,6 +57,24 @@ class FakeTextEncoder:
         rows = []
         for index, text in enumerate(texts):
             rows.append([float(len(text)), float(index), float(len(text.split())), 1.0])
+        return torch.tensor(rows, dtype=torch.float32)
+
+
+class FakeCLIPEncoder:
+    def __init__(self, model_name: str = "fake-clip", pretrained_name: str = "fake-pretrained") -> None:
+        self.model_name = model_name
+        self.pretrained_name = pretrained_name
+
+    def encode_images(self, image_paths: list[Path]) -> torch.Tensor:
+        rows = []
+        for index, path in enumerate(image_paths):
+            rows.append([float(index + 1), float(len(path.name)), 0.0, 1.0])
+        return torch.tensor(rows, dtype=torch.float32)
+
+    def encode_texts(self, texts: list[str]) -> torch.Tensor:
+        rows = []
+        for index, text in enumerate(texts):
+            rows.append([float(len(text)), float(index + 1), 1.0, 0.0])
         return torch.tensor(rows, dtype=torch.float32)
 
 
@@ -289,6 +308,57 @@ class DatasetUtilitiesTest(unittest.TestCase):
         multinli = load_dataset("multinli", max_vectors=10)
         self.assertIsInstance(snli, SNLIDataset)
         self.assertIsInstance(multinli, MultiNLIDataset)
+
+    def test_flickr30k_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = Flickr30kDataset(max_vectors=5, modality="both")
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+                dataset.images_dir.mkdir(parents=True, exist_ok=True)
+
+                image_a = dataset.images_dir / "1000.jpg"
+                image_b = dataset.images_dir / "1001.jpg"
+                image_a.write_bytes(b"fake-image-a")
+                image_b.write_bytes(b"fake-image-b")
+                dataset.manifest_path.write_text(
+                    "\n".join(
+                        [
+                            json.dumps(
+                                {
+                                    "image_id": "1000",
+                                    "filename": "1000.jpg",
+                                    "captions": ["a child smiles", "a kid is happy"],
+                                }
+                            ),
+                            json.dumps(
+                                {
+                                    "image_id": "1001",
+                                    "filename": "1001.jpg",
+                                    "captions": ["a dog runs", "a pet sprints"],
+                                }
+                            ),
+                        ]
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+
+                with mock.patch.object(dataset, "build_encoder", return_value=FakeCLIPEncoder()):
+                    artifact_dir = dataset.ensure_prepared(download=False)
+                    self.assertTrue(artifact_dir.exists())
+                    embedding_matrix = dataset.load_embedding_matrix(download=False)
+
+                self.assertEqual(embedding_matrix.num_embeddings, 5)
+                self.assertEqual(embedding_matrix.embedding_dim, 4)
+                self.assertEqual(embedding_matrix.tokens[:2], ["image:1000", "image:1001"])
+                self.assertEqual(embedding_matrix.metadata["encoder_name"], "fake-clip")
+                self.assertEqual(embedding_matrix.metadata["encoder_pretrained"], "fake-pretrained")
+                self.assertEqual(embedding_matrix.metadata["modality"], "both")
+
+    def test_load_dataset_returns_flickr30k(self) -> None:
+        dataset = load_dataset("flickr30k", max_vectors=10)
+        self.assertIsInstance(dataset, Flickr30kDataset)
 
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))

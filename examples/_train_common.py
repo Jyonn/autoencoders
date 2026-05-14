@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from autoencoders import TrainingArguments, load_dataset, set_seed
 
 
-DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli"]
+DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli", "flickr30k"]
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
@@ -32,6 +32,17 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=128,
         help="Batch size for encoder-backed dataset materialization.",
+    )
+    parser.add_argument(
+        "--clip-pretrained",
+        default="laion2b_s34b_b79k",
+        help="CLIP pretrained checkpoint name for CLIP-backed datasets.",
+    )
+    parser.add_argument(
+        "--clip-modality",
+        choices=["image", "text", "both"],
+        default="both",
+        help="Which CLIP modality to materialize for CLIP-backed datasets.",
     )
     parser.add_argument("--validation-ratio", type=float, default=0.1, help="Validation split ratio.")
     parser.add_argument("--test-ratio", type=float, default=0.1, help="Test split ratio.")
@@ -71,6 +82,15 @@ def build_dataset(args: argparse.Namespace):
             args.dataset,
             encoder_name=args.encoder,
             encoder_batch_size=args.encoder_batch_size,
+            max_vectors=args.max_vectors,
+        )
+    if args.dataset == "flickr30k":
+        return load_dataset(
+            args.dataset,
+            encoder_name=args.encoder,
+            encoder_pretrained=args.clip_pretrained,
+            encoder_batch_size=args.encoder_batch_size,
+            modality=args.clip_modality,
             max_vectors=args.max_vectors,
         )
     return load_dataset(args.dataset, dim=dim, max_vectors=args.max_vectors)

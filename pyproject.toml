@@ -32,7 +32,8 @@ Issues = "https://github.com/Jyonn/autoencoders/issues"
 [project.optional-dependencies]
 torch = ["numpy>=1.26", "torch>=2.2"]
 text = ["sentence-transformers>=3.0"]
-all = ["numpy>=1.26", "torch>=2.2", "sentence-transformers>=3.0"]
+clip = ["datasets>=2.19", "open_clip_torch>=2.24", "pillow>=10"]
+all = ["numpy>=1.26", "torch>=2.2", "sentence-transformers>=3.0", "datasets>=2.19", "open_clip_torch>=2.24", "pillow>=10"]
 dev = ["build>=1.2", "twine>=5.1"]
 
 [tool.setuptools]

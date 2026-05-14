@@ -33,6 +33,8 @@ The repository now includes a reusable dataset layer:
 - [autoencoders/data/text.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/text.py): shared infrastructure for encoder-backed text datasets
 - [autoencoders/data/snli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/snli.py): `SNLIDataset`, which materializes sentence embeddings from SNLI
 - [autoencoders/data/multinli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/multinli.py): `MultiNLIDataset`, which materializes sentence embeddings from MultiNLI
+- [autoencoders/data/clip.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/clip.py): shared infrastructure for CLIP-backed multimodal datasets
+- [autoencoders/data/flickr30k.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/flickr30k.py): `Flickr30kDataset`, which materializes CLIP embeddings from image-text pairs
 
 The intended usage is:
 
@@ -49,6 +51,19 @@ For encoder-backed sentence datasets:
 dataset = load_dataset(
     "snli",
     encoder_name="sentence-transformers/all-MiniLM-L6-v2",
+    max_vectors=50000,
+)
+loaders = dataset.get_dataloaders(batch_size=256)
+```
+
+For CLIP-backed image-text datasets:
+
+```python
+dataset = load_dataset(
+    "flickr30k",
+    encoder_name="ViT-B-32",
+    encoder_pretrained="laion2b_s34b_b79k",
+    modality="both",
     max_vectors=50000,
 )
 loaders = dataset.get_dataloaders(batch_size=256)
@@ -84,6 +99,14 @@ For encoder-backed datasets such as `snli` and `multinli`, the first call will i
 - download the raw sentence corpus
 - encode the texts with a configured sentence encoder such as `sentence-transformers/all-MiniLM-L6-v2`
 - save a cached embedding artifact with `embeddings.pt`, `tokens.txt`, `texts.txt`, and `metadata.json`
+- reuse that artifact for future training runs
+
+For CLIP-backed datasets such as `flickr30k`, the first call will:
+
+- download the raw image-text corpus
+- cache a local image-and-caption manifest under the autoencoders cache
+- encode images and captions with a configured CLIP backend such as `open_clip`
+- save a cached embedding artifact with `embeddings.pt`, `tokens.txt`, and `metadata.json`
 - reuse that artifact for future training runs
 
 ## Train The Basic AE
@@ -134,6 +157,7 @@ Besides GloVe, the next most reasonable datasets for this library are:
 - `word2vec Google News 300d`: historically important, but distributed in a less convenient binary format
 - `ConceptNet Numberbatch`: useful if we want semantically enriched word embeddings rather than purely distributional ones
 - sentence-encoder materializations such as `snli` and `multinli`: useful once we want to validate latent models beyond static word vectors
+- CLIP-backed corpora such as `flickr30k`: useful once we want to validate shared image-text latent spaces
 
 ## How To Choose
 
