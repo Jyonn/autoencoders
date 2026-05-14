@@ -9,7 +9,14 @@ from typing import Literal
 
 import torch
 
-from .base import CachedDataset, DatasetLoaders, DatasetSplits, create_dataloaders, split_dataset
+from .base import (
+    CachedDataset,
+    DatasetLoaders,
+    DatasetSplits,
+    ItemProgressBar,
+    create_dataloaders,
+    split_dataset,
+)
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -100,27 +107,37 @@ class OpenCLIPEmbeddingEncoder(CLIPEmbeddingEncoder):
 
     def encode_images(self, image_paths: list[Path]) -> torch.Tensor:
         batches: list[torch.Tensor] = []
+        progress = ItemProgressBar("Encoding Flickr30k images", len(image_paths))
         with torch.no_grad():
-            for start in range(0, len(image_paths), self.batch_size):
-                batch_paths = image_paths[start : start + self.batch_size]
-                images = [self._preprocess(self._image_lib.open(path).convert("RGB")) for path in batch_paths]
-                pixel_values = torch.stack(images).to(self.device)
-                embeddings = self._model.encode_image(pixel_values)
-                if self.normalize_embeddings:
-                    embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
-                batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
+            try:
+                for start in range(0, len(image_paths), self.batch_size):
+                    batch_paths = image_paths[start : start + self.batch_size]
+                    images = [self._preprocess(self._image_lib.open(path).convert("RGB")) for path in batch_paths]
+                    pixel_values = torch.stack(images).to(self.device)
+                    embeddings = self._model.encode_image(pixel_values)
+                    if self.normalize_embeddings:
+                        embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
+                    batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
+                    progress.update(len(batch_paths))
+            finally:
+                progress.close()
         return torch.cat(batches, dim=0)
 
     def encode_texts(self, texts: list[str]) -> torch.Tensor:
         batches: list[torch.Tensor] = []
+        progress = ItemProgressBar("Encoding Flickr30k captions", len(texts))
         with torch.no_grad():
-            for start in range(0, len(texts), self.batch_size):
-                batch_texts = texts[start : start + self.batch_size]
-                tokenized = self._tokenizer(batch_texts).to(self.device)
-                embeddings = self._model.encode_text(tokenized)
-                if self.normalize_embeddings:
-                    embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
-                batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
+            try:
+                for start in range(0, len(texts), self.batch_size):
+                    batch_texts = texts[start : start + self.batch_size]
+                    tokenized = self._tokenizer(batch_texts).to(self.device)
+                    embeddings = self._model.encode_text(tokenized)
+                    if self.normalize_embeddings:
+                        embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
+                    batches.append(embeddings.detach().to(dtype=torch.float32, device="cpu"))
+                    progress.update(len(batch_texts))
+            finally:
+                progress.close()
         return torch.cat(batches, dim=0)
 
 

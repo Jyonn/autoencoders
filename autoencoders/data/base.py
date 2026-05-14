@@ -76,6 +76,48 @@ class DownloadProgressBar:
         self.stream.flush()
 
 
+class ItemProgressBar:
+    """A small terminal progress bar for item-based preprocessing work."""
+
+    def __init__(self, description: str, total_items: int, stream=None) -> None:
+        self.description = description
+        self.total_items = max(total_items, 0)
+        self.stream = sys.stderr if stream is None else stream
+        self.completed_items = 0
+        self._finished = False
+        self._render()
+
+    def update(self, item_count: int) -> None:
+        self.completed_items = min(self.completed_items + item_count, self.total_items)
+        self._render()
+
+    def close(self) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        self.completed_items = self.total_items
+        self._render(final=True)
+
+    def _render(self, final: bool = False) -> None:
+        if self.total_items > 0:
+            ratio = min(self.completed_items / self.total_items, 1.0)
+            filled = int(ratio * 20)
+            bar = "=" * filled + "." * (20 - filled)
+            percent = int(ratio * 100)
+            message = (
+                f"\r{self.description} [{bar}] {percent:3d}% "
+                f"{self.completed_items}/{self.total_items}"
+            )
+        else:
+            message = f"\r{self.description} 0/0"
+
+        if final:
+            message += "\n"
+
+        self.stream.write(message)
+        self.stream.flush()
+
+
 class AutoencoderDataset(Dataset[torch.Tensor]):
     """Simple dataset contract for autoencoder-friendly tensor samples."""
 

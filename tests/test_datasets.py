@@ -25,6 +25,7 @@ from autoencoders.data import (
     load_dataset,
     split_dataset,
 )
+from autoencoders.data.base import ItemProgressBar
 
 
 class FakeResponse:
@@ -79,6 +80,17 @@ class FakeCLIPEncoder:
 
 
 class DatasetUtilitiesTest(unittest.TestCase):
+    def test_item_progress_bar_reports_completion(self) -> None:
+        stream = io.StringIO()
+        progress = ItemProgressBar("Encoding captions", 5, stream=stream)
+        progress.update(2)
+        progress.update(3)
+        progress.close()
+        rendered = stream.getvalue()
+        self.assertIn("Encoding captions", rendered)
+        self.assertIn("100%", rendered)
+        self.assertIn("5/5", rendered)
+
     def test_default_cache_dir_uses_environment_override(self) -> None:
         with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": "/tmp/autoencoders-cache"}, clear=False):
             self.assertEqual(default_cache_dir(), Path("/tmp/autoencoders-cache"))
