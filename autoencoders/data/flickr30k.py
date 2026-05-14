@@ -12,6 +12,7 @@ class Flickr30kDataset(CLIPBackedDataset):
     """Materialize CLIP embeddings from Flickr30k image-caption pairs."""
 
     dataset_name = "flickr30k"
+    hf_dataset_names = ("AnyModal/flickr30k", "cjc/flickr30k", "nlphuji/flickr30k")
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -35,7 +36,7 @@ class Flickr30kDataset(CLIPBackedDataset):
         if force and self.manifest_path.exists():
             self.manifest_path.unlink()
 
-        dataset_dict = load_dataset("nlphuji/flickr30k")
+        dataset_dict = self._load_hf_dataset(load_dataset)
         if hasattr(dataset_dict, "keys"):
             split_names = list(dataset_dict.keys())
             dataset = concatenate_datasets([dataset_dict[split_name] for split_name in split_names])
@@ -55,6 +56,18 @@ class Flickr30kDataset(CLIPBackedDataset):
                     "captions": list(record["caption"]),
                 }
                 handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+    def _load_hf_dataset(self, load_dataset):
+        last_error: Exception | None = None
+        for dataset_name in self.hf_dataset_names:
+            try:
+                return load_dataset(dataset_name)
+            except Exception as exc:
+                last_error = exc
+        raise RuntimeError(
+            "Unable to download Flickr30k from any configured Hugging Face dataset source: "
+            + ", ".join(self.hf_dataset_names)
+        ) from last_error
 
     def load_records(self) -> list[CLIPRecord]:
         records: list[CLIPRecord] = []

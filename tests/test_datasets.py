@@ -360,6 +360,20 @@ class DatasetUtilitiesTest(unittest.TestCase):
         dataset = load_dataset("flickr30k", max_vectors=10)
         self.assertIsInstance(dataset, Flickr30kDataset)
 
+    def test_flickr30k_dataset_falls_back_between_hf_sources(self) -> None:
+        dataset = Flickr30kDataset(max_vectors=10)
+        calls: list[str] = []
+
+        def fake_load_dataset(name: str):
+            calls.append(name)
+            if name == "AnyModal/flickr30k":
+                raise UnicodeDecodeError("utf-8", b"\x8b", 0, 1, "bad gzip header")
+            return {"train": []}
+
+        loaded = dataset._load_hf_dataset(fake_load_dataset)
+        self.assertEqual(calls[:2], ["AnyModal/flickr30k", "cjc/flickr30k"])
+        self.assertEqual(loaded, {"train": []})
+
     def test_split_and_dataloaders(self) -> None:
         tensor_dataset = torch.utils.data.TensorDataset(torch.randn(20, 4))
 
