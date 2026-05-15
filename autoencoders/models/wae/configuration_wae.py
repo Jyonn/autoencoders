@@ -12,9 +12,6 @@ class WassersteinAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         mmd_weight: float = 10.0,
         mmd_bandwidths: list[float] | None = None,
         **kwargs,
@@ -25,12 +22,6 @@ class WassersteinAutoencoderConfig(AutoencoderConfig):
             mmd_bandwidths = [0.1, 0.2, 0.5, 1.0, 2.0]
         if any(bandwidth <= 0 for bandwidth in mmd_bandwidths):
             raise ValueError("mmd_bandwidths must contain positive floats.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            mmd_weight=mmd_weight,
-            mmd_bandwidths=list(mmd_bandwidths),
-            **kwargs,
-        )
+        self.mmd_weight = mmd_weight
+        self.mmd_bandwidths = list(mmd_bandwidths)
+        super().__init__(**kwargs)

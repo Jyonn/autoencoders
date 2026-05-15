@@ -12,36 +12,15 @@ class HierarchicalVectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencode
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        codebook_size: int = 256,
-        commitment_weight: float = 0.25,
-        codebook_weight: float = 1.0,
-        use_ema_codebook: bool = False,
-        ema_decay: float = 0.99,
-        ema_epsilon: float = 1e-5,
-        dead_code_reset: bool = False,
-        dead_code_threshold: int = 0,
         top_latent_dim: int | None = None,
         **kwargs,
     ) -> None:
+        latent_dim = kwargs.get("latent_dim")
+        if latent_dim is None:
+            raise TypeError("HierarchicalVectorQuantizedAutoencoderConfig requires `latent_dim`.")
         if top_latent_dim is None:
             top_latent_dim = latent_dim
         if top_latent_dim <= 0:
             raise ValueError("top_latent_dim must be positive.")
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            codebook_size=codebook_size,
-            commitment_weight=commitment_weight,
-            codebook_weight=codebook_weight,
-            use_ema_codebook=use_ema_codebook,
-            ema_decay=ema_decay,
-            ema_epsilon=ema_epsilon,
-            dead_code_reset=dead_code_reset,
-            dead_code_threshold=dead_code_threshold,
-            top_latent_dim=top_latent_dim,
-            **kwargs,
-        )
+        self.top_latent_dim = top_latent_dim
+        super().__init__(**kwargs)

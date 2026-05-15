@@ -46,4 +46,3 @@ class PretrainedConfig:
             config_path = config_path / "config.json"
         config_dict = json.loads(config_path.read_text(encoding="utf-8"))
         return cls.from_dict(config_dict, **kwargs)
-

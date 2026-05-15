@@ -12,24 +12,10 @@ class ResidualFiniteScalarQuantizedAutoencoderConfig(FiniteScalarQuantizedAutoen
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        num_levels: int = 8,
-        commitment_weight: float = 0.25,
-        quantization_bound: float = 1.0,
         num_quantizers: int = 2,
         **kwargs,
     ) -> None:
         if num_quantizers <= 0:
             raise ValueError("num_quantizers must be positive.")
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            num_levels=num_levels,
-            commitment_weight=commitment_weight,
-            quantization_bound=quantization_bound,
-            num_quantizers=num_quantizers,
-            **kwargs,
-        )
+        self.num_quantizers = num_quantizers
+        super().__init__(**kwargs)

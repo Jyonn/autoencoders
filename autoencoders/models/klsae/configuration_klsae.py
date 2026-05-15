@@ -12,9 +12,6 @@ class KLSparseAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         sparsity_weight: float = 1e-3,
         target_activation: float = 0.05,
         **kwargs,
@@ -23,12 +20,6 @@ class KLSparseAutoencoderConfig(AutoencoderConfig):
             raise ValueError("sparsity_weight must be non-negative.")
         if not 0 < target_activation < 1:
             raise ValueError("target_activation must be between 0 and 1.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            sparsity_weight=sparsity_weight,
-            target_activation=target_activation,
-            **kwargs,
-        )
+        self.sparsity_weight = sparsity_weight
+        self.target_activation = target_activation
+        super().__init__(**kwargs)

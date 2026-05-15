@@ -12,14 +12,6 @@ class BetaTCVariationalAutoencoderConfig(VariationalAutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        kl_weight: float = 1.0,
-        free_bits: float = 0.02,
-        kl_warmup_epochs: int = 20,
-        kl_start_weight: float = 0.0,
-        use_mean_in_eval: bool = True,
         mutual_information_weight: float = 1.0,
         total_correlation_weight: float = 6.0,
         dimension_wise_kl_weight: float = 1.0,
@@ -31,18 +23,12 @@ class BetaTCVariationalAutoencoderConfig(VariationalAutoencoderConfig):
             raise ValueError("total_correlation_weight must be non-negative.")
         if dimension_wise_kl_weight < 0:
             raise ValueError("dimension_wise_kl_weight must be non-negative.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            kl_warmup_epochs=kl_warmup_epochs,
-            kl_start_weight=kl_start_weight,
-            use_mean_in_eval=use_mean_in_eval,
-            mutual_information_weight=mutual_information_weight,
-            total_correlation_weight=total_correlation_weight,
-            dimension_wise_kl_weight=dimension_wise_kl_weight,
-            **kwargs,
-        )
+        kwargs.setdefault("kl_weight", 1.0)
+        kwargs.setdefault("free_bits", 0.02)
+        kwargs.setdefault("kl_warmup_epochs", 20)
+        kwargs.setdefault("kl_start_weight", 0.0)
+        kwargs.setdefault("use_mean_in_eval", True)
+        self.mutual_information_weight = mutual_information_weight
+        self.total_correlation_weight = total_correlation_weight
+        self.dimension_wise_kl_weight = dimension_wise_kl_weight
+        super().__init__(**kwargs)

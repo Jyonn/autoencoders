@@ -12,14 +12,6 @@ class VampPriorVariationalAutoencoderConfig(VariationalAutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        kl_weight: float = 0.1,
-        free_bits: float = 0.02,
-        kl_warmup_epochs: int = 20,
-        kl_start_weight: float = 0.0,
-        use_mean_in_eval: bool = True,
         num_pseudo_inputs: int = 128,
         pseudo_input_std: float = 0.01,
         **kwargs,
@@ -28,17 +20,11 @@ class VampPriorVariationalAutoencoderConfig(VariationalAutoencoderConfig):
             raise ValueError("num_pseudo_inputs must be positive.")
         if pseudo_input_std < 0:
             raise ValueError("pseudo_input_std must be non-negative.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            kl_warmup_epochs=kl_warmup_epochs,
-            kl_start_weight=kl_start_weight,
-            use_mean_in_eval=use_mean_in_eval,
-            num_pseudo_inputs=num_pseudo_inputs,
-            pseudo_input_std=pseudo_input_std,
-            **kwargs,
-        )
+        kwargs.setdefault("kl_weight", 0.1)
+        kwargs.setdefault("free_bits", 0.02)
+        kwargs.setdefault("kl_warmup_epochs", 20)
+        kwargs.setdefault("kl_start_weight", 0.0)
+        kwargs.setdefault("use_mean_in_eval", True)
+        self.num_pseudo_inputs = num_pseudo_inputs
+        self.pseudo_input_std = pseudo_input_std
+        super().__init__(**kwargs)

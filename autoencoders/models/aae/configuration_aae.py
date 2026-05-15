@@ -12,9 +12,6 @@ class AdversarialAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         adversarial_weight: float = 1.0,
         discriminator_hidden_dims: list[int] | None = None,
         **kwargs,
@@ -25,12 +22,6 @@ class AdversarialAutoencoderConfig(AutoencoderConfig):
             discriminator_hidden_dims = [128, 64]
         if any(dim <= 0 for dim in discriminator_hidden_dims):
             raise ValueError("discriminator_hidden_dims must contain positive integers.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            adversarial_weight=adversarial_weight,
-            discriminator_hidden_dims=list(discriminator_hidden_dims),
-            **kwargs,
-        )
+        self.adversarial_weight = adversarial_weight
+        self.discriminator_hidden_dims = list(discriminator_hidden_dims)
+        super().__init__(**kwargs)

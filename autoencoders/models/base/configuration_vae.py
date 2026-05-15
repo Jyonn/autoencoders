@@ -12,9 +12,6 @@ class BaseVariationalAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         kl_weight: float = 1.0,
         free_bits: float = 0.02,
         kl_warmup_epochs: int = 0,
@@ -30,15 +27,9 @@ class BaseVariationalAutoencoderConfig(AutoencoderConfig):
             raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
         if kl_start_weight < 0:
             raise ValueError("kl_start_weight must be non-negative.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            kl_warmup_epochs=kl_warmup_epochs,
-            kl_start_weight=kl_start_weight,
-            use_mean_in_eval=use_mean_in_eval,
-            **kwargs,
-        )
+        self.kl_weight = kl_weight
+        self.free_bits = free_bits
+        self.kl_warmup_epochs = kl_warmup_epochs
+        self.kl_start_weight = kl_start_weight
+        self.use_mean_in_eval = use_mean_in_eval
+        super().__init__(**kwargs)

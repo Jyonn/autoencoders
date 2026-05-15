@@ -12,12 +12,6 @@ class DenoisingVariationalAutoencoderConfig(VariationalAutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        kl_weight: float = 1.0,
-        free_bits: float = 0.02,
-        use_mean_in_eval: bool = True,
         noise_type: str = "gaussian",
         noise_std: float = 0.1,
         masking_ratio: float = 0.3,
@@ -30,17 +24,8 @@ class DenoisingVariationalAutoencoderConfig(VariationalAutoencoderConfig):
             raise ValueError("noise_std must be non-negative.")
         if not 0 <= masking_ratio <= 1:
             raise ValueError("masking_ratio must be between 0 and 1.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            use_mean_in_eval=use_mean_in_eval,
-            noise_type=noise_type,
-            noise_std=noise_std,
-            masking_ratio=masking_ratio,
-            apply_noise_in_eval=apply_noise_in_eval,
-            **kwargs,
-        )
+        self.noise_type = noise_type
+        self.noise_std = noise_std
+        self.masking_ratio = masking_ratio
+        self.apply_noise_in_eval = apply_noise_in_eval
+        super().__init__(**kwargs)

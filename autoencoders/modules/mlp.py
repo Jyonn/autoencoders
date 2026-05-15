@@ -37,12 +37,10 @@ class MLPModuleConfig(BaseAutoencoderModuleConfig):
             raise ValueError("hidden_dims must contain positive integers.")
         if activation not in {"relu", "gelu", "silu", "tanh"}:
             raise ValueError("activation must be one of: 'relu', 'gelu', 'silu', 'tanh'.")
-        super().__init__(
-            hidden_dims=hidden_dims,
-            activation=activation,
-            use_bias=use_bias,
-            **kwargs,
-        )
+        self.hidden_dims = hidden_dims
+        self.activation = activation
+        self.use_bias = use_bias
+        super().__init__(**kwargs)
 
 
 class MLPModule(BaseAutoencoderModule):

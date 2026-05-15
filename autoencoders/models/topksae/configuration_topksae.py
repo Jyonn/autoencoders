@@ -12,21 +12,15 @@ class TopKSparseAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         topk: int = 4,
         **kwargs,
     ) -> None:
+        latent_dim = kwargs.get("latent_dim")
+        if latent_dim is None:
+            raise TypeError("TopKSparseAutoencoderConfig requires `latent_dim`.")
         if topk <= 0:
             raise ValueError("topk must be a positive integer.")
         if topk > latent_dim:
             raise ValueError("topk must be less than or equal to latent_dim.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            topk=topk,
-            **kwargs,
-        )
+        self.topk = topk
+        super().__init__(**kwargs)

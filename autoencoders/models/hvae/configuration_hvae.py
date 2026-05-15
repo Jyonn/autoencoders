@@ -12,26 +12,14 @@ class HierarchicalVariationalAutoencoderConfig(VariationalAutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
-        kl_weight: float = 1.0,
-        free_bits: float = 0.02,
-        use_mean_in_eval: bool = True,
         top_latent_dim: int | None = None,
         **kwargs,
     ) -> None:
+        latent_dim = kwargs.get("latent_dim")
+        if latent_dim is None:
+            raise TypeError("HierarchicalVariationalAutoencoderConfig requires `latent_dim`.")
         top_latent_dim = latent_dim if top_latent_dim is None else top_latent_dim
         if top_latent_dim <= 0:
             raise ValueError("top_latent_dim must be a positive integer.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            use_mean_in_eval=use_mean_in_eval,
-            top_latent_dim=top_latent_dim,
-            **kwargs,
-        )
+        self.top_latent_dim = top_latent_dim
+        super().__init__(**kwargs)

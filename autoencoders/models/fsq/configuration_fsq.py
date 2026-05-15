@@ -12,9 +12,6 @@ class FiniteScalarQuantizedAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         num_levels: int = 8,
         commitment_weight: float = 0.25,
         quantization_bound: float = 1.0,
@@ -27,14 +24,8 @@ class FiniteScalarQuantizedAutoencoderConfig(AutoencoderConfig):
         if quantization_bound <= 0:
             raise ValueError("quantization_bound must be positive.")
         kwargs.pop("codebook_size", None)
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            num_levels=num_levels,
-            commitment_weight=commitment_weight,
-            quantization_bound=quantization_bound,
-            codebook_size=num_levels,
-            **kwargs,
-        )
+        kwargs["codebook_size"] = num_levels
+        self.num_levels = num_levels
+        self.commitment_weight = commitment_weight
+        self.quantization_bound = quantization_bound
+        super().__init__(**kwargs)

@@ -12,9 +12,6 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         codebook_size: int = 256,
         commitment_weight: float = 0.25,
         codebook_weight: float = 1.0,
@@ -37,18 +34,12 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("ema_epsilon must be positive.")
         if dead_code_threshold < 0:
             raise ValueError("dead_code_threshold must be non-negative.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            codebook_size=codebook_size,
-            commitment_weight=commitment_weight,
-            codebook_weight=codebook_weight,
-            use_ema_codebook=use_ema_codebook,
-            ema_decay=ema_decay,
-            ema_epsilon=ema_epsilon,
-            dead_code_reset=dead_code_reset,
-            dead_code_threshold=dead_code_threshold,
-            **kwargs,
-        )
+        self.codebook_size = codebook_size
+        self.commitment_weight = commitment_weight
+        self.codebook_weight = codebook_weight
+        self.use_ema_codebook = use_ema_codebook
+        self.ema_decay = ema_decay
+        self.ema_epsilon = ema_epsilon
+        self.dead_code_reset = dead_code_reset
+        self.dead_code_threshold = dead_code_threshold
+        super().__init__(**kwargs)

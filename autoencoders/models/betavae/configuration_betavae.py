@@ -12,9 +12,6 @@ class BetaVariationalAutoencoderConfig(VariationalAutoencoderConfig):
 
     def __init__(
         self,
-        input_dim: int,
-        latent_dim: int,
-        reconstruction_loss: str = "mse",
         beta: float = 4.0,
         free_bits: float = 0.02,
         use_mean_in_eval: bool = True,
@@ -26,14 +23,8 @@ class BetaVariationalAutoencoderConfig(VariationalAutoencoderConfig):
             raise ValueError("beta must be non-negative.")
         if kl_weight < 0:
             raise ValueError("kl_weight must be non-negative.")
-
-        super().__init__(
-            input_dim=input_dim,
-            latent_dim=latent_dim,
-            reconstruction_loss=reconstruction_loss,
-            kl_weight=kl_weight,
-            free_bits=free_bits,
-            use_mean_in_eval=use_mean_in_eval,
-            beta=kl_weight,
-            **kwargs,
-        )
+        kwargs["kl_weight"] = kl_weight
+        kwargs.setdefault("free_bits", free_bits)
+        kwargs.setdefault("use_mean_in_eval", use_mean_in_eval)
+        self.beta = kl_weight
+        super().__init__(**kwargs)
