@@ -20,6 +20,11 @@ from autoencoders.modules.loading import get_module_class
 
 
 LEGACY_FLAG_SPECS: dict[str, tuple[str, str]] = {
+    "--dataset-encoder": ("dataset.encoder", "value"),
+    "--dataset-encoder-batch-size": ("dataset.encoder_batch_size", "value"),
+    "--dataset-clip-pretrained": ("dataset.clip_pretrained", "value"),
+    "--dataset-clip-device": ("dataset.clip_device", "value"),
+    "--dataset-clip-modality": ("dataset.clip_modality", "value"),
     "--latent-dim": ("model.latent_dim", "value"),
     "--reconstruction-loss": ("model.reconstruction_loss", "value"),
     "--contractive-weight": ("model.contractive_weight", "value"),
@@ -170,7 +175,7 @@ def _normalize_legacy_tokens(argv: list[str]) -> list[str]:
 
 
 def _parse_dotted_overrides(tokens: list[str]) -> dict[str, dict[str, Any]]:
-    overrides = {"model": {}, "encoder": {}, "decoder": {}}
+    overrides = {"dataset": {}, "model": {}, "encoder": {}, "decoder": {}}
     index = 0
 
     while index < len(tokens):
@@ -205,10 +210,12 @@ class ResolvedConfigArguments:
     def __init__(
         self,
         *,
+        dataset_config: dict[str, Any],
         model_config: dict[str, Any],
         encoder_config: dict[str, Any] | None,
         decoder_config: dict[str, Any] | None,
     ) -> None:
+        self.dataset_config = dataset_config
         self.model_config = model_config
         self.encoder_config = encoder_config
         self.decoder_config = decoder_config
@@ -217,6 +224,7 @@ class ResolvedConfigArguments:
 def parse_config_arguments(
     parser: argparse.ArgumentParser,
     *,
+    default_dataset_config: dict[str, Any] | None = None,
     default_model_config: dict[str, Any],
     default_encoder: str | None,
     default_encoder_config: dict[str, Any] | None,
@@ -224,6 +232,16 @@ def parse_config_arguments(
     normalized_argv = _normalize_legacy_tokens(sys.argv[1:])
     args, unknown = parser.parse_known_args(normalized_argv)
     overrides = _parse_dotted_overrides(unknown)
+
+    dataset_config = {**(default_dataset_config or {}), **overrides["dataset"]}
+    if default_dataset_config is not None:
+        allowed_dataset_fields = set(default_dataset_config)
+        for key in dataset_config:
+            if key in allowed_dataset_fields:
+                continue
+            suggestion = difflib.get_close_matches(key, allowed_dataset_fields, n=1)
+            suffix = f" Did you mean {suggestion[0]!r}?" if suggestion else ""
+            raise ValueError(f"Unknown dataset option {key!r}.{suffix}")
 
     args.encoder = args.encoder or default_encoder
     model_class = get_model_class(args.model)
@@ -252,6 +270,7 @@ def parse_config_arguments(
         raise ValueError("Received decoder.* options, but no decoder backbone was selected.")
 
     args.resolved_configs = ResolvedConfigArguments(
+        dataset_config=dataset_config,
         model_config=model_config,
         encoder_config=encoder_config,
         decoder_config=decoder_config,

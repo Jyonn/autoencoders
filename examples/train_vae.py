@@ -6,6 +6,7 @@ import argparse
 
 from _cli import parse_config_arguments
 from _train_common import (
+    DATASET_DEFAULT_CONFIG,
     add_backbone_args,
     add_dataset_args,
     add_training_args,
@@ -105,10 +106,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of FactorVAE discriminator updates per batch.")
     parser.epilog = (
         "Model and backbone options use dotted syntax. "
-        "Examples: --model.kl_weight 0.1 --encoder mlp --encoder.hidden_dims \"[128, 64]\""
+        "Examples: --model.kl_weight 0.1 --encoder mlp --encoder.hidden_dims \"[128, 64]\" "
+        "--dataset.encoder sentence-transformers/all-MiniLM-L6-v2"
     )
     args = parse_config_arguments(
         parser,
+        default_dataset_config=DATASET_DEFAULT_CONFIG,
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vae", {})},
         default_encoder="mlp",
         default_encoder_config=DEFAULT_ENCODER_CONFIG,

@@ -11,8 +11,8 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --model ae \
   --advice \
   --output-dir artifacts/multinli/ae \
-  --dataset-encoder sentence-transformers/all-MiniLM-L6-v2 \
-  --dataset-encoder-batch-size 128 \
+  --dataset.encoder sentence-transformers/all-MiniLM-L6-v2 \
+  --dataset.encoder_batch_size 128 \
   --max-vectors 50000 \
   --model.latent_dim 64 \
   --encoder.hidden_dims "[256, 128]" \

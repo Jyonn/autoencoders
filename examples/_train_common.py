@@ -21,6 +21,13 @@ from _cli import _collect_declared_config_fields
 
 
 DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli", "flickr30k"]
+DATASET_DEFAULT_CONFIG = {
+    "encoder": None,
+    "encoder_batch_size": 128,
+    "clip_pretrained": "laion2b_s34b_b79k",
+    "clip_device": None,
+    "clip_modality": "both",
+}
 
 COMMON_MODEL_PARAMETERS = [
     ("latent_dim", "Latent vector width after encoding."),
@@ -210,33 +217,6 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
     parser.add_argument("--max-vectors", type=int, default=None, help="Optional dataset cap for faster experiments.")
-    parser.add_argument(
-        "--dataset-encoder",
-        default=None,
-        help="Optional encoder name for encoder-backed datasets such as SNLI and MultiNLI.",
-    )
-    parser.add_argument(
-        "--dataset-encoder-batch-size",
-        type=int,
-        default=128,
-        help="Batch size for encoder-backed dataset materialization.",
-    )
-    parser.add_argument(
-        "--dataset-clip-pretrained",
-        default="laion2b_s34b_b79k",
-        help="CLIP pretrained checkpoint name for CLIP-backed datasets.",
-    )
-    parser.add_argument(
-        "--dataset-clip-device",
-        default=None,
-        help="Optional CLIP preprocessing device override, for example `cpu` or `cuda`.",
-    )
-    parser.add_argument(
-        "--dataset-clip-modality",
-        choices=["image", "text", "both"],
-        default="both",
-        help="Which CLIP modality to materialize for CLIP-backed datasets.",
-    )
     parser.add_argument("--validation-ratio", type=float, default=0.1, help="Validation split ratio.")
     parser.add_argument("--test-ratio", type=float, default=0.1, help="Test split ratio.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for dataset splitting and training.")
@@ -286,24 +266,25 @@ def add_backbone_args(parser: argparse.ArgumentParser, *, default_encoder: str |
 
 
 def build_dataset(args: argparse.Namespace):
+    dataset_config = args.resolved_configs.dataset_config
     dim = args.dim
     if args.dataset in {"fasttext", "numberbatch"} and dim == 50:
         dim = 300
     if args.dataset in {"snli", "multinli"}:
         return load_dataset(
             args.dataset,
-            encoder_name=args.dataset_encoder,
-            encoder_batch_size=args.dataset_encoder_batch_size,
+            encoder_name=dataset_config["encoder"],
+            encoder_batch_size=dataset_config["encoder_batch_size"],
             max_vectors=args.max_vectors,
         )
     if args.dataset == "flickr30k":
         return load_dataset(
             args.dataset,
-            encoder_name=args.dataset_encoder,
-            encoder_pretrained=args.dataset_clip_pretrained,
-            encoder_batch_size=args.dataset_encoder_batch_size,
-            encoder_device=args.dataset_clip_device,
-            modality=args.dataset_clip_modality,
+            encoder_name=dataset_config["encoder"],
+            encoder_pretrained=dataset_config["clip_pretrained"],
+            encoder_batch_size=dataset_config["encoder_batch_size"],
+            encoder_device=dataset_config["clip_device"],
+            modality=dataset_config["clip_modality"],
             max_vectors=args.max_vectors,
         )
     return load_dataset(args.dataset, dim=dim, max_vectors=args.max_vectors)
@@ -382,14 +363,15 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("dataset", args.dataset, "Dataset or cached embedding source for this run.")
     _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
     _print_parameter_row("max_vectors", _format_parameter_value(args.max_vectors), "Optional cap on the number of embedding rows used.")
+    dataset_config = args.resolved_configs.dataset_config
     if args.dataset in {"snli", "multinli"}:
-        _print_parameter_row("dataset_encoder", _format_parameter_value(args.dataset_encoder), "Sentence encoder used to materialize embeddings.")
-        _print_parameter_row("dataset_encoder_batch_size", str(args.dataset_encoder_batch_size), "Batch size used while encoding raw text into embeddings.")
+        _print_parameter_row("dataset.encoder", _format_parameter_value(dataset_config["encoder"]), "Sentence encoder used to materialize embeddings.")
+        _print_parameter_row("dataset.encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding raw text into embeddings.")
     if args.dataset == "flickr30k":
-        _print_parameter_row("dataset_encoder", _format_parameter_value(args.dataset_encoder), "CLIP vision-text encoder used to materialize embeddings.")
-        _print_parameter_row("dataset_clip_pretrained", _format_parameter_value(args.dataset_clip_pretrained), "Pretrained CLIP checkpoint identifier.")
-        _print_parameter_row("dataset_clip_modality", _format_parameter_value(args.dataset_clip_modality), "Which CLIP modality embeddings are cached.")
-        _print_parameter_row("dataset_encoder_batch_size", str(args.dataset_encoder_batch_size), "Batch size used while encoding CLIP features.")
+        _print_parameter_row("dataset.encoder", _format_parameter_value(dataset_config["encoder"]), "CLIP vision-text encoder used to materialize embeddings.")
+        _print_parameter_row("dataset.clip_pretrained", _format_parameter_value(dataset_config["clip_pretrained"]), "Pretrained CLIP checkpoint identifier.")
+        _print_parameter_row("dataset.clip_modality", _format_parameter_value(dataset_config["clip_modality"]), "Which CLIP modality embeddings are cached.")
+        _print_parameter_row("dataset.encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding CLIP features.")
 
     _print_section("Training")
     _print_parameter_row("output_dir", args.output_dir, "Directory where checkpoints and metrics will be written.")

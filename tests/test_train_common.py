@@ -58,6 +58,7 @@ class TrainCommonTest(unittest.TestCase):
         with patch.object(sys, "argv", argv):
             args = train_cli.parse_config_arguments(
                 parser,
+                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
                 default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
@@ -84,12 +85,43 @@ class TrainCommonTest(unittest.TestCase):
         with patch.object(sys, "argv", argv):
             args = train_cli.parse_config_arguments(
                 parser,
+                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
                 default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
             )
 
         self.assertEqual(args.resolved_configs.encoder_config["hidden_dims"], [128, 64])
+
+    def test_parse_config_arguments_supports_dotted_dataset_options(self) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--dataset", choices=["snli"], default="snli")
+        parser.add_argument("--model", choices=["ae"], default="ae")
+        parser.add_argument("--encoder", default="mlp")
+        parser.add_argument("--decoder", default=None)
+
+        argv = [
+            "train_ae.py",
+            "--dataset",
+            "snli",
+            "--model",
+            "ae",
+            "--dataset.encoder",
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "--dataset.encoder_batch_size",
+            "64",
+        ]
+        with patch.object(sys, "argv", argv):
+            args = train_cli.parse_config_arguments(
+                parser,
+                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
+                default_encoder="mlp",
+                default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+            )
+
+        self.assertEqual(args.resolved_configs.dataset_config["encoder"], "sentence-transformers/all-MiniLM-L6-v2")
+        self.assertEqual(args.resolved_configs.dataset_config["encoder_batch_size"], 64)
 
     def test_print_training_overview_includes_vae_specific_parameters(self) -> None:
         args = argparse.Namespace(
@@ -100,11 +132,6 @@ class TrainCommonTest(unittest.TestCase):
             max_vectors=50000,
             encoder=None,
             decoder=None,
-            dataset_encoder=None,
-            dataset_encoder_batch_size=128,
-            dataset_clip_pretrained="laion2b_s34b_b79k",
-            dataset_clip_device=None,
-            dataset_clip_modality="both",
             validation_ratio=0.1,
             test_ratio=0.1,
             seed=42,
@@ -115,6 +142,18 @@ class TrainCommonTest(unittest.TestCase):
             device="cpu",
             show_only_best_epochs=True,
             advice=True,
+            resolved_configs=train_cli.ResolvedConfigArguments(
+                dataset_config={
+                    "encoder": None,
+                    "encoder_batch_size": 128,
+                    "clip_pretrained": "laion2b_s34b_b79k",
+                    "clip_device": None,
+                    "clip_modality": "both",
+                },
+                model_config={},
+                encoder_config=None,
+                decoder_config=None,
+            ),
             latent_dim=8,
             discriminator_learning_rate=None,
             discriminator_steps=1,
@@ -154,11 +193,6 @@ class TrainCommonTest(unittest.TestCase):
             max_vectors=50000,
             encoder=None,
             decoder=None,
-            dataset_encoder=None,
-            dataset_encoder_batch_size=128,
-            dataset_clip_pretrained="laion2b_s34b_b79k",
-            dataset_clip_device=None,
-            dataset_clip_modality="both",
             validation_ratio=0.1,
             test_ratio=0.1,
             seed=42,
@@ -169,6 +203,18 @@ class TrainCommonTest(unittest.TestCase):
             device="cpu",
             show_only_best_epochs=True,
             advice=True,
+            resolved_configs=train_cli.ResolvedConfigArguments(
+                dataset_config={
+                    "encoder": None,
+                    "encoder_batch_size": 128,
+                    "clip_pretrained": "laion2b_s34b_b79k",
+                    "clip_device": None,
+                    "clip_modality": "both",
+                },
+                model_config={},
+                encoder_config=None,
+                decoder_config=None,
+            ),
             latent_dim=8,
         )
         config = VectorQuantizedAutoencoderConfig(

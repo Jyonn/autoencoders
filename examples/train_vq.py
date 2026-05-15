@@ -6,6 +6,7 @@ import argparse
 
 from _cli import parse_config_arguments
 from _train_common import (
+    DATASET_DEFAULT_CONFIG,
     add_backbone_args,
     add_dataset_args,
     add_training_args,
@@ -92,10 +93,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="vqvae", choices=MODEL_CHOICES, help="Model name.")
     parser.epilog = (
         "Model and backbone options use dotted syntax. "
-        "Examples: --model.codebook_size 256 --encoder mlp --encoder.hidden_dims \"[128, 64]\""
+        "Examples: --model.codebook_size 256 --encoder mlp --encoder.hidden_dims \"[128, 64]\" "
+        "--dataset.encoder ViT-B-32"
     )
     args = parse_config_arguments(
         parser,
+        default_dataset_config=DATASET_DEFAULT_CONFIG,
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vqvae", {})},
         default_encoder="mlp",
         default_encoder_config=DEFAULT_ENCODER_CONFIG,
