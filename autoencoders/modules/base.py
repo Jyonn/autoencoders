@@ -37,3 +37,7 @@ class BaseAutoencoderModule(nn.Module, ABC):
     @abstractmethod
     def forward(self, inputs):  # type: ignore[override]
         """Run the backbone module."""
+
+    @abstractmethod
+    def get_output_dim(self) -> int:
+        """Return the feature width produced by this module."""

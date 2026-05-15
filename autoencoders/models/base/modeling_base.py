@@ -98,6 +98,17 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             )
         return module
 
+    def _get_backbone_output_dim(self, module: nn.Module | None, name: str) -> int:
+        resolved_module = self._require_backbone_module(module, name)
+        if hasattr(resolved_module, "get_output_dim"):
+            return int(resolved_module.get_output_dim())  # type: ignore[call-arg]
+        if hasattr(resolved_module, "out_features"):
+            return int(resolved_module.out_features)
+        raise RuntimeError(
+            f"{self.__class__.__name__} requires {name} to expose `get_output_dim()` "
+            "or an `out_features` attribute."
+        )
+
     @abstractmethod
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:
         """Encode inputs into latent representations."""

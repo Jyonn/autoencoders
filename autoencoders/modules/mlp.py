@@ -66,6 +66,9 @@ class MLPModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
+    def get_output_dim(self) -> int:
+        return self.latent_dim
+
     def _build_mlp(self, dims: list[int]) -> nn.Sequential:
         layers: list[nn.Module] = []
         activation_factory = self._get_activation_factory()
