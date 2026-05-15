@@ -32,8 +32,8 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
             encoder_config=encoder_config,
             decoder_config=decoder_config,
         )
-        self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=self.config.use_bias)
-        self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=self.config.use_bias)
+        self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
+        self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)
         self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_backbone_module(
             module=decoder,
             module_config=decoder_config,

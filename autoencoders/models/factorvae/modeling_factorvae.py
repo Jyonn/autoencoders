@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Callable
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -117,21 +115,11 @@ class FactorVariationalAutoencoderModel(VariationalAutoencoderModel):
     def _build_discriminator(self) -> nn.Sequential:
         dims = [self.config.latent_dim, *self.config.discriminator_hidden_dims, 2]
         layers: list[nn.Module] = []
-        activation_factory = self._get_activation_factory()
 
         for index, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:])):
-            layers.append(nn.Linear(in_dim, out_dim, bias=self.config.use_bias))
+            layers.append(nn.Linear(in_dim, out_dim, bias=True))
             is_last_layer = index == len(dims) - 2
             if not is_last_layer:
-                layers.append(activation_factory())
+                layers.append(nn.ReLU())
 
         return nn.Sequential(*layers)
-
-    def _get_activation_factory(self) -> Callable[[], nn.Module]:
-        activations: dict[str, Callable[[], nn.Module]] = {
-            "relu": nn.ReLU,
-            "gelu": nn.GELU,
-            "silu": nn.SiLU,
-            "tanh": nn.Tanh,
-        }
-        return activations[self.config.activation]

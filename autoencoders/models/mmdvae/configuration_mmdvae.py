@@ -14,8 +14,6 @@ class MMDVariationalAutoencoderConfig(InformationVariationalAutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         kl_weight: float = 0.0,
         mmd_weight: float = 10.0,
@@ -29,8 +27,6 @@ class MMDVariationalAutoencoderConfig(InformationVariationalAutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             kl_weight=kl_weight,
             mmd_weight=mmd_weight,

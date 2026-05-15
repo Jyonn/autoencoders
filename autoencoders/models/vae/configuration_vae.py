@@ -14,8 +14,6 @@ class VariationalAutoencoderConfig(BaseVariationalAutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         kl_weight: float = 1.0,
         free_bits: float = 0.02,
@@ -25,8 +23,6 @@ class VariationalAutoencoderConfig(BaseVariationalAutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             kl_weight=kl_weight,
             free_bits=free_bits,

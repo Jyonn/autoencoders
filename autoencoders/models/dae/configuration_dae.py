@@ -14,8 +14,6 @@ class DenoisingAutoencoderConfig(AutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         noise_type: str = "gaussian",
         noise_std: float = 0.1,
@@ -33,8 +31,6 @@ class DenoisingAutoencoderConfig(AutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             noise_type=noise_type,
             noise_std=noise_std,

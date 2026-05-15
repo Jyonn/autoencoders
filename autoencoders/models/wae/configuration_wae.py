@@ -14,8 +14,6 @@ class WassersteinAutoencoderConfig(AutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         mmd_weight: float = 10.0,
         mmd_bandwidths: list[float] | None = None,
@@ -31,8 +29,6 @@ class WassersteinAutoencoderConfig(AutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             mmd_weight=mmd_weight,
             mmd_bandwidths=list(mmd_bandwidths),

@@ -14,8 +14,6 @@ class AdversarialAutoencoderConfig(AutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         adversarial_weight: float = 1.0,
         discriminator_hidden_dims: list[int] | None = None,
@@ -31,8 +29,6 @@ class AdversarialAutoencoderConfig(AutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             adversarial_weight=adversarial_weight,
             discriminator_hidden_dims=list(discriminator_hidden_dims),

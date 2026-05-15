@@ -123,8 +123,8 @@ def build_mlp_backbone_kwargs(
 def build_mlp_backbone_kwargs_from_model_config(config) -> dict[str, object]:
     return build_mlp_backbone_kwargs(
         hidden_dims=list(config.hidden_dims),
-        activation=config.activation,
-        use_bias=config.use_bias,
+        activation=getattr(config, "activation", "relu"),
+        use_bias=getattr(config, "use_bias", True),
         decoder_hidden_dims=(
             None
             if getattr(config, "decoder_hidden_dims", None) is None

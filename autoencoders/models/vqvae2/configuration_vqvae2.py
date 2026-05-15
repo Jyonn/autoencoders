@@ -14,8 +14,6 @@ class HierarchicalVectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencode
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         codebook_size: int = 256,
         commitment_weight: float = 0.25,
@@ -35,8 +33,6 @@ class HierarchicalVectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencode
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             codebook_size=codebook_size,
             commitment_weight=commitment_weight,

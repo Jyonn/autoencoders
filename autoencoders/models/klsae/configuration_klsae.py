@@ -14,8 +14,6 @@ class KLSparseAutoencoderConfig(AutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        activation: str = "relu",
-        use_bias: bool = True,
         reconstruction_loss: str = "mse",
         sparsity_weight: float = 1e-3,
         target_activation: float = 0.05,
@@ -29,8 +27,6 @@ class KLSparseAutoencoderConfig(AutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            activation=activation,
-            use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,
             sparsity_weight=sparsity_weight,
             target_activation=target_activation,

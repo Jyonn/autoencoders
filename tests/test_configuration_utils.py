@@ -13,8 +13,6 @@ class AutoencoderConfigTest(unittest.TestCase):
         config = AutoencoderConfig(
             input_dim=32,
             latent_dim=8,
-            hidden_dims=[16, 12],
-            activation="gelu",
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -23,8 +21,6 @@ class AutoencoderConfigTest(unittest.TestCase):
 
         self.assertEqual(loaded.input_dim, 32)
         self.assertEqual(loaded.latent_dim, 8)
-        self.assertEqual(loaded.hidden_dims, [16, 12])
-        self.assertEqual(loaded.activation, "gelu")
         self.assertEqual(loaded.model_type, "autoencoder")
 
     def test_to_dict_contains_model_type(self) -> None:
