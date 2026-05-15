@@ -9,19 +9,21 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+EXAMPLES_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
-from autoencoders import TrainingArguments, build_mlp_backbone_kwargs, load_dataset, set_seed
+from autoencoders import TrainingArguments, load_dataset, set_seed
 from autoencoders.training.display import style
+from _cli import _collect_declared_config_fields
 
 
 DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli", "flickr30k"]
 
 COMMON_MODEL_PARAMETERS = [
     ("latent_dim", "Latent vector width after encoding."),
-    ("hidden_dims", "Hidden layer sizes used by the encoder backbone."),
-    ("activation", "Non-linearity used between MLP layers."),
     ("reconstruction_loss", "Objective used to compare inputs and reconstructions."),
 ]
 
@@ -194,6 +196,14 @@ MODEL_PARAMETER_SECTIONS = {
     ],
 }
 
+MODULE_PARAMETER_SECTIONS = {
+    "mlp": [
+        ("hidden_dims", "Hidden layer sizes used by the MLP backbone."),
+        ("activation", "Non-linearity used between MLP layers."),
+        ("use_bias", "Whether linear layers include trainable bias terms."),
+    ],
+}
+
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dataset", default="glove", choices=DATASET_CHOICES, help="Dataset name.")
@@ -201,28 +211,28 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
     parser.add_argument("--max-vectors", type=int, default=None, help="Optional dataset cap for faster experiments.")
     parser.add_argument(
-        "--encoder",
+        "--dataset-encoder",
         default=None,
         help="Optional encoder name for encoder-backed datasets such as SNLI and MultiNLI.",
     )
     parser.add_argument(
-        "--encoder-batch-size",
+        "--dataset-encoder-batch-size",
         type=int,
         default=128,
         help="Batch size for encoder-backed dataset materialization.",
     )
     parser.add_argument(
-        "--clip-pretrained",
+        "--dataset-clip-pretrained",
         default="laion2b_s34b_b79k",
         help="CLIP pretrained checkpoint name for CLIP-backed datasets.",
     )
     parser.add_argument(
-        "--clip-device",
+        "--dataset-clip-device",
         default=None,
         help="Optional CLIP preprocessing device override, for example `cpu` or `cuda`.",
     )
     parser.add_argument(
-        "--clip-modality",
+        "--dataset-clip-modality",
         choices=["image", "text", "both"],
         default="both",
         help="Which CLIP modality to materialize for CLIP-backed datasets.",
@@ -262,6 +272,19 @@ def add_training_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_backbone_args(parser: argparse.ArgumentParser, *, default_encoder: str | None = "mlp") -> None:
+    parser.add_argument(
+        "--encoder",
+        default=default_encoder,
+        help="Built-in encoder backbone name, for example `mlp`.",
+    )
+    parser.add_argument(
+        "--decoder",
+        default=None,
+        help="Optional decoder backbone name. When omitted, the model may infer a reverse decoder from the encoder.",
+    )
+
+
 def build_dataset(args: argparse.Namespace):
     dim = args.dim
     if args.dataset in {"fasttext", "numberbatch"} and dim == 50:
@@ -269,18 +292,18 @@ def build_dataset(args: argparse.Namespace):
     if args.dataset in {"snli", "multinli"}:
         return load_dataset(
             args.dataset,
-            encoder_name=args.encoder,
-            encoder_batch_size=args.encoder_batch_size,
+            encoder_name=args.dataset_encoder,
+            encoder_batch_size=args.dataset_encoder_batch_size,
             max_vectors=args.max_vectors,
         )
     if args.dataset == "flickr30k":
         return load_dataset(
             args.dataset,
-            encoder_name=args.encoder,
-            encoder_pretrained=args.clip_pretrained,
-            encoder_batch_size=args.encoder_batch_size,
-            encoder_device=args.clip_device,
-            modality=args.clip_modality,
+            encoder_name=args.dataset_encoder,
+            encoder_pretrained=args.dataset_clip_pretrained,
+            encoder_batch_size=args.dataset_encoder_batch_size,
+            encoder_device=args.dataset_clip_device,
+            modality=args.dataset_clip_modality,
             max_vectors=args.max_vectors,
         )
     return load_dataset(args.dataset, dim=dim, max_vectors=args.max_vectors)
@@ -313,12 +336,6 @@ def build_training_arguments(args: argparse.Namespace) -> TrainingArguments:
     )
 
 
-def _resolve_parameter_value(model, args: argparse.Namespace, name: str):
-    if hasattr(model.config, name):
-        return getattr(model.config, name)
-    return getattr(args, name)
-
-
 def _format_parameter_value(value) -> str:
     if isinstance(value, bool):
         return "on" if value else "off"
@@ -340,6 +357,17 @@ def _print_parameter_row(name: str, value: str, description: str) -> None:
     print(f"  {label} {rendered_value}  {rendered_description}")
 
 
+def _print_config_section(title: str, config, descriptions: list[tuple[str, str]]) -> None:
+    _print_section(title)
+    description_map = dict(descriptions)
+    for field_name in _collect_declared_config_fields(config.__class__):
+        if not hasattr(config, field_name):
+            continue
+        value = _format_parameter_value(getattr(config, field_name))
+        description = description_map.get(field_name, "Resolved configuration value.")
+        _print_parameter_row(field_name, value, description)
+
+
 def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) -> None:
     command = " ".join(shlex.quote(part) for part in [sys.executable, *sys.argv])
     header = style(" TRAIN PLAN ", fg="white", bg="blue", bold=True)
@@ -355,13 +383,13 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
     _print_parameter_row("max_vectors", _format_parameter_value(args.max_vectors), "Optional cap on the number of embedding rows used.")
     if args.dataset in {"snli", "multinli"}:
-        _print_parameter_row("encoder", _format_parameter_value(args.encoder), "Sentence encoder used to materialize embeddings.")
-        _print_parameter_row("encoder_batch_size", str(args.encoder_batch_size), "Batch size used while encoding raw text into embeddings.")
+        _print_parameter_row("dataset_encoder", _format_parameter_value(args.dataset_encoder), "Sentence encoder used to materialize embeddings.")
+        _print_parameter_row("dataset_encoder_batch_size", str(args.dataset_encoder_batch_size), "Batch size used while encoding raw text into embeddings.")
     if args.dataset == "flickr30k":
-        _print_parameter_row("encoder", _format_parameter_value(args.encoder), "CLIP vision-text encoder used to materialize embeddings.")
-        _print_parameter_row("clip_pretrained", _format_parameter_value(args.clip_pretrained), "Pretrained CLIP checkpoint identifier.")
-        _print_parameter_row("clip_modality", _format_parameter_value(args.clip_modality), "Which CLIP modality embeddings are cached.")
-        _print_parameter_row("encoder_batch_size", str(args.encoder_batch_size), "Batch size used while encoding CLIP features.")
+        _print_parameter_row("dataset_encoder", _format_parameter_value(args.dataset_encoder), "CLIP vision-text encoder used to materialize embeddings.")
+        _print_parameter_row("dataset_clip_pretrained", _format_parameter_value(args.dataset_clip_pretrained), "Pretrained CLIP checkpoint identifier.")
+        _print_parameter_row("dataset_clip_modality", _format_parameter_value(args.dataset_clip_modality), "Which CLIP modality embeddings are cached.")
+        _print_parameter_row("dataset_encoder_batch_size", str(args.dataset_encoder_batch_size), "Batch size used while encoding CLIP features.")
 
     _print_section("Training")
     _print_parameter_row("output_dir", args.output_dir, "Directory where checkpoints and metrics will be written.")
@@ -372,14 +400,21 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("device", args.device, "Target runtime device for training.")
     _print_parameter_row("advice", _format_parameter_value(args.advice), "Whether end-of-run hyperparameter suggestions are printed.")
 
-    _print_section("Model")
-    for parameter_name, description in COMMON_MODEL_PARAMETERS:
-        value = _format_parameter_value(_resolve_parameter_value(model, args, parameter_name))
-        _print_parameter_row(parameter_name, value, description)
+    _print_config_section("Model", model.config, COMMON_MODEL_PARAMETERS + MODEL_PARAMETER_SECTIONS.get(args.model, []))
 
-    for parameter_name, description in MODEL_PARAMETER_SECTIONS.get(args.model, []):
-        value = _format_parameter_value(_resolve_parameter_value(model, args, parameter_name))
-        _print_parameter_row(parameter_name, value, description)
+    if model._encoder_module_type is not None and model.encoder is not None and hasattr(model.encoder, "config"):
+        title = f"Encoder ({model._encoder_module_type})"
+        _print_config_section(title, model.encoder.config, MODULE_PARAMETER_SECTIONS.get(model._encoder_module_type, []))
+    elif args.encoder is not None:
+        _print_section("Encoder")
+        _print_parameter_row("type", _format_parameter_value(args.encoder), "Selected encoder backbone.")
+
+    if model._decoder_module_type is not None and model.decoder is not None and hasattr(model.decoder, "config"):
+        title = f"Decoder ({model._decoder_module_type})"
+        _print_config_section(title, model.decoder.config, MODULE_PARAMETER_SECTIONS.get(model._decoder_module_type, []))
+    elif args.decoder is not None:
+        _print_section("Decoder")
+        _print_parameter_row("type", _format_parameter_value(args.decoder), "Selected decoder backbone.")
     print()
 
 

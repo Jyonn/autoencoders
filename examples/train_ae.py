@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 
+from _cli import parse_config_arguments
 from _train_common import (
+    add_backbone_args,
     add_dataset_args,
     add_training_args,
-    build_mlp_backbone_kwargs,
     build_training_arguments,
     prepare_training,
     print_training_overview,
@@ -22,67 +23,70 @@ from autoencoders import (
 
 
 MODEL_CHOICES = ["ae", "dae", "cae", "sae", "topksae", "klsae", "wae", "aae"]
+COMMON_MODEL_DEFAULTS = {
+    "latent_dim": 16,
+    "reconstruction_loss": "mse",
+}
+MODEL_DEFAULTS = {
+    "dae": {
+        "noise_type": "gaussian",
+        "noise_std": 0.1,
+        "masking_ratio": 0.3,
+        "apply_noise_in_eval": False,
+    },
+    "cae": {"contractive_weight": 1e-2},
+    "sae": {"sparsity_weight": 1e-3},
+    "topksae": {"topk": 4},
+    "klsae": {"sparsity_weight": 1e-3, "target_activation": 0.05},
+    "wae": {"mmd_weight": 10.0, "mmd_bandwidths": [0.1, 0.2, 0.5, 1.0, 2.0]},
+    "aae": {"adversarial_weight": 1.0, "discriminator_hidden_dims": [128, 64]},
+}
+DEFAULT_ENCODER_CONFIG = {
+    "hidden_dims": [64, 32],
+    "activation": "relu",
+    "use_bias": True,
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     add_dataset_args(parser)
     add_training_args(parser)
+    add_backbone_args(parser, default_encoder="mlp")
     parser.add_argument("--model", default="ae", choices=MODEL_CHOICES, help="Model name.")
-    parser.add_argument("--latent-dim", type=int, default=16, help="Latent dimensionality.")
-    parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
-    parser.add_argument("--activation", default="relu", help="Activation name.")
-    parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
-    parser.add_argument("--contractive-weight", type=float, default=1e-2, help="Contractive-AE Jacobian penalty weight.")
-    parser.add_argument("--sparsity-weight", type=float, default=1e-3, help="Sparse-AE latent L1 regularization weight.")
-    parser.add_argument("--topk", type=int, default=4, help="TopK-SAE number of active latent units per sample.")
-    parser.add_argument("--target-activation", type=float, default=0.05, help="KL-SAE target latent activation probability.")
-    parser.add_argument("--mmd-weight", type=float, default=10.0, help="WAE MMD regularization weight.")
-    parser.add_argument("--mmd-bandwidths", type=float, nargs="+", default=[0.1, 0.2, 0.5, 1.0, 2.0], help="WAE MMD kernel bandwidths.")
-    parser.add_argument("--adversarial-weight", type=float, default=1.0, help="AAE adversarial regularization weight.")
-    parser.add_argument("--discriminator-hidden-dims", type=int, nargs="+", default=[128, 64], help="AAE discriminator hidden dims.")
     parser.add_argument("--generator-learning-rate", type=float, default=None, help="Optional AAE encoder adversarial optimizer learning rate.")
     parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional AAE discriminator optimizer learning rate.")
     parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of AAE discriminator updates per batch.")
-    parser.add_argument("--noise-type", default="gaussian", help="DAE noise type.")
-    parser.add_argument("--noise-std", type=float, default=0.1, help="DAE gaussian noise std.")
-    parser.add_argument("--masking-ratio", type=float, default=0.3, help="DAE masking ratio.")
-    parser.add_argument(
-        "--apply-noise-in-eval",
-        action="store_true",
-        help="Whether denoising autoencoders should also corrupt inputs during evaluation.",
+    parser.epilog = (
+        "Backbone and model options use dotted syntax. "
+        "Examples: --model.latent_dim 16 --encoder mlp --encoder.hidden_dims \"[128, 64]\""
     )
-    return parser.parse_args()
+    args = parse_config_arguments(
+        parser,
+        default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("ae", {})},
+        default_encoder="mlp",
+        default_encoder_config=DEFAULT_ENCODER_CONFIG,
+    )
+    args.resolved_configs.model_config = {
+        **COMMON_MODEL_DEFAULTS,
+        **MODEL_DEFAULTS.get(args.model, {}),
+        **args.resolved_configs.model_config,
+    }
+    return args
 
 
 def build_model(args: argparse.Namespace, input_dim: int):
+    resolved = args.resolved_configs
     model_kwargs = {
         "input_dim": input_dim,
-        "latent_dim": args.latent_dim,
-        "reconstruction_loss": args.reconstruction_loss,
-        **build_mlp_backbone_kwargs(args.hidden_dims, args.activation),
+        **resolved.model_config,
+        "encoder": args.encoder,
+        "encoder_config": resolved.encoder_config,
     }
-    if args.model == "dae":
+    if args.decoder is not None:
         model_kwargs.update(
-            noise_type=args.noise_type,
-            noise_std=args.noise_std,
-            masking_ratio=args.masking_ratio,
-            apply_noise_in_eval=args.apply_noise_in_eval,
-        )
-    if args.model == "cae":
-        model_kwargs.update(contractive_weight=args.contractive_weight)
-    if args.model == "sae":
-        model_kwargs.update(sparsity_weight=args.sparsity_weight)
-    if args.model == "topksae":
-        model_kwargs.update(topk=args.topk)
-    if args.model == "klsae":
-        model_kwargs.update(sparsity_weight=args.sparsity_weight, target_activation=args.target_activation)
-    if args.model == "wae":
-        model_kwargs.update(mmd_weight=args.mmd_weight, mmd_bandwidths=list(args.mmd_bandwidths))
-    if args.model == "aae":
-        model_kwargs.update(
-            adversarial_weight=args.adversarial_weight,
-            discriminator_hidden_dims=list(args.discriminator_hidden_dims),
+            decoder=args.decoder,
+            decoder_config=resolved.decoder_config,
         )
     return load_model(args.model, **model_kwargs)
 

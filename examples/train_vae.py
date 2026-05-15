@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 
+from _cli import parse_config_arguments
 from _train_common import (
+    add_backbone_args,
     add_dataset_args,
     add_training_args,
-    build_mlp_backbone_kwargs,
     build_training_arguments,
     prepare_training,
     print_training_overview,
@@ -22,103 +23,117 @@ from autoencoders import (
 
 
 MODEL_CHOICES = ["vae", "dvae", "betavae", "hvae", "infovae", "mmdvae", "vamppriorvae", "factorvae", "dipvae", "betatcvae"]
+COMMON_MODEL_DEFAULTS = {
+    "latent_dim": 16,
+    "reconstruction_loss": "mse",
+}
+MODEL_DEFAULTS = {
+    "vae": {"kl_weight": 0.1, "free_bits": 0.02, "kl_warmup_epochs": 20, "kl_start_weight": 0.0},
+    "dvae": {
+        "kl_weight": 0.1,
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "noise_type": "gaussian",
+        "noise_std": 0.1,
+        "masking_ratio": 0.3,
+        "apply_noise_in_eval": False,
+    },
+    "betavae": {"beta": 4.0, "free_bits": 0.02, "kl_warmup_epochs": 20, "kl_start_weight": 0.0},
+    "hvae": {"kl_weight": 0.1, "free_bits": 0.02, "kl_warmup_epochs": 20, "kl_start_weight": 0.0},
+    "infovae": {
+        "kl_weight": 0.1,
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "mmd_weight": 5.0,
+        "mmd_bandwidths": [0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
+    },
+    "mmdvae": {
+        "free_bits": 0.02,
+        "mmd_weight": 5.0,
+        "mmd_bandwidths": [0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
+    },
+    "vamppriorvae": {
+        "kl_weight": 0.1,
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "num_pseudo_inputs": 128,
+        "pseudo_input_std": 0.01,
+    },
+    "factorvae": {
+        "kl_weight": 0.1,
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "tc_weight": 10.0,
+        "discriminator_hidden_dims": [128, 64],
+    },
+    "dipvae": {
+        "kl_weight": 0.1,
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "dip_weight": 10.0,
+        "dip_offdiag_weight": 1.0,
+        "dip_diag_weight": 1.0,
+    },
+    "betatcvae": {
+        "free_bits": 0.02,
+        "kl_warmup_epochs": 20,
+        "kl_start_weight": 0.0,
+        "mutual_information_weight": 1.0,
+        "total_correlation_weight": 6.0,
+        "dimension_wise_kl_weight": 1.0,
+    },
+}
+DEFAULT_ENCODER_CONFIG = {
+    "hidden_dims": [64, 32],
+    "activation": "relu",
+    "use_bias": True,
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     add_dataset_args(parser)
     add_training_args(parser)
+    add_backbone_args(parser, default_encoder="mlp")
     parser.add_argument("--model", default="vae", choices=MODEL_CHOICES, help="Model name.")
-    parser.add_argument("--latent-dim", type=int, default=16, help="Latent dimensionality.")
-    parser.add_argument("--hidden-dims", type=int, nargs="+", default=[64, 32], help="Encoder hidden dims.")
-    parser.add_argument("--activation", default="relu", help="Activation name.")
-    parser.add_argument("--reconstruction-loss", default="mse", help="Reconstruction loss name.")
-    parser.add_argument("--kl-weight", type=float, default=0.1, help="VAE KL loss weight.")
-    parser.add_argument("--beta", type=float, default=4.0, help="Beta-VAE KL multiplier.")
-    parser.add_argument("--top-latent-dim", type=int, default=None, help="Hierarchical VAE top-level latent dimensionality.")
-    parser.add_argument("--mmd-weight", type=float, default=5.0, help="InfoVAE MMD prior-matching weight.")
-    parser.add_argument("--mmd-bandwidths", type=float, nargs="+", default=[0.1, 0.2, 0.5, 1.0, 2.0, 5.0], help="InfoVAE MMD kernel bandwidths.")
-    parser.add_argument("--num-pseudo-inputs", type=int, default=128, help="VampPriorVAE number of learned pseudo-inputs.")
-    parser.add_argument("--pseudo-input-std", type=float, default=0.01, help="VampPriorVAE pseudo-input initialization std.")
-    parser.add_argument("--tc-weight", type=float, default=10.0, help="FactorVAE total-correlation penalty weight.")
-    parser.add_argument("--mutual-information-weight", type=float, default=1.0, help="Beta-TCVAE mutual-information term weight.")
-    parser.add_argument("--total-correlation-weight", type=float, default=6.0, help="Beta-TCVAE total-correlation term weight.")
-    parser.add_argument("--dimension-wise-kl-weight", type=float, default=1.0, help="Beta-TCVAE dimension-wise KL term weight.")
-    parser.add_argument("--dip-weight", type=float, default=10.0, help="DIP-VAE covariance regularization strength.")
-    parser.add_argument("--dip-offdiag-weight", type=float, default=1.0, help="DIP-VAE off-diagonal covariance penalty weight.")
-    parser.add_argument("--dip-diag-weight", type=float, default=1.0, help="DIP-VAE diagonal covariance penalty weight.")
-    parser.add_argument("--discriminator-hidden-dims", type=int, nargs="+", default=[128, 64], help="FactorVAE discriminator hidden dims.")
     parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional FactorVAE discriminator optimizer learning rate.")
     parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of FactorVAE discriminator updates per batch.")
-    parser.add_argument("--kl-warmup-epochs", type=int, default=20, help="Number of epochs for VAE KL warmup.")
-    parser.add_argument("--kl-start-weight", type=float, default=0.0, help="Starting KL weight during warmup.")
-    parser.add_argument("--free-bits", type=float, default=0.02, help="Per-latent-dimension free bits floor for VAE KL.")
-    parser.add_argument("--noise-type", default="gaussian", help="DVAE noise type.")
-    parser.add_argument("--noise-std", type=float, default=0.1, help="DVAE gaussian noise std.")
-    parser.add_argument("--masking-ratio", type=float, default=0.3, help="DVAE masking ratio.")
-    parser.add_argument(
-        "--apply-noise-in-eval",
-        action="store_true",
-        help="Whether denoising variational autoencoders should also corrupt inputs during evaluation.",
+    parser.epilog = (
+        "Model and backbone options use dotted syntax. "
+        "Examples: --model.kl_weight 0.1 --encoder mlp --encoder.hidden_dims \"[128, 64]\""
     )
-    return parser.parse_args()
+    args = parse_config_arguments(
+        parser,
+        default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vae", {})},
+        default_encoder="mlp",
+        default_encoder_config=DEFAULT_ENCODER_CONFIG,
+    )
+    args.resolved_configs.model_config = {
+        **COMMON_MODEL_DEFAULTS,
+        **MODEL_DEFAULTS.get(args.model, {}),
+        **args.resolved_configs.model_config,
+    }
+    return args
 
 
 def build_model(args: argparse.Namespace, input_dim: int):
+    resolved = args.resolved_configs
     model_kwargs = {
         "input_dim": input_dim,
-        "latent_dim": args.latent_dim,
-        "reconstruction_loss": args.reconstruction_loss,
-        "free_bits": args.free_bits,
-        "kl_warmup_epochs": args.kl_warmup_epochs,
-        "kl_start_weight": args.kl_start_weight,
-        **build_mlp_backbone_kwargs(args.hidden_dims, args.activation),
+        **resolved.model_config,
+        "encoder": args.encoder,
+        "encoder_config": resolved.encoder_config,
     }
-    if args.model == "betavae":
-        model_kwargs.update(beta=args.beta)
-    else:
-        model_kwargs.update(kl_weight=args.kl_weight)
-    if args.model == "infovae":
+    if args.decoder is not None:
         model_kwargs.update(
-            mmd_weight=args.mmd_weight,
-            mmd_bandwidths=list(args.mmd_bandwidths),
+            decoder=args.decoder,
+            decoder_config=resolved.decoder_config,
         )
-    if args.model == "mmdvae":
-        model_kwargs.update(
-            mmd_weight=args.mmd_weight,
-            mmd_bandwidths=list(args.mmd_bandwidths),
-        )
-    if args.model == "vamppriorvae":
-        model_kwargs.update(
-            num_pseudo_inputs=args.num_pseudo_inputs,
-            pseudo_input_std=args.pseudo_input_std,
-        )
-    if args.model == "factorvae":
-        model_kwargs.update(
-            tc_weight=args.tc_weight,
-            discriminator_hidden_dims=list(args.discriminator_hidden_dims),
-        )
-    if args.model == "betatcvae":
-        model_kwargs.update(
-            mutual_information_weight=args.mutual_information_weight,
-            total_correlation_weight=args.total_correlation_weight,
-            dimension_wise_kl_weight=args.dimension_wise_kl_weight,
-        )
-    if args.model == "dipvae":
-        model_kwargs.update(
-            dip_weight=args.dip_weight,
-            dip_offdiag_weight=args.dip_offdiag_weight,
-            dip_diag_weight=args.dip_diag_weight,
-        )
-    if args.model == "dvae":
-        model_kwargs.update(
-            noise_type=args.noise_type,
-            noise_std=args.noise_std,
-            masking_ratio=args.masking_ratio,
-            apply_noise_in_eval=args.apply_noise_in_eval,
-        )
-    if args.model == "hvae":
-        model_kwargs.update(top_latent_dim=args.top_latent_dim)
     return load_model(args.model, **model_kwargs)
 
 

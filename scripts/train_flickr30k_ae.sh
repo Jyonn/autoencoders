@@ -11,13 +11,13 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --model ae \
   --advice \
   --output-dir artifacts/flickr30k/ae \
-  --encoder ViT-B-32 \
-  --clip-pretrained laion2b_s34b_b79k \
-  --clip-modality both \
-  --encoder-batch-size 16 \
+  --dataset-encoder ViT-B-32 \
+  --dataset-clip-pretrained laion2b_s34b_b79k \
+  --dataset-clip-modality both \
+  --dataset-encoder-batch-size 16 \
   --max-vectors 50000 \
-  --latent-dim 64 \
-  --hidden-dims 256 128 \
-  --activation relu \
-  --reconstruction-loss mse \
+  --model.latent_dim 64 \
+  --encoder.hidden_dims "[256, 128]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
   "$@"

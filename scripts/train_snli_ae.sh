@@ -11,11 +11,11 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --model ae \
   --advice \
   --output-dir artifacts/snli/ae \
-  --encoder sentence-transformers/all-MiniLM-L6-v2 \
-  --encoder-batch-size 128 \
+  --dataset-encoder sentence-transformers/all-MiniLM-L6-v2 \
+  --dataset-encoder-batch-size 128 \
   --max-vectors 50000 \
-  --latent-dim 64 \
-  --hidden-dims 256 128 \
-  --activation relu \
-  --reconstruction-loss mse \
+  --model.latent_dim 64 \
+  --encoder.hidden_dims "[256, 128]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
   "$@"
