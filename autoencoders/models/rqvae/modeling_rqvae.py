@@ -18,18 +18,9 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     def __init__(
         self,
         config: ResidualQuantizedAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
+        **kwargs: object,
     ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
+        super().__init__(config, **kwargs)
         self.codebooks = nn.ModuleList(
             [nn.Embedding(self.config.codebook_size, self.config.latent_dim) for _ in range(self.config.num_quantizers)]
         )

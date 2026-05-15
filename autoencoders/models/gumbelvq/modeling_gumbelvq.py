@@ -27,18 +27,9 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     def __init__(
         self,
         config: GumbelQuantizedAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
+        **kwargs: object,
     ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
+        super().__init__(config, **kwargs)
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self._reset_codebook()
 

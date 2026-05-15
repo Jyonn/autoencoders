@@ -14,22 +14,6 @@ class TopKSparseAutoencoderModel(AutoencoderModel):
 
     config_class = TopKSparseAutoencoderConfig
 
-    def __init__(
-        self,
-        config: TopKSparseAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
-    ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
-
     def apply_topk(self, latents: torch.Tensor) -> torch.Tensor:
         topk_values, topk_indices = torch.topk(latents.abs(), k=self.config.topk, dim=-1)
         mask = torch.zeros_like(latents, dtype=torch.bool)

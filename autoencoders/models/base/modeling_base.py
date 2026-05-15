@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 import warnings
 import torch
 import torch.nn.functional as F
@@ -21,12 +21,15 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     requires_grad_in_eval = False
     min_input_rank = 2
 
-    def __init__(self, config: BaseAutoencoderConfig) -> None:
+    def __init__(self, config: BaseAutoencoderConfig, **kwargs: object) -> None:
         super().__init__(config)
+        self.encoder: nn.Module | None = None
+        self.decoder: nn.Module | None = None
         self._encoder_module_type: str | None = None
         self._decoder_module_type: str | None = None
         self._encoder_module_config = None
         self._decoder_module_config = None
+        self._initialize_backbones(**kwargs)
 
     def get_serializable_module_specs(self) -> dict[str, dict[str, object]]:
         module_specs: dict[str, dict[str, object]] = {}
@@ -88,6 +91,45 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             reverse=reverse,
         )
         return built_module, module_name, resolved_config
+
+    def get_encoder_input_dim(self) -> int:
+        return int(self.config.input_dim)
+
+    def get_encoder_output_dim(self) -> int:
+        return int(self.config.latent_dim)
+
+    def get_decoder_input_dim(self) -> int:
+        return int(self.config.latent_dim)
+
+    def get_decoder_output_dim(self) -> int:
+        return int(self.config.input_dim)
+
+    def _initialize_backbones(self, **kwargs: object) -> None:
+        encoder = kwargs.pop("encoder", None)
+        decoder = kwargs.pop("decoder", None)
+        encoder_config = kwargs.pop("encoder_config", None)
+        decoder_config = kwargs.pop("decoder_config", None)
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
+
+        self.encoder, self._encoder_module_type, self._encoder_module_config = self._build_backbone_module(
+            module=encoder,
+            module_config=encoder_config,
+            input_dim=self.get_encoder_input_dim(),
+            output_dim=self.get_encoder_output_dim(),
+            name="encoder",
+        )
+        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_decoder_backbone_module(
+            encoder_module=self.encoder,
+            encoder_module_type=self._encoder_module_type,
+            encoder_module_config=self._encoder_module_config,
+            module=decoder,
+            module_config=decoder_config,
+            input_dim=self.get_decoder_input_dim(),
+            output_dim=self.get_decoder_output_dim(),
+            name="decoder",
+        )
 
     def _require_backbone_module(self, module: nn.Module | None, name: str) -> nn.Module:
         if module is None:
@@ -155,17 +197,17 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             "or an `out_features` attribute."
         )
 
-    @abstractmethod
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:
         """Encode inputs into latent representations."""
+        return self._require_backbone_module(self.encoder, "encoder")(inputs)
 
     def latent_transform(self, encoded: torch.Tensor) -> torch.Tensor:
         """Hook for subclasses such as VAE or VQ-VAE."""
         return encoded
 
-    @abstractmethod
     def decode(self, latents: torch.Tensor) -> torch.Tensor:
         """Decode latent representations back into feature space."""
+        return self._require_backbone_module(self.decoder, "decoder")(latents)
 
     def reconstruct(self, inputs: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(inputs=inputs, return_dict=True)

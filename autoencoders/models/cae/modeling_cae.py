@@ -15,22 +15,6 @@ class ContractiveAutoencoderModel(AutoencoderModel):
     config_class = ContractiveAutoencoderConfig
     requires_grad_in_eval = True
 
-    def __init__(
-        self,
-        config: ContractiveAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
-    ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
-
     def compute_contractive_loss(self, encoded: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:
         contractive_penalty = torch.zeros(encoded.shape[0], device=encoded.device, dtype=encoded.dtype)
 

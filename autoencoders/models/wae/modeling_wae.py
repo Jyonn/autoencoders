@@ -14,22 +14,6 @@ class WassersteinAutoencoderModel(AutoencoderModel):
 
     config_class = WassersteinAutoencoderConfig
 
-    def __init__(
-        self,
-        config: WassersteinAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
-    ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
-
     def sample_prior(self, batch_size: int, *, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
         return torch.randn(batch_size, self.config.latent_dim, device=device, dtype=dtype)
 

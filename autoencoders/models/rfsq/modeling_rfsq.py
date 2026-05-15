@@ -18,18 +18,9 @@ class ResidualFiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
     def __init__(
         self,
         config: ResidualFiniteScalarQuantizedAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
+        **kwargs: object,
     ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
+        super().__init__(config, **kwargs)
         levels = torch.linspace(
             -self.config.quantization_bound,
             self.config.quantization_bound,

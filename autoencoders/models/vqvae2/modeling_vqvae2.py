@@ -20,30 +20,11 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     def __init__(
         self,
         config: HierarchicalVectorQuantizedAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
+        **kwargs: object,
     ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
+        super().__init__(config, **kwargs)
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)
-        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_decoder_backbone_module(
-            encoder_module=self.encoder,
-            encoder_module_type=self._encoder_module_type,
-            encoder_module_config=self._encoder_module_config,
-            module=decoder,
-            module_config=decoder_config,
-            input_dim=self.config.top_latent_dim + self.config.latent_dim,
-            output_dim=self.config.input_dim,
-            name="decoder",
-        )
         self.top_codebook = nn.Embedding(self.config.codebook_size, self.config.top_latent_dim)
         self.bottom_codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self.top_codebook.weight.requires_grad_(not self.config.use_ema_codebook)
@@ -72,12 +53,6 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         indices = distances.argmin(dim=-1)
         quantized = codebook(indices)
         return quantized, indices
-
-    def encode(self, inputs: torch.Tensor) -> torch.Tensor:
-        return self.encoder(inputs)
-
-    def decode(self, latents: torch.Tensor) -> torch.Tensor:
-        return self.decoder(latents)
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         top_encoded = self.top_encoder(encoded)
@@ -237,3 +212,5 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
                 "bottom_codebook_loss": bottom_codebook_loss,
             },
         )
+    def get_decoder_input_dim(self) -> int:
+        return int(self.config.top_latent_dim + self.config.latent_dim)

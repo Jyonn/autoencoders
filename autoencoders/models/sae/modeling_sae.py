@@ -14,22 +14,6 @@ class SparseAutoencoderModel(AutoencoderModel):
 
     config_class = SparseAutoencoderConfig
 
-    def __init__(
-        self,
-        config: SparseAutoencoderConfig,
-        encoder=None,
-        decoder=None,
-        encoder_config=None,
-        decoder_config=None,
-    ) -> None:
-        super().__init__(
-            config,
-            encoder=encoder,
-            decoder=decoder,
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-        )
-
     def compute_sparsity_loss(self, latents: torch.Tensor) -> torch.Tensor:
         return latents.abs().mean()
 

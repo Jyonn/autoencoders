@@ -18,19 +18,9 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     def __init__(
         self,
         config: HierarchicalVariationalAutoencoderConfig,
-        encoder: str | nn.Module | None = None,
-        decoder: str | nn.Module | None = None,
-        encoder_config=None,
-        decoder_config=None,
+        **kwargs: object,
     ) -> None:
-        super().__init__(config)
-        self.encoder, self._encoder_module_type, self._encoder_module_config = self._build_backbone_module(
-            module=encoder,
-            module_config=encoder_config,
-            input_dim=self.config.input_dim,
-            output_dim=self.config.latent_dim,
-            name="encoder",
-        )
+        super().__init__(config, **kwargs)
         if self.encoder is None:
             self.top_mean_projection = None
             self.top_logvar_projection = None
@@ -50,16 +40,8 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
                 self.config.latent_dim,
                 bias=True,
             )
-        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_decoder_backbone_module(
-            encoder_module=self.encoder,
-            encoder_module_type=self._encoder_module_type,
-            encoder_module_config=self._encoder_module_config,
-            module=decoder,
-            module_config=decoder_config,
-            input_dim=self.config.top_latent_dim + self.config.latent_dim,
-            output_dim=self.config.input_dim,
-            name="decoder",
-        )
+    def get_decoder_input_dim(self) -> int:
+        return int(self.config.top_latent_dim + self.config.latent_dim)
 
     def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         encoded = self._require_backbone_module(self.encoder, "encoder")(inputs)
@@ -81,8 +63,6 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         bottom_logvar = self.bottom_logvar_projection(bottom_inputs)
         return top_mean, top_logvar, bottom_mean, bottom_logvar
 
-    def decode(self, latents: torch.Tensor) -> torch.Tensor:
-        return self._require_backbone_module(self.decoder, "decoder")(latents)
 
     def forward(
         self,
