@@ -59,7 +59,6 @@ def build_model(args: argparse.Namespace, input_dim: int):
     model_kwargs = {
         "input_dim": input_dim,
         "latent_dim": args.latent_dim,
-        "hidden_dims": list(args.hidden_dims),
         "activation": args.activation,
         "reconstruction_loss": args.reconstruction_loss,
         **build_mlp_backbone_kwargs(args.hidden_dims, args.activation),

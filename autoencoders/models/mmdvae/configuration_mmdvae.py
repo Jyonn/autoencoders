@@ -14,8 +14,6 @@ class MMDVariationalAutoencoderConfig(InformationVariationalAutoencoderConfig):
         self,
         input_dim: int,
         latent_dim: int,
-        hidden_dims: list[int] | None = None,
-        decoder_hidden_dims: list[int] | None = None,
         activation: str = "relu",
         use_bias: bool = True,
         reconstruction_loss: str = "mse",
@@ -31,8 +29,6 @@ class MMDVariationalAutoencoderConfig(InformationVariationalAutoencoderConfig):
         super().__init__(
             input_dim=input_dim,
             latent_dim=latent_dim,
-            hidden_dims=hidden_dims,
-            decoder_hidden_dims=decoder_hidden_dims,
             activation=activation,
             use_bias=use_bias,
             reconstruction_loss=reconstruction_loss,

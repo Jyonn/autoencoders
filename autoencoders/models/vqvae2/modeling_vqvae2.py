@@ -34,7 +34,14 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         )
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=self.config.use_bias)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=self.config.use_bias)
-        self.decoder = self._build_hierarchical_decoder()
+        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_backbone_module(
+            module=decoder,
+            module_config=decoder_config,
+            input_dim=self.config.top_latent_dim + self.config.latent_dim,
+            output_dim=self.config.input_dim,
+            reverse=False,
+            name="decoder",
+        )
         self.top_codebook = nn.Embedding(self.config.codebook_size, self.config.top_latent_dim)
         self.bottom_codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self.top_codebook.weight.requires_grad_(not self.config.use_ema_codebook)
@@ -45,31 +52,6 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
             torch.zeros(2, self.config.codebook_size, max(self.config.top_latent_dim, self.config.latent_dim)),
         )
         self._reset_codebooks()
-
-    def _build_hierarchical_decoder(self) -> nn.Sequential:
-        decoder_hidden_dims = self.config.decoder_hidden_dims
-        if decoder_hidden_dims is None:
-            decoder_hidden_dims = list(reversed(self.config.hidden_dims))
-        dims = [self.config.top_latent_dim + self.config.latent_dim, *decoder_hidden_dims, self.config.input_dim]
-        return self._build_mlp(dims)
-
-    def _build_mlp(self, dims: list[int]) -> nn.Sequential:
-        layers: list[nn.Module] = []
-        activation_factory = self._get_activation_factory()
-        for index, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:])):
-            layers.append(nn.Linear(in_dim, out_dim, bias=self.config.use_bias))
-            if index != len(dims) - 2:
-                layers.append(activation_factory())
-        return nn.Sequential(*layers)
-
-    def _get_activation_factory(self):
-        activations = {
-            "relu": nn.ReLU,
-            "gelu": nn.GELU,
-            "silu": nn.SiLU,
-            "tanh": nn.Tanh,
-        }
-        return activations[self.config.activation]
 
     def _reset_codebooks(self) -> None:
         for codebook in (self.top_codebook, self.bottom_codebook):
