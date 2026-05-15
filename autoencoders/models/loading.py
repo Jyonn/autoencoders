@@ -50,7 +50,12 @@ def get_model_class(name: str):
 def load_model(name: str, **kwargs: Any):
     """Construct a named autoencoder model from config kwargs."""
 
+    init_kwargs: dict[str, Any] = {}
+    for init_key in ("encoder", "decoder", "encoder_config", "decoder_config"):
+        if init_key in kwargs:
+            init_kwargs[init_key] = kwargs.pop(init_key)
+
     model_class = get_model_class(name)
     config_class = model_class.config_class
     config = config_class(**kwargs)
-    return model_class(config)
+    return model_class(config, **init_kwargs)

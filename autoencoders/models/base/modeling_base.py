@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import warnings
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
-from ...modules import MLPModuleConfig, get_module_class
+from ...modules import get_module_class
 from .configuration_base import BaseAutoencoderConfig
 
 
@@ -43,31 +44,12 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             }
         return module_specs
 
-    def _create_default_encoder_module_config(self):
-        return MLPModuleConfig(
-            hidden_dims=list(self.config.hidden_dims),
-            activation=self.config.activation,
-            use_bias=self.config.use_bias,
-        )
-
-    def _create_default_decoder_module_config(self):
-        decoder_hidden_dims = self.config.decoder_hidden_dims
-        if decoder_hidden_dims is None:
-            decoder_hidden_dims = list(reversed(self.config.hidden_dims))
-        return MLPModuleConfig(
-            hidden_dims=list(decoder_hidden_dims),
-            activation=self.config.activation,
-            use_bias=self.config.use_bias,
-        )
-
     def _coerce_module_config(self, module_class, module_config):
         config_class = module_class.config_class
-        if module_config is None:
-            return config_class()
         if isinstance(module_config, config_class):
             return module_config
         if isinstance(module_config, dict):
-            return config_class.from_dict(module_config)
+            return config_class(**module_config)
         return config_class.from_dict(module_config.to_dict())
 
     def _build_backbone_module(
@@ -75,19 +57,30 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         *,
         module: str | nn.Module | None,
         module_config,
-        default_module_name: str,
-        default_module_config,
         input_dim: int,
         output_dim: int,
         reverse: bool = False,
+        name: str,
     ):
+        if module is None:
+            warnings.warn(
+                f"{self.__class__.__name__} was initialized without an explicit {name} backbone. "
+                "Pass a built-in module name "
+                "such as `mlp` together with its module config, or inject a custom nn.Module.",
+                stacklevel=3,
+            )
+            return None, None, None
         if isinstance(module, nn.Module):
             return module, "external", None
+        if module_config is None:
+            raise ValueError(
+                f"{self.__class__.__name__} received built-in {name}={module!r} without `{name}_config`. "
+                f"Please provide `{name}_config` as a plain dict."
+            )
 
-        module_name = default_module_name if module is None else module
+        module_name = module
         module_class = get_module_class(module_name)
-        effective_config = default_module_config if module_config is None else module_config
-        resolved_config = self._coerce_module_config(module_class, effective_config)
+        resolved_config = self._coerce_module_config(module_class, module_config)
         built_module = module_class(
             resolved_config,
             input_dim=input_dim,
@@ -95,6 +88,15 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             reverse=reverse,
         )
         return built_module, module_name, resolved_config
+
+    def _require_backbone_module(self, module: nn.Module | None, name: str) -> nn.Module:
+        if module is None:
+            article = "an" if name[0].lower() in {"a", "e", "i", "o", "u"} else "a"
+            raise RuntimeError(
+                f"{self.__class__.__name__} does not have {article} {name} backbone. "
+                f"Construct the model with `{name}=...` and the corresponding `{name}_config=...`."
+            )
+        return module
 
     @abstractmethod
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:

@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
     torch = None
 
 if torch is not None:
-    from autoencoders import InformationVariationalAutoencoderConfig, InformationVariationalAutoencoderModel
+    from autoencoders import build_mlp_backbone_kwargs_from_model_config, InformationVariationalAutoencoderConfig, InformationVariationalAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -27,7 +27,7 @@ class InformationVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = InformationVariationalAutoencoderModel(self.config)
+        model = InformationVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.train()
 
         outputs = model(inputs=self.inputs, current_epoch=1)
@@ -46,14 +46,14 @@ class InformationVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_return_dict_false_returns_tuple(self) -> None:
-        model = InformationVariationalAutoencoderModel(self.config)
+        model = InformationVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         outputs = model(inputs=self.inputs, current_epoch=1, return_dict=False)
         self.assertEqual(len(outputs), 3)
         self.assertEqual(tuple(outputs[1].shape), (4, 16))
         self.assertEqual(tuple(outputs[2].shape), (4, 4))
 
     def test_export_includes_posterior_statistics(self) -> None:
-        model = InformationVariationalAutoencoderModel(self.config)
+        model = InformationVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.eval()
 
         artifact = model.export(self.inputs)
@@ -63,7 +63,7 @@ class InformationVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(artifact.posterior_logvar.shape), (4, 4))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = InformationVariationalAutoencoderModel(self.config)
+        model = InformationVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.2)

@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
     torch = None
 
 if torch is not None:
-    from autoencoders import SparseAutoencoderConfig, SparseAutoencoderModel
+    from autoencoders import build_mlp_backbone_kwargs_from_model_config, SparseAutoencoderConfig, SparseAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -26,7 +26,7 @@ class SparseAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_sparse_loss(self) -> None:
-        model = SparseAutoencoderModel(self.config)
+        model = SparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         outputs = model(inputs=self.inputs)
 
@@ -38,7 +38,7 @@ class SparseAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = SparseAutoencoderModel(self.config)
+        model = SparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.15)

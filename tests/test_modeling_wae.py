@@ -7,19 +7,18 @@ import unittest
 
 import torch
 
-from autoencoders import WassersteinAutoencoderConfig, WassersteinAutoencoderModel
+from autoencoders import build_mlp_backbone_kwargs_from_model_config, WassersteinAutoencoderConfig, WassersteinAutoencoderModel
 
 
 class WassersteinAutoencoderModelTest(unittest.TestCase):
     def test_forward_returns_mmd_loss(self) -> None:
-        model = WassersteinAutoencoderModel(
-            WassersteinAutoencoderConfig(
-                input_dim=6,
-                latent_dim=3,
-                hidden_dims=[5],
-                mmd_weight=5.0,
-            )
+        config = WassersteinAutoencoderConfig(
+            input_dim=6,
+            latent_dim=3,
+            hidden_dims=[5],
+            mmd_weight=5.0,
         )
+        model = WassersteinAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
         inputs = torch.randn(4, 6)
 
         outputs = model(inputs=inputs)
@@ -31,9 +30,8 @@ class WassersteinAutoencoderModelTest(unittest.TestCase):
         self.assertIn("mmd_loss", outputs.loss_dict)
 
     def test_export_includes_latents_and_reconstruction(self) -> None:
-        model = WassersteinAutoencoderModel(
-            WassersteinAutoencoderConfig(input_dim=6, latent_dim=3, hidden_dims=[5])
-        )
+        config = WassersteinAutoencoderConfig(input_dim=6, latent_dim=3, hidden_dims=[5])
+        model = WassersteinAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
         inputs = torch.randn(2, 6)
 
         artifact = model.export(inputs)
@@ -50,7 +48,7 @@ class WassersteinAutoencoderModelTest(unittest.TestCase):
             mmd_weight=7.5,
             mmd_bandwidths=[0.5, 1.0],
         )
-        model = WassersteinAutoencoderModel(config)
+        model = WassersteinAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)

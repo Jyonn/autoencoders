@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover
     torch = None
 
 if torch is not None:
-    from autoencoders import KLSparseAutoencoderConfig, KLSparseAutoencoderModel
+    from autoencoders import build_mlp_backbone_kwargs_from_model_config, KLSparseAutoencoderConfig, KLSparseAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -27,14 +27,14 @@ class KLSparseAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_kl_sparsity_loss(self) -> None:
-        model = KLSparseAutoencoderModel(self.config)
+        model = KLSparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         outputs = model(inputs=self.inputs)
         self.assertIn("kl_sparsity_loss", outputs.loss_dict)
         expected_loss = outputs.reconstruction_loss + self.config.sparsity_weight * outputs.kl_sparsity_loss
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = KLSparseAutoencoderModel(self.config)
+        model = KLSparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = KLSparseAutoencoderModel.from_pretrained(tmpdir)

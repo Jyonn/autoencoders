@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover
     torch = None
 
 if torch is not None:
-    from autoencoders import ResidualFiniteScalarQuantizedAutoencoderConfig, ResidualFiniteScalarQuantizedAutoencoderModel
+    from autoencoders import build_mlp_backbone_kwargs_from_model_config, ResidualFiniteScalarQuantizedAutoencoderConfig, ResidualFiniteScalarQuantizedAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -26,19 +26,19 @@ class ResidualFiniteScalarQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_stacked_code_indices(self) -> None:
-        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config)
+        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 12))
         self.assertIn("quantization_residual_loss", outputs.loss_dict)
 
     def test_export_includes_level_metadata(self) -> None:
-        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config)
+        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         artifact = model.export(self.inputs)
         self.assertEqual(artifact.model_type, "residual_finite_scalar_quantized_autoencoder")
         self.assertEqual(artifact.extras["num_quantizers"], 3)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config)
+        model = ResidualFiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = ResidualFiniteScalarQuantizedAutoencoderModel.from_pretrained(tmpdir)

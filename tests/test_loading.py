@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from autoencoders import get_module_modules, load_dataset, load_model
+from autoencoders import build_mlp_backbone_kwargs, get_module_modules, load_dataset, load_model
 from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
 from autoencoders.data import (
     ConceptNetNumberbatchDataset,
@@ -42,6 +42,9 @@ from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderM
 
 
 class LoadingHelpersTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mlp_backbone_kwargs = build_mlp_backbone_kwargs([8])
+
     def test_load_dataset_returns_glove(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=32)
         self.assertIsInstance(dataset, GloVeDataset)
@@ -67,7 +70,7 @@ class LoadingHelpersTest(unittest.TestCase):
         self.assertIsInstance(dataset, Flickr30kDataset)
 
     def test_load_model_returns_autoencoder(self) -> None:
-        model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8])
+        model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8], **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, AutoencoderModel)
 
     def test_load_model_returns_denoising_autoencoder(self) -> None:
@@ -78,67 +81,68 @@ class LoadingHelpersTest(unittest.TestCase):
             hidden_dims=[8],
             noise_type="gaussian",
             noise_std=0.2,
+            **self.mlp_backbone_kwargs,
         )
         self.assertIsInstance(model, DenoisingAutoencoderModel)
 
     def test_load_model_returns_contractive_autoencoder(self) -> None:
-        model = load_model("cae", input_dim=16, latent_dim=4, hidden_dims=[8], contractive_weight=0.05)
+        model = load_model("cae", input_dim=16, latent_dim=4, hidden_dims=[8], contractive_weight=0.05, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, ContractiveAutoencoderModel)
 
     def test_load_model_returns_sparse_autoencoder(self) -> None:
-        model = load_model("sae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01)
+        model = load_model("sae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, SparseAutoencoderModel)
 
     def test_load_model_returns_topk_sparse_autoencoder(self) -> None:
-        model = load_model("topksae", input_dim=16, latent_dim=4, hidden_dims=[8], topk=2)
+        model = load_model("topksae", input_dim=16, latent_dim=4, hidden_dims=[8], topk=2, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, TopKSparseAutoencoderModel)
 
     def test_load_model_returns_kl_sparse_autoencoder(self) -> None:
-        model = load_model("klsae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01, target_activation=0.05)
+        model = load_model("klsae", input_dim=16, latent_dim=4, hidden_dims=[8], sparsity_weight=0.01, target_activation=0.05, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, KLSparseAutoencoderModel)
 
     def test_load_model_returns_variational_autoencoder(self) -> None:
-        model = load_model("vae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5)
+        model = load_model("vae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, VariationalAutoencoderModel)
 
     def test_load_model_returns_denoising_variational_autoencoder(self) -> None:
-        model = load_model("dvae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5)
+        model = load_model("dvae", input_dim=16, latent_dim=4, hidden_dims=[8], kl_weight=0.5, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, DenoisingVariationalAutoencoderModel)
 
     def test_load_model_returns_beta_variational_autoencoder(self) -> None:
-        model = load_model("betavae", input_dim=16, latent_dim=4, hidden_dims=[8], beta=4.0)
+        model = load_model("betavae", input_dim=16, latent_dim=4, hidden_dims=[8], beta=4.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, BetaVariationalAutoencoderModel)
 
     def test_load_model_returns_beta_tc_variational_autoencoder(self) -> None:
-        model = load_model("betatcvae", input_dim=16, latent_dim=4, hidden_dims=[8], total_correlation_weight=6.0)
+        model = load_model("betatcvae", input_dim=16, latent_dim=4, hidden_dims=[8], total_correlation_weight=6.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, BetaTCVariationalAutoencoderModel)
 
     def test_load_model_returns_hierarchical_variational_autoencoder(self) -> None:
-        model = load_model("hvae", input_dim=16, latent_dim=4, hidden_dims=[8], top_latent_dim=2)
+        model = load_model("hvae", input_dim=16, latent_dim=4, hidden_dims=[8], top_latent_dim=2, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, HierarchicalVariationalAutoencoderModel)
 
     def test_load_model_returns_information_variational_autoencoder(self) -> None:
-        model = load_model("infovae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)
+        model = load_model("infovae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, InformationVariationalAutoencoderModel)
 
     def test_load_model_returns_mmd_variational_autoencoder(self) -> None:
-        model = load_model("mmdvae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=10.0)
+        model = load_model("mmdvae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=10.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, MMDVariationalAutoencoderModel)
 
     def test_load_model_returns_vampprior_variational_autoencoder(self) -> None:
-        model = load_model("vamppriorvae", input_dim=16, latent_dim=4, hidden_dims=[8], num_pseudo_inputs=32)
+        model = load_model("vamppriorvae", input_dim=16, latent_dim=4, hidden_dims=[8], num_pseudo_inputs=32, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, VampPriorVariationalAutoencoderModel)
 
     def test_load_model_returns_factor_variational_autoencoder(self) -> None:
-        model = load_model("factorvae", input_dim=16, latent_dim=4, hidden_dims=[8], tc_weight=10.0)
+        model = load_model("factorvae", input_dim=16, latent_dim=4, hidden_dims=[8], tc_weight=10.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, FactorVariationalAutoencoderModel)
 
     def test_load_model_returns_dip_variational_autoencoder(self) -> None:
-        model = load_model("dipvae", input_dim=16, latent_dim=4, hidden_dims=[8], dip_weight=10.0)
+        model = load_model("dipvae", input_dim=16, latent_dim=4, hidden_dims=[8], dip_weight=10.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, DIPVariationalAutoencoderModel)
 
     def test_load_model_returns_wasserstein_autoencoder(self) -> None:
-        model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0)
+        model = load_model("wae", input_dim=16, latent_dim=4, hidden_dims=[8], mmd_weight=5.0, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, WassersteinAutoencoderModel)
 
     def test_load_model_returns_adversarial_autoencoder(self) -> None:
@@ -149,35 +153,36 @@ class LoadingHelpersTest(unittest.TestCase):
             hidden_dims=[8],
             discriminator_hidden_dims=[6],
             adversarial_weight=0.5,
+            **self.mlp_backbone_kwargs,
         )
         self.assertIsInstance(model, AdversarialAutoencoderModel)
 
     def test_load_model_returns_vector_quantized_autoencoder(self) -> None:
-        model = load_model("vqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32)
+        model = load_model("vqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, VectorQuantizedAutoencoderModel)
 
     def test_load_model_returns_gumbel_quantized_autoencoder(self) -> None:
-        model = load_model("gumbelvq", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32)
+        model = load_model("gumbelvq", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=32, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, GumbelQuantizedAutoencoderModel)
 
     def test_load_model_returns_finite_scalar_quantized_autoencoder(self) -> None:
-        model = load_model("fsq", input_dim=16, latent_dim=4, hidden_dims=[8], num_levels=8)
+        model = load_model("fsq", input_dim=16, latent_dim=4, hidden_dims=[8], num_levels=8, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, FiniteScalarQuantizedAutoencoderModel)
 
     def test_load_model_returns_residual_finite_scalar_quantized_autoencoder(self) -> None:
-        model = load_model("rfsq", input_dim=16, latent_dim=4, hidden_dims=[8], num_levels=8, num_quantizers=2)
+        model = load_model("rfsq", input_dim=16, latent_dim=4, hidden_dims=[8], num_levels=8, num_quantizers=2, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, ResidualFiniteScalarQuantizedAutoencoderModel)
 
     def test_load_model_returns_product_quantized_autoencoder(self) -> None:
-        model = load_model("pqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_codebooks=2)
+        model = load_model("pqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_codebooks=2, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, ProductQuantizedAutoencoderModel)
 
     def test_load_model_returns_residual_quantized_autoencoder(self) -> None:
-        model = load_model("rqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_quantizers=2)
+        model = load_model("rqvae", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, num_quantizers=2, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, ResidualQuantizedAutoencoderModel)
 
     def test_load_model_returns_hierarchical_vector_quantized_autoencoder(self) -> None:
-        model = load_model("vqvae2", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, top_latent_dim=3)
+        model = load_model("vqvae2", input_dim=16, latent_dim=4, hidden_dims=[8], codebook_size=16, top_latent_dim=3, **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, HierarchicalVectorQuantizedAutoencoderModel)
 
     def test_model_module_discovery_excludes_internal_base_namespace(self) -> None:

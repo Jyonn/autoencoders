@@ -7,6 +7,7 @@ import argparse
 from _train_common import (
     add_dataset_args,
     add_training_args,
+    build_mlp_backbone_kwargs,
     build_training_arguments,
     prepare_training,
     print_training_overview,
@@ -73,6 +74,7 @@ def build_model(args: argparse.Namespace, input_dim: int):
         "free_bits": args.free_bits,
         "kl_warmup_epochs": args.kl_warmup_epochs,
         "kl_start_weight": args.kl_start_weight,
+        **build_mlp_backbone_kwargs(args.hidden_dims, args.activation),
     }
     if args.model == "betavae":
         model_kwargs.update(beta=args.beta)

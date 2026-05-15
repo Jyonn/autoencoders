@@ -11,7 +11,13 @@ from pathlib import Path
 
 import torch
 
-from autoencoders import VariationalAutoencoderConfig, VariationalAutoencoderModel, VectorQuantizedAutoencoderConfig, VectorQuantizedAutoencoderModel
+from autoencoders import (
+    VariationalAutoencoderConfig,
+    VariationalAutoencoderModel,
+    VectorQuantizedAutoencoderConfig,
+    VectorQuantizedAutoencoderModel,
+    build_mlp_backbone_kwargs_from_model_config,
+)
 from autoencoders.data.base import DatasetLoaders
 
 
@@ -69,17 +75,16 @@ class TrainCommonTest(unittest.TestCase):
             masking_ratio=0.3,
             apply_noise_in_eval=False,
         )
-        model = VariationalAutoencoderModel(
-            VariationalAutoencoderConfig(
-                input_dim=50,
-                latent_dim=8,
-                hidden_dims=[16, 8],
-                kl_weight=0.1,
-                free_bits=0.02,
-                kl_warmup_epochs=20,
-                kl_start_weight=0.0,
-            )
+        config = VariationalAutoencoderConfig(
+            input_dim=50,
+            latent_dim=8,
+            hidden_dims=[16, 8],
+            kl_weight=0.1,
+            free_bits=0.02,
+            kl_warmup_epochs=20,
+            kl_start_weight=0.0,
         )
+        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
 
         buffer = io.StringIO()
         with redirect_stdout(buffer):
@@ -130,18 +135,17 @@ class TrainCommonTest(unittest.TestCase):
             dead_code_reset=True,
             dead_code_threshold=0,
         )
-        model = VectorQuantizedAutoencoderModel(
-            VectorQuantizedAutoencoderConfig(
-                input_dim=50,
-                latent_dim=8,
-                hidden_dims=[16, 8],
-                codebook_size=64,
-                commitment_weight=0.25,
-                codebook_weight=1.0,
-                use_ema_codebook=True,
-                dead_code_reset=True,
-            )
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=50,
+            latent_dim=8,
+            hidden_dims=[16, 8],
+            codebook_size=64,
+            commitment_weight=0.25,
+            codebook_weight=1.0,
+            use_ema_codebook=True,
+            dead_code_reset=True,
         )
+        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
 
         buffer = io.StringIO()
         with redirect_stdout(buffer):
@@ -154,14 +158,13 @@ class TrainCommonTest(unittest.TestCase):
 
     def test_validate_model_input_compatibility_prints_friendly_message(self) -> None:
         args = argparse.Namespace(dataset="glove", model="vqvae")
-        model = VectorQuantizedAutoencoderModel(
-            VectorQuantizedAutoencoderConfig(
-                input_dim=50,
-                latent_dim=8,
-                hidden_dims=[16, 8],
-                codebook_size=64,
-            )
+        config = VectorQuantizedAutoencoderConfig(
+            input_dim=50,
+            latent_dim=8,
+            hidden_dims=[16, 8],
+            codebook_size=64,
         )
+        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
         single_vector_batch = torch.randn(6, 50)
         dataloader = torch.utils.data.DataLoader(single_vector_batch, batch_size=2)
         loaders = DatasetLoaders(train=dataloader, validation=dataloader, test=dataloader)

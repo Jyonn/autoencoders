@@ -7,6 +7,8 @@ from .modules import (
     BaseAutoencoderModuleConfig,
     MLPModule,
     MLPModuleConfig,
+    build_mlp_backbone_kwargs,
+    build_mlp_backbone_kwargs_from_model_config,
     get_module_class,
     get_module_modules,
 )
@@ -74,6 +76,8 @@ __all__ = [
     "BaseAutoencoderConfig",
     "BaseAutoencoderModule",
     "BaseAutoencoderModuleConfig",
+    "build_mlp_backbone_kwargs",
+    "build_mlp_backbone_kwargs_from_model_config",
     "BaseVariationalAutoencoderConfig",
     "BaseVectorQuantizedAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",

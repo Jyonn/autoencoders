@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover
     torch = None
 
 if torch is not None:
-    from autoencoders import HierarchicalVariationalAutoencoderConfig, HierarchicalVariationalAutoencoderModel
+    from autoencoders import build_mlp_backbone_kwargs_from_model_config, HierarchicalVariationalAutoencoderConfig, HierarchicalVariationalAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -27,7 +27,7 @@ class HierarchicalVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_hierarchical_latents(self) -> None:
-        model = HierarchicalVariationalAutoencoderModel(self.config)
+        model = HierarchicalVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.train()
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
@@ -36,7 +36,7 @@ class HierarchicalVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("hierarchical_kl_loss", outputs.loss_dict)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = HierarchicalVariationalAutoencoderModel(self.config)
+        model = HierarchicalVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = HierarchicalVariationalAutoencoderModel.from_pretrained(tmpdir)
