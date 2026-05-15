@@ -10,7 +10,7 @@ from torch import nn
 
 from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
-from ...modules import get_module_class
+from ...modules import BaseAutoencoderModule, get_module_class
 from .configuration_base import BaseAutoencoderConfig
 
 
@@ -97,6 +97,52 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 f"Construct the model with `{name}=...` and the corresponding `{name}_config=...`."
             )
         return module
+
+    def _build_decoder_backbone_module(
+        self,
+        *,
+        encoder_module: nn.Module | None,
+        encoder_module_type: str | None,
+        encoder_module_config,
+        module: str | nn.Module | None,
+        module_config,
+        input_dim: int,
+        output_dim: int,
+        name: str = "decoder",
+    ):
+        if module is not None:
+            return self._build_backbone_module(
+                module=module,
+                module_config=module_config,
+                input_dim=input_dim,
+                output_dim=output_dim,
+                reverse=False,
+                name=name,
+            )
+
+        if encoder_module is None:
+            warnings.warn(
+                f"{self.__class__.__name__} was initialized without an explicit {name} backbone because no "
+                "encoder backbone was available to derive it from.",
+                stacklevel=3,
+            )
+            return None, None, None
+
+        if not isinstance(encoder_module, BaseAutoencoderModule):
+            raise ValueError(
+                f"{self.__class__.__name__} cannot infer {name} from encoder={encoder_module.__class__.__name__}. "
+                f"When `{name}=None`, the encoder must be a built-in or custom `{BaseAutoencoderModule.__name__}`."
+            )
+
+        derived_module = encoder_module.__class__(
+            encoder_module.config,
+            input_dim=input_dim,
+            latent_dim=output_dim,
+            reverse=True,
+        )
+        if encoder_module_type in {None, "external"}:
+            return derived_module, None, None
+        return derived_module, encoder_module_type, encoder_module_config
 
     def _get_backbone_output_dim(self, module: nn.Module | None, name: str) -> int:
         resolved_module = self._require_backbone_module(module, name)

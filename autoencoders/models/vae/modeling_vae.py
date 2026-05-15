@@ -37,12 +37,14 @@ class VariationalAutoencoderModel(BaseVariationalAutoencoderModel):
             encoder_output_dim = self._get_backbone_output_dim(self.encoder, "encoder")
             self.mean_projection = nn.Linear(encoder_output_dim, self.config.latent_dim, bias=True)
             self.logvar_projection = nn.Linear(encoder_output_dim, self.config.latent_dim, bias=True)
-        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_backbone_module(
+        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_decoder_backbone_module(
+            encoder_module=self.encoder,
+            encoder_module_type=self._encoder_module_type,
+            encoder_module_config=self._encoder_module_config,
             module=decoder,
             module_config=decoder_config,
             input_dim=self.config.latent_dim,
             output_dim=self.config.input_dim,
-            reverse=False,
             name="decoder",
         )
 

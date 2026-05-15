@@ -47,6 +47,18 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.reconstruction.shape), (3, 16))
         self.assertEqual(tuple(outputs.latents.shape), (3, 4))
 
+    def test_decoder_is_inferred_from_builtin_encoder_when_omitted(self) -> None:
+        model = AutoencoderModel(
+            self.config,
+            encoder="mlp",
+            encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
+        )
+
+        outputs = model(inputs=self.inputs)
+
+        self.assertEqual(tuple(outputs.reconstruction.shape), (3, 16))
+        self.assertEqual(tuple(outputs.latents.shape), (3, 4))
+
     def test_return_dict_false_returns_tuple(self) -> None:
         model = AutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
@@ -113,6 +125,10 @@ class AutoencoderModelTest(unittest.TestCase):
             loaded = AutoencoderModel.from_pretrained(tmpdir, encoder=nn.Linear(16, 4), decoder=nn.Linear(4, 16))
 
         self.assertIsInstance(loaded.encoder, nn.Linear)
+
+    def test_decoder_none_with_non_backbone_encoder_raises_error(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cannot infer decoder"):
+            AutoencoderModel(self.config, encoder=nn.Linear(16, 4))
 
     def test_missing_backbones_warn_and_fail_on_forward(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
