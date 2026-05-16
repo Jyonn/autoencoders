@@ -13,6 +13,25 @@ import urllib.request
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 
+from ..configuration_utils import PretrainedConfig
+
+
+class BaseDatasetConfig(PretrainedConfig):
+    """Base configuration shared by built-in datasets."""
+
+    model_type = "dataset"
+
+    def __init__(
+        self,
+        *,
+        root: str | Path | None = None,
+        max_vectors: int | None = None,
+        **kwargs,
+    ) -> None:
+        self.root = None if root is None else str(root)
+        self.max_vectors = max_vectors
+        super().__init__(**kwargs)
+
 
 def default_cache_dir() -> Path:
     """Return the default cache directory for downloadable datasets."""

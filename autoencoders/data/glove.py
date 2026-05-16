@@ -5,7 +5,14 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-from .base import CachedDataset, DatasetLoaders, DatasetSplits, create_dataloaders, split_dataset
+from .base import (
+    BaseDatasetConfig,
+    CachedDataset,
+    DatasetLoaders,
+    DatasetSplits,
+    create_dataloaders,
+    split_dataset,
+)
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -15,24 +22,44 @@ from .embeddings import (
 )
 
 
-class GloVeDataset(CachedDataset):
-    """Downloadable and cacheable access to Stanford GloVe vectors."""
+class GloVeDatasetConfig(BaseDatasetConfig):
+    """Configuration for the classic Stanford GloVe embeddings."""
 
-    dataset_name = "glove"
-    base_url = "https://nlp.stanford.edu/data/glove.6B.zip"
+    model_type = "glove_dataset"
 
     def __init__(
         self,
         *,
         dim: int = 50,
+        root: str | Path | None = None,
         max_vectors: int | None = None,
+        **kwargs,
     ) -> None:
+        self.dim = dim
+        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+
+
+class GloVeDataset(CachedDataset):
+    """Downloadable and cacheable access to Stanford GloVe vectors."""
+
+    dataset_name = "glove"
+    base_url = "https://nlp.stanford.edu/data/glove.6B.zip"
+    config_class = GloVeDatasetConfig
+
+    def __init__(
+        self,
+        config: GloVeDatasetConfig | None = None,
+        **kwargs,
+    ) -> None:
+        config = self.config_class(**kwargs) if config is None else config
+        self.config = config
+        dim = config.dim
         if dim not in {50, 100, 200, 300}:
             raise ValueError("dim must be one of: 50, 100, 200, 300.")
 
         self.dim = dim
-        self.max_vectors = max_vectors
-        super().__init__()
+        self.max_vectors = config.max_vectors
+        super().__init__(root=config.root)
 
     @property
     def archive_name(self) -> str:

@@ -10,7 +10,14 @@ from typing import Iterable
 
 import torch
 
-from .base import CachedDataset, DatasetLoaders, DatasetSplits, create_dataloaders, split_dataset
+from .base import (
+    BaseDatasetConfig,
+    CachedDataset,
+    DatasetLoaders,
+    DatasetSplits,
+    create_dataloaders,
+    split_dataset,
+)
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -75,25 +82,48 @@ class SentenceTransformerTextEncoder(TextEmbeddingEncoder):
         return embeddings.detach().to(dtype=torch.float32, device="cpu")
 
 
+class EncoderBackedTextDatasetConfig(BaseDatasetConfig):
+    """Configuration shared by encoder-backed text datasets."""
+
+    model_type = "text_dataset"
+
+    def __init__(
+        self,
+        *,
+        encoder: str | None = None,
+        encoder_batch_size: int = 128,
+        normalize_embeddings: bool = False,
+        root: str | Path | None = None,
+        max_vectors: int | None = None,
+        **kwargs,
+    ) -> None:
+        self.encoder = encoder
+        self.encoder_batch_size = encoder_batch_size
+        self.normalize_embeddings = normalize_embeddings
+        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+
+
 class EncoderBackedTextDataset(CachedDataset, ABC):
     """Base class for datasets that materialize text embeddings with an encoder."""
 
     encoder_family = "sentence-transformers"
     default_encoder_name = "sentence-transformers/all-MiniLM-L6-v2"
+    config_class = EncoderBackedTextDatasetConfig
 
     def __init__(
         self,
-        *,
-        encoder_name: str | None = None,
-        encoder_batch_size: int = 128,
-        normalize_embeddings: bool = False,
-        max_vectors: int | None = None,
+        config: EncoderBackedTextDatasetConfig | None = None,
+        **kwargs,
     ) -> None:
-        self.encoder_name = encoder_name or self.default_encoder_name
-        self.encoder_batch_size = encoder_batch_size
-        self.normalize_embeddings = normalize_embeddings
-        self.max_vectors = max_vectors
-        super().__init__()
+        if "encoder_name" in kwargs and "encoder" not in kwargs:
+            kwargs["encoder"] = kwargs.pop("encoder_name")
+        config = self.config_class(**kwargs) if config is None else config
+        self.config = config
+        self.encoder_name = config.encoder or self.default_encoder_name
+        self.encoder_batch_size = config.encoder_batch_size
+        self.normalize_embeddings = config.normalize_embeddings
+        self.max_vectors = config.max_vectors
+        super().__init__(root=config.root)
 
     @property
     def artifact_name(self) -> str:

@@ -5,7 +5,14 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-from .base import CachedDataset, DatasetLoaders, DatasetSplits, create_dataloaders, split_dataset
+from .base import (
+    BaseDatasetConfig,
+    CachedDataset,
+    DatasetLoaders,
+    DatasetSplits,
+    create_dataloaders,
+    split_dataset,
+)
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -15,23 +22,43 @@ from .embeddings import (
 )
 
 
-class FastTextEnglishDataset(CachedDataset):
-    """Downloadable and cacheable access to fastText English word vectors."""
+class FastTextEnglishDatasetConfig(BaseDatasetConfig):
+    """Configuration for fastText English vectors."""
 
-    dataset_name = "fasttext"
-    base_url = "https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip"
+    model_type = "fasttext_dataset"
 
     def __init__(
         self,
         *,
         dim: int = 300,
+        root: str | Path | None = None,
         max_vectors: int | None = None,
+        **kwargs,
     ) -> None:
+        self.dim = dim
+        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+
+
+class FastTextEnglishDataset(CachedDataset):
+    """Downloadable and cacheable access to fastText English word vectors."""
+
+    dataset_name = "fasttext"
+    base_url = "https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip"
+    config_class = FastTextEnglishDatasetConfig
+
+    def __init__(
+        self,
+        config: FastTextEnglishDatasetConfig | None = None,
+        **kwargs,
+    ) -> None:
+        config = self.config_class(**kwargs) if config is None else config
+        self.config = config
+        dim = config.dim
         if dim != 300:
             raise ValueError("dim must be 300 for the official fastText English vectors.")
         self.dim = dim
-        self.max_vectors = max_vectors
-        super().__init__()
+        self.max_vectors = config.max_vectors
+        super().__init__(root=config.root)
 
     @property
     def archive_name(self) -> str:

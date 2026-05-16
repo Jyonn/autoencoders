@@ -5,17 +5,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .clip import CLIPBackedDataset, CLIPRecord
+from .clip import CLIPBackedDataset, CLIPBackedDatasetConfig, CLIPRecord
+
+
+class Flickr30kDatasetConfig(CLIPBackedDatasetConfig):
+    """Configuration for the Flickr30k CLIP-backed dataset."""
+
+    model_type = "flickr30k_dataset"
 
 
 class Flickr30kDataset(CLIPBackedDataset):
     """Materialize CLIP embeddings from Flickr30k image-caption pairs."""
 
     dataset_name = "flickr30k"
+    config_class = Flickr30kDatasetConfig
     hf_dataset_name = "AnyModal/flickr30k"
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, config: Flickr30kDatasetConfig | None = None, **kwargs) -> None:
+        super().__init__(config=config, **kwargs)
         self.manifest_path = self.raw_dir / "records.jsonl"
         self.images_dir = self.raw_dir / "images"
 

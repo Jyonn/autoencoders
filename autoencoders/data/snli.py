@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import json
 
-from .text import TextEmbeddingExample, ZipBackedTextDataset
+from .text import EncoderBackedTextDatasetConfig, TextEmbeddingExample, ZipBackedTextDataset
+
+
+class SNLIDatasetConfig(EncoderBackedTextDatasetConfig):
+    """Configuration for the SNLI sentence-embedding dataset."""
+
+    model_type = "snli_dataset"
 
 
 class SNLIDataset(ZipBackedTextDataset):
     """Materialize sentence embeddings from the SNLI corpus."""
 
     dataset_name = "snli"
+    config_class = SNLIDatasetConfig
     base_url = "https://nlp.stanford.edu/projects/snli/snli_1.0.zip"
     required_members = (
         "snli_1.0/snli_1.0_train.jsonl",

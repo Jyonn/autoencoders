@@ -6,7 +6,6 @@ import argparse
 
 from _cli import parse_config_arguments
 from _train_common import (
-    DATASET_DEFAULT_CONFIG,
     add_backbone_args,
     add_dataset_args,
     add_training_args,
@@ -98,7 +97,6 @@ def parse_args() -> argparse.Namespace:
     )
     args = parse_config_arguments(
         parser,
-        default_dataset_config=DATASET_DEFAULT_CONFIG,
         default_trainer_config={},
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vqvae", {})},
         default_encoder="mlp",

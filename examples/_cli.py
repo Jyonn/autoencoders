@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from autoencoders.data.loading import get_dataset_class
 from autoencoders.models.loading import get_model_class
 from autoencoders.modules.loading import get_module_class
 
@@ -65,6 +66,15 @@ def _validate_config_dict(values: dict[str, Any], config_class, *, scope: str) -
         suggestion = difflib.get_close_matches(key, declared_fields, n=1)
         suffix = f" Did you mean {suggestion[0]!r}?" if suggestion else ""
         raise ValueError(f"Unknown {scope} option {key!r}.{suffix}")
+
+
+def _default_config_dict(config_class) -> dict[str, Any]:
+    config = config_class()
+    return {
+        field_name: getattr(config, field_name)
+        for field_name in _collect_declared_config_fields(config_class)
+        if hasattr(config, field_name)
+    }
 
 
 def _parse_dotted_overrides(tokens: list[str]) -> dict[str, dict[str, Any]]:
@@ -128,15 +138,23 @@ def parse_config_arguments(
     args, unknown = parser.parse_known_args(sys.argv[1:])
     overrides = _parse_dotted_overrides(unknown)
 
-    dataset_config = {**(default_dataset_config or {}), **overrides["dataset"]}
-    if default_dataset_config is not None:
-        allowed_dataset_fields = set(default_dataset_config)
-        for key in dataset_config:
-            if key in allowed_dataset_fields:
-                continue
-            suggestion = difflib.get_close_matches(key, allowed_dataset_fields, n=1)
-            suffix = f" Did you mean {suggestion[0]!r}?" if suggestion else ""
-            raise ValueError(f"Unknown dataset option {key!r}.{suffix}")
+    dataset_name = getattr(args, "dataset", None)
+    if dataset_name is None:
+        dataset_config = {**(default_dataset_config or {}), **overrides["dataset"]}
+    else:
+        dataset_class = get_dataset_class(dataset_name)
+        declared_dataset_fields = set(_collect_declared_config_fields(dataset_class.config_class))
+        seeded_defaults = {
+            key: value
+            for key, value in (default_dataset_config or {}).items()
+            if key in declared_dataset_fields
+        }
+        dataset_config = {
+            **_default_config_dict(dataset_class.config_class),
+            **seeded_defaults,
+            **overrides["dataset"],
+        }
+        _validate_config_dict(dataset_config, dataset_class.config_class, scope="dataset")
 
     trainer_config = {**(default_trainer_config or {}), **overrides["trainer"]}
     if default_trainer_config is not None:

@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import json
 
-from .text import TextEmbeddingExample, ZipBackedTextDataset
+from .text import EncoderBackedTextDatasetConfig, TextEmbeddingExample, ZipBackedTextDataset
+
+
+class MultiNLIDatasetConfig(EncoderBackedTextDatasetConfig):
+    """Configuration for the MultiNLI sentence-embedding dataset."""
+
+    model_type = "multinli_dataset"
 
 
 class MultiNLIDataset(ZipBackedTextDataset):
     """Materialize sentence embeddings from the MultiNLI corpus."""
 
     dataset_name = "multinli"
+    config_class = MultiNLIDatasetConfig
     base_url = "https://cims.nyu.edu/~sbowman/multinli/multinli_1.0.zip"
     required_members = (
         "multinli_1.0/multinli_1.0_train.jsonl",

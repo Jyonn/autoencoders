@@ -4,7 +4,17 @@ from __future__ import annotations
 
 import unittest
 
-from autoencoders import build_mlp_backbone_kwargs, get_module_modules, load_dataset, load_model
+from autoencoders import (
+    FastTextEnglishDatasetConfig,
+    Flickr30kDatasetConfig,
+    GloVeDatasetConfig,
+    MultiNLIDatasetConfig,
+    SNLIDatasetConfig,
+    build_mlp_backbone_kwargs,
+    get_module_modules,
+    load_dataset,
+    load_model,
+)
 from autoencoders.models.aae.modeling_aae import AdversarialAutoencoderModel
 from autoencoders.data import (
     ConceptNetNumberbatchDataset,
@@ -37,6 +47,7 @@ from autoencoders.models.vae.modeling_vae import VariationalAutoencoderModel
 from autoencoders.models.vamppriorvae.modeling_vamppriorvae import VampPriorVariationalAutoencoderModel
 from autoencoders.models.wae.modeling_wae import WassersteinAutoencoderModel
 from autoencoders.models.vqvae2.modeling_vqvae2 import HierarchicalVectorQuantizedAutoencoderModel
+from autoencoders.data.loading import get_dataset_modules
 from autoencoders.models.loading import get_model_modules
 from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderModel
 
@@ -48,10 +59,12 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_dataset_returns_glove(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=32)
         self.assertIsInstance(dataset, GloVeDataset)
+        self.assertIsInstance(dataset.config, GloVeDatasetConfig)
 
     def test_load_dataset_returns_fasttext(self) -> None:
         dataset = load_dataset("fasttext", dim=300, max_vectors=32)
         self.assertIsInstance(dataset, FastTextEnglishDataset)
+        self.assertIsInstance(dataset.config, FastTextEnglishDatasetConfig)
 
     def test_load_dataset_returns_numberbatch(self) -> None:
         dataset = load_dataset("numberbatch", dim=300, max_vectors=32)
@@ -60,14 +73,17 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_dataset_returns_snli(self) -> None:
         dataset = load_dataset("snli", max_vectors=32)
         self.assertIsInstance(dataset, SNLIDataset)
+        self.assertIsInstance(dataset.config, SNLIDatasetConfig)
 
     def test_load_dataset_returns_multinli(self) -> None:
         dataset = load_dataset("multinli", max_vectors=32)
         self.assertIsInstance(dataset, MultiNLIDataset)
+        self.assertIsInstance(dataset.config, MultiNLIDatasetConfig)
 
     def test_load_dataset_returns_flickr30k(self) -> None:
         dataset = load_dataset("flickr30k", max_vectors=32)
         self.assertIsInstance(dataset, Flickr30kDataset)
+        self.assertIsInstance(dataset.config, Flickr30kDatasetConfig)
 
     def test_load_model_returns_autoencoder(self) -> None:
         model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8], **self.mlp_backbone_kwargs)
@@ -195,6 +211,14 @@ class LoadingHelpersTest(unittest.TestCase):
         module_modules = get_module_modules()
         self.assertNotIn("base", module_modules)
         self.assertIn("mlp", module_modules)
+
+    def test_dataset_module_discovery_excludes_internal_namespaces(self) -> None:
+        dataset_modules = get_dataset_modules()
+        self.assertNotIn("base", dataset_modules)
+        self.assertNotIn("text", dataset_modules)
+        self.assertNotIn("clip", dataset_modules)
+        self.assertIn("glove", dataset_modules)
+        self.assertIn("flickr30k", dataset_modules)
 
 
 if __name__ == "__main__":

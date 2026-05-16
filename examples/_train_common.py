@@ -16,20 +16,12 @@ if str(EXAMPLES_ROOT) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_ROOT))
 
 from autoencoders import TrainingArguments, load_dataset, set_seed
+from autoencoders.data.loading import get_dataset_modules
 from autoencoders.training.display import style
 from _cli import _collect_declared_config_fields
 
 
-DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli", "flickr30k"]
-DATASET_DEFAULT_CONFIG = {
-    "dim": None,
-    "max_vectors": None,
-    "encoder": None,
-    "encoder_batch_size": 128,
-    "clip_pretrained": "laion2b_s34b_b79k",
-    "clip_device": None,
-    "clip_modality": "both",
-}
+DATASET_CHOICES = sorted(get_dataset_modules())
 
 COMMON_MODEL_PARAMETERS = [
     ("latent_dim", "Latent vector width after encoding."),
@@ -273,28 +265,7 @@ def add_backbone_args(parser: argparse.ArgumentParser, *, default_encoder: str |
 
 
 def build_dataset(args: argparse.Namespace):
-    dataset_config = args.resolved_configs.dataset_config
-    if args.dataset in {"snli", "multinli"}:
-        return load_dataset(
-            args.dataset,
-            encoder_name=dataset_config["encoder"],
-            encoder_batch_size=dataset_config["encoder_batch_size"],
-            max_vectors=dataset_config["max_vectors"],
-        )
-    if args.dataset == "flickr30k":
-        return load_dataset(
-            args.dataset,
-            encoder_name=dataset_config["encoder"],
-            encoder_pretrained=dataset_config["clip_pretrained"],
-            encoder_batch_size=dataset_config["encoder_batch_size"],
-            encoder_device=dataset_config["clip_device"],
-            modality=dataset_config["clip_modality"],
-            max_vectors=dataset_config["max_vectors"],
-        )
-    load_kwargs = {"max_vectors": dataset_config["max_vectors"]}
-    if dataset_config["dim"] is not None:
-        load_kwargs["dim"] = dataset_config["dim"]
-    return load_dataset(args.dataset, **load_kwargs)
+    return load_dataset(args.dataset, **args.resolved_configs.dataset_config)
 
 
 def prepare_training(args: argparse.Namespace):

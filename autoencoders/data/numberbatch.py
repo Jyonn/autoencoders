@@ -5,7 +5,14 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
-from .base import CachedDataset, DatasetLoaders, DatasetSplits, create_dataloaders, split_dataset
+from .base import (
+    BaseDatasetConfig,
+    CachedDataset,
+    DatasetLoaders,
+    DatasetSplits,
+    create_dataloaders,
+    split_dataset,
+)
 from .embeddings import (
     EmbeddingMatrix,
     EmbeddingTensorDataset,
@@ -15,23 +22,43 @@ from .embeddings import (
 )
 
 
-class ConceptNetNumberbatchDataset(CachedDataset):
-    """Downloadable and cacheable access to ConceptNet Numberbatch vectors."""
+class ConceptNetNumberbatchDatasetConfig(BaseDatasetConfig):
+    """Configuration for ConceptNet Numberbatch embeddings."""
 
-    dataset_name = "numberbatch"
-    base_url = "https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz"
+    model_type = "numberbatch_dataset"
 
     def __init__(
         self,
         *,
         dim: int = 300,
+        root: str | Path | None = None,
         max_vectors: int | None = None,
+        **kwargs,
     ) -> None:
+        self.dim = dim
+        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+
+
+class ConceptNetNumberbatchDataset(CachedDataset):
+    """Downloadable and cacheable access to ConceptNet Numberbatch vectors."""
+
+    dataset_name = "numberbatch"
+    base_url = "https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz"
+    config_class = ConceptNetNumberbatchDatasetConfig
+
+    def __init__(
+        self,
+        config: ConceptNetNumberbatchDatasetConfig | None = None,
+        **kwargs,
+    ) -> None:
+        config = self.config_class(**kwargs) if config is None else config
+        self.config = config
+        dim = config.dim
         if dim != 300:
             raise ValueError("dim must be 300 for ConceptNet Numberbatch.")
         self.dim = dim
-        self.max_vectors = max_vectors
-        super().__init__()
+        self.max_vectors = config.max_vectors
+        super().__init__(root=config.root)
 
     @property
     def archive_name(self) -> str:
