@@ -145,16 +145,14 @@ class AutoencoderModelTest(unittest.TestCase):
         module = MLPModule(
             config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
             input_spec=TensorSpec(shape=(16,)),
-            latent_dim=4,
         )
 
-        self.assertEqual(module.output_spec, TensorSpec(shape=(4,)))
+        self.assertEqual(module.output_spec, TensorSpec(shape=(8,)))
 
     def test_mlp_module_uses_last_hidden_dim_when_latent_dim_is_omitted(self) -> None:
         module = MLPModule(
             config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
             input_spec=TensorSpec(shape=(16,)),
-            latent_dim=None,
         )
 
         outputs = module(torch.randn(2, 16))
@@ -167,7 +165,6 @@ class AutoencoderModelTest(unittest.TestCase):
             MLPModule(
                 config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
                 input_spec=DictSpec(elements={"inputs": TensorSpec(shape=(16,))}),
-                latent_dim=4,
             )
 
 

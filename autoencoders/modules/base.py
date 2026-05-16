@@ -23,22 +23,17 @@ class BaseAutoencoderModule(nn.Module, ABC):
     config: BaseAutoencoderModuleConfig
     input_spec: DataSpec
     output_spec: DataSpec
-    latent_dim: int | None
     reverse: bool
 
     def __init__(
         self,
         config: BaseAutoencoderModuleConfig,
         input_spec: DataSpec,
-        latent_dim: int | None = None,
         reverse: bool = False,
     ) -> None:
         super().__init__()
         self.config = config
         self.input_spec = input_spec
-        if latent_dim is not None and latent_dim <= 0:
-            raise ValueError("latent_dim must be a positive integer when provided.")
-        self.latent_dim = None if latent_dim is None else int(latent_dim)
         self.reverse = bool(reverse)
         self.output_spec = self.infer_output_spec(self.input_spec)
 

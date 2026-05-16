@@ -34,6 +34,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("ema_epsilon must be positive.")
         if dead_code_threshold < 0:
             raise ValueError("dead_code_threshold must be non-negative.")
+        if kwargs.get("latent_dim") is None:
+            raise TypeError("BaseVectorQuantizedAutoencoderConfig requires `latent_dim`.")
         self.codebook_size = codebook_size
         self.commitment_weight = commitment_weight
         self.codebook_weight = codebook_weight

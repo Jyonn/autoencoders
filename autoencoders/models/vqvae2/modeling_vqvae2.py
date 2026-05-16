@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...data.base import TensorSpec
 from ...modeling_outputs import HierarchicalQuantizedAutoencoderOutput
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae2 import HierarchicalVectorQuantizedAutoencoderConfig
@@ -211,3 +212,6 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         )
     def get_decoder_input_dim(self) -> int:
         return int(self.config.top_latent_dim + self.config.latent_dim)
+
+    def get_latent_output_spec(self):
+        return TensorSpec(shape=(self.get_decoder_input_dim(),))

@@ -55,8 +55,6 @@ class MLPModule(BaseAutoencoderModule):
         input_dim = self._resolve_input_dim(self.input_spec)
         hidden_dims = self._get_effective_hidden_dims()
         dims = [input_dim, *hidden_dims]
-        if self.latent_dim is not None:
-            dims.append(self.latent_dim)
         self.network = self._build_mlp(dims)
 
     def forward(self, inputs):  # type: ignore[override]
@@ -80,8 +78,6 @@ class MLPModule(BaseAutoencoderModule):
         return int(feature_dim)
 
     def _resolve_output_feature_dim(self, spec: DataSpec) -> int:
-        if self.latent_dim is not None:
-            return self.latent_dim
         hidden_dims = self._get_effective_hidden_dims()
         if hidden_dims:
             return hidden_dims[-1]

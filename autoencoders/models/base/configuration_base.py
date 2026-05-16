@@ -13,13 +13,13 @@ class BaseAutoencoderConfig(PretrainedConfig):
     def __init__(
         self,
         input_dim: int,
-        latent_dim: int,
+        latent_dim: int | None = None,
         reconstruction_loss: str = "mse",
         **kwargs,
     ) -> None:
         if input_dim <= 0:
             raise ValueError("input_dim must be a positive integer.")
-        if latent_dim <= 0:
+        if latent_dim is not None and latent_dim <= 0:
             raise ValueError("latent_dim must be a positive integer.")
         if reconstruction_loss not in {"mse", "l1"}:
             raise ValueError("reconstruction_loss must be one of: 'mse', 'l1'.")

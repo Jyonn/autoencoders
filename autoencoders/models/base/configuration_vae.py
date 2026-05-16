@@ -27,6 +27,8 @@ class BaseVariationalAutoencoderConfig(AutoencoderConfig):
             raise ValueError("kl_warmup_epochs must be greater than or equal to 0.")
         if kl_start_weight < 0:
             raise ValueError("kl_start_weight must be non-negative.")
+        if kwargs.get("latent_dim") is None:
+            raise TypeError("BaseVariationalAutoencoderConfig requires `latent_dim`.")
         self.kl_weight = kl_weight
         self.free_bits = free_bits
         self.kl_warmup_epochs = kl_warmup_epochs
