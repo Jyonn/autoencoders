@@ -52,7 +52,6 @@ class MLPModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.validate_input(self.input_spec)
         input_dim = self._resolve_input_dim(self.input_spec)
         hidden_dims = (
             list(reversed(self.config.hidden_dims))

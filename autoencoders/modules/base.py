@@ -21,6 +21,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
 
     config_class = BaseAutoencoderModuleConfig
     config: BaseAutoencoderModuleConfig
+    input_spec: DataSpec
+    output_spec: DataSpec
 
     def __init__(self, **kwargs) -> None:
         config = kwargs.pop("config")
@@ -35,6 +37,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
         self.input_spec = input_spec
         self.latent_dim = latent_dim
         self.reverse = reverse
+        self.validate_input(self.input_spec)
+        self.output_spec = self.infer_output_spec(self.input_spec)
 
     @abstractmethod
     def forward(self, inputs):  # type: ignore[override]

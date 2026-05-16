@@ -139,7 +139,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             name="encoder",
         )
         if isinstance(self.encoder, BaseAutoencoderModule):
-            self.encoder_output_spec = self.encoder.infer_output_spec(self.encoder_input_spec)
+            self.encoder_output_spec = self.encoder.output_spec
         elif self.encoder_input_spec is not None:
             self.encoder_output_spec = TensorSpec(shape=(self.get_encoder_output_dim(),))
         self.decoder_input_spec = self.get_decoder_input_spec()
@@ -159,7 +159,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             name="decoder",
         )
         if isinstance(self.decoder, BaseAutoencoderModule):
-            self.decoder_output_spec = self.decoder.infer_output_spec(self.decoder_input_spec)
+            self.decoder_output_spec = self.decoder.output_spec
         elif self.decoder_input_spec is not None:
             self.decoder_output_spec = TensorSpec(shape=(self.get_decoder_output_dim(),))
 

@@ -16,6 +16,8 @@ if torch is not None:
     from torch import nn
 
     from autoencoders import build_mlp_backbone_kwargs_from_model_config, AutoencoderConfig, AutoencoderModel
+    from autoencoders.data import DictSpec, TensorSpec
+    from autoencoders.modules import MLPModule, MLPModuleConfig
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -138,6 +140,23 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertTrue(any("without an explicit encoder backbone" in str(warning.message) for warning in caught))
         with self.assertRaisesRegex(RuntimeError, "does not have an encoder backbone"):
             model(inputs=self.inputs)
+
+    def test_mlp_module_exposes_output_spec_after_init(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
+            input_spec=TensorSpec(shape=(16,)),
+            latent_dim=4,
+        )
+
+        self.assertEqual(module.output_spec, TensorSpec(shape=(4,)))
+
+    def test_mlp_module_rejects_non_tensor_specs_during_init(self) -> None:
+        with self.assertRaisesRegex(ValueError, "expects a TensorSpec input"):
+            MLPModule(
+                config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
+                input_spec=DictSpec(elements={"inputs": TensorSpec(shape=(16,))}),
+                latent_dim=4,
+            )
 
 
 if __name__ == "__main__":
