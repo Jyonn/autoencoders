@@ -10,8 +10,8 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vae.py" \
   --dataset glove \
   --model factorvae \
   --output-dir artifacts/glove/factorvae \
-  --dim 50 \
-  --max-vectors 50000 \
+  --dataset.dim 50 \
+  --dataset.max_vectors 50000 \
   --model.latent_dim 16 \
   --encoder.hidden_dims "[128, 64]" \
   --encoder.activation relu \

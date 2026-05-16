@@ -22,6 +22,8 @@ from _cli import _collect_declared_config_fields
 
 DATASET_CHOICES = ["glove", "fasttext", "numberbatch", "snli", "multinli", "flickr30k"]
 DATASET_DEFAULT_CONFIG = {
+    "dim": None,
+    "max_vectors": None,
     "encoder": None,
     "encoder_batch_size": 128,
     "clip_pretrained": "laion2b_s34b_b79k",
@@ -222,8 +224,6 @@ MODULE_PARAMETER_SECTIONS = {
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dataset", default="glove", choices=DATASET_CHOICES, help="Dataset name.")
     parser.add_argument("--output-dir", default="artifacts/train-autoencoder", help="Model output directory.")
-    parser.add_argument("--dim", type=int, default=50, help="Dataset embedding dimension when supported.")
-    parser.add_argument("--max-vectors", type=int, default=None, help="Optional dataset cap for faster experiments.")
     parser.add_argument("--validation-ratio", type=float, default=0.1, help="Validation split ratio.")
     parser.add_argument("--test-ratio", type=float, default=0.1, help="Test split ratio.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for dataset splitting and training.")
@@ -274,15 +274,12 @@ def add_backbone_args(parser: argparse.ArgumentParser, *, default_encoder: str |
 
 def build_dataset(args: argparse.Namespace):
     dataset_config = args.resolved_configs.dataset_config
-    dim = args.dim
-    if args.dataset in {"fasttext", "numberbatch"} and dim == 50:
-        dim = 300
     if args.dataset in {"snli", "multinli"}:
         return load_dataset(
             args.dataset,
             encoder_name=dataset_config["encoder"],
             encoder_batch_size=dataset_config["encoder_batch_size"],
-            max_vectors=args.max_vectors,
+            max_vectors=dataset_config["max_vectors"],
         )
     if args.dataset == "flickr30k":
         return load_dataset(
@@ -292,9 +289,12 @@ def build_dataset(args: argparse.Namespace):
             encoder_batch_size=dataset_config["encoder_batch_size"],
             encoder_device=dataset_config["clip_device"],
             modality=dataset_config["clip_modality"],
-            max_vectors=args.max_vectors,
+            max_vectors=dataset_config["max_vectors"],
         )
-    return load_dataset(args.dataset, dim=dim, max_vectors=args.max_vectors)
+    load_kwargs = {"max_vectors": dataset_config["max_vectors"]}
+    if dataset_config["dim"] is not None:
+        load_kwargs["dim"] = dataset_config["dim"]
+    return load_dataset(args.dataset, **load_kwargs)
 
 
 def prepare_training(args: argparse.Namespace):
@@ -369,8 +369,10 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_section("Data")
     _print_parameter_row("dataset", args.dataset, "Dataset or cached embedding source for this run.")
     _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
-    _print_parameter_row("max_vectors", _format_parameter_value(args.max_vectors), "Optional cap on the number of embedding rows used.")
     dataset_config = args.resolved_configs.dataset_config
+    if dataset_config["dim"] is not None:
+        _print_parameter_row("dataset.dim", _format_parameter_value(dataset_config["dim"]), "Dataset embedding variant selected for sources with multiple dimensions.")
+    _print_parameter_row("dataset.max_vectors", _format_parameter_value(dataset_config["max_vectors"]), "Optional cap on the number of embedding rows used.")
     if args.dataset in {"snli", "multinli"}:
         _print_parameter_row("dataset.encoder", _format_parameter_value(dataset_config["encoder"]), "Sentence encoder used to materialize embeddings.")
         _print_parameter_row("dataset.encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding raw text into embeddings.")

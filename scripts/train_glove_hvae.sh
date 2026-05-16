@@ -5,8 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec "${SCRIPT_DIR}/_train_glove.sh" train_vae.py hvae \
   --output-dir artifacts/glove/hvae \
-  --dim 50 \
-  --max-vectors 50000 \
+  --dataset.dim 50 \
+  --dataset.max_vectors 50000 \
   --model.latent_dim 16 \
   --model.top_latent_dim 8 \
   --encoder.hidden_dims "[128, 64]" \

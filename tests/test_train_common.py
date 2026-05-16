@@ -58,7 +58,7 @@ class TrainCommonTest(unittest.TestCase):
         with patch.object(sys, "argv", argv):
             args = train_cli.parse_config_arguments(
                 parser,
-                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                default_dataset_config={"dim": None, "max_vectors": None, "encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
                 default_trainer_config={},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
@@ -87,7 +87,7 @@ class TrainCommonTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 train_cli.parse_config_arguments(
                     parser,
-                    default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                    default_dataset_config={"dim": None, "max_vectors": None, "encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
                     default_trainer_config={},
                     default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                     default_encoder="mlp",
@@ -115,7 +115,7 @@ class TrainCommonTest(unittest.TestCase):
         with patch.object(sys, "argv", argv):
             args = train_cli.parse_config_arguments(
                 parser,
-                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                default_dataset_config={"dim": None, "max_vectors": None, "encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
                 default_trainer_config={},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
@@ -130,8 +130,6 @@ class TrainCommonTest(unittest.TestCase):
             dataset="glove",
             model="vae",
             output_dir="artifacts/test-vae",
-            dim=50,
-            max_vectors=50000,
             encoder=None,
             decoder=None,
             validation_ratio=0.1,
@@ -146,6 +144,8 @@ class TrainCommonTest(unittest.TestCase):
             advice=True,
             resolved_configs=train_cli.ResolvedConfigArguments(
                 dataset_config={
+                    "dim": 50,
+                    "max_vectors": 50000,
                     "encoder": None,
                     "encoder_batch_size": 128,
                     "clip_pretrained": "laion2b_s34b_b79k",
@@ -190,8 +190,6 @@ class TrainCommonTest(unittest.TestCase):
             dataset="glove",
             model="vqvae",
             output_dir="artifacts/test-vq",
-            dim=50,
-            max_vectors=50000,
             encoder=None,
             decoder=None,
             validation_ratio=0.1,
@@ -206,6 +204,8 @@ class TrainCommonTest(unittest.TestCase):
             advice=True,
             resolved_configs=train_cli.ResolvedConfigArguments(
                 dataset_config={
+                    "dim": 50,
+                    "max_vectors": 50000,
                     "encoder": None,
                     "encoder_batch_size": 128,
                     "clip_pretrained": "laion2b_s34b_b79k",

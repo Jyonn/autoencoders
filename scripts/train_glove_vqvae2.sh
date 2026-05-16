@@ -10,8 +10,8 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vq.py" \
   --dataset glove \
   --model vqvae2 \
   --output-dir artifacts/glove/vqvae2 \
-  --dim 50 \
-  --max-vectors 50000 \
+  --dataset.dim 50 \
+  --dataset.max_vectors 50000 \
   --model.latent_dim 16 \
   --model.top_latent_dim 8 \
   --encoder.hidden_dims "[128, 64]" \

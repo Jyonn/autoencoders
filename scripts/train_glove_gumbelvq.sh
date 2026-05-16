@@ -10,8 +10,8 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vq.py" \
   --dataset glove \
   --model gumbelvq \
   --output-dir artifacts/glove/gumbelvq \
-  --dim 50 \
-  --max-vectors 50000 \
+  --dataset.dim 50 \
+  --dataset.max_vectors 50000 \
   --model.latent_dim 16 \
   --encoder.hidden_dims "[128, 64]" \
   --encoder.activation relu \
