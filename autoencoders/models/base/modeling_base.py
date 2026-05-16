@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...data.base import DataSpec, TensorSpec
 from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput
 from ...modeling_utils import PreTrainedAutoencoderModel
 from ...modules import BaseAutoencoderModule, get_module_class
@@ -24,9 +25,14 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
     def __init__(self, **kwargs: object) -> None:
         config = kwargs.pop("config")
+        self.sample_spec = kwargs.pop("sample_spec", None)
         super().__init__(config=config)
         self.encoder: nn.Module | None = None
         self.decoder: nn.Module | None = None
+        self.encoder_input_spec: DataSpec | None = None
+        self.encoder_output_spec: DataSpec | None = None
+        self.decoder_input_spec: DataSpec | None = None
+        self.decoder_output_spec: DataSpec | None = None
         self._encoder_module_type: str | None = None
         self._decoder_module_type: str | None = None
         self._encoder_module_config = None
@@ -63,7 +69,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         *,
         module: str | nn.Module | None,
         module_config,
-        input_dim: int,
+        input_spec: DataSpec,
         output_dim: int,
         reverse: bool = False,
         name: str,
@@ -89,7 +95,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         resolved_config = self._coerce_module_config(module_class, module_config)
         built_module = module_class(
             config=resolved_config,
-            input_dim=input_dim,
+            input_spec=input_spec,
             latent_dim=output_dim,
             reverse=reverse,
         )
@@ -107,6 +113,14 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     def get_decoder_output_dim(self) -> int:
         return int(self.config.input_dim)
 
+    def get_encoder_input_spec(self) -> DataSpec:
+        if self.sample_spec is not None:
+            return self.sample_spec
+        return TensorSpec(shape=(self.get_encoder_input_dim(),))
+
+    def get_decoder_input_spec(self) -> DataSpec:
+        return TensorSpec(shape=(self.get_decoder_input_dim(),))
+
     def _initialize_backbones(self, **kwargs: object) -> None:
         encoder = kwargs.pop("encoder", None)
         decoder = kwargs.pop("decoder", None)
@@ -116,13 +130,19 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             unknown = ", ".join(sorted(kwargs))
             raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
 
+        self.encoder_input_spec = self.get_encoder_input_spec()
         self.encoder, self._encoder_module_type, self._encoder_module_config = self._build_backbone_module(
             module=encoder,
             module_config=encoder_config,
-            input_dim=self.get_encoder_input_dim(),
+            input_spec=self.encoder_input_spec,
             output_dim=self.get_encoder_output_dim(),
             name="encoder",
         )
+        if isinstance(self.encoder, BaseAutoencoderModule):
+            self.encoder_output_spec = self.encoder.infer_output_spec(self.encoder_input_spec)
+        elif self.encoder_input_spec is not None:
+            self.encoder_output_spec = TensorSpec(shape=(self.get_encoder_output_dim(),))
+        self.decoder_input_spec = self.get_decoder_input_spec()
         (
             self.decoder,
             self._decoder_module_type,
@@ -134,10 +154,14 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             encoder_module_config=self._encoder_module_config,
             module=decoder,
             module_config=decoder_config,
-            input_dim=self.get_decoder_input_dim(),
+            input_spec=self.decoder_input_spec,
             output_dim=self.get_decoder_output_dim(),
             name="decoder",
         )
+        if isinstance(self.decoder, BaseAutoencoderModule):
+            self.decoder_output_spec = self.decoder.infer_output_spec(self.decoder_input_spec)
+        elif self.decoder_input_spec is not None:
+            self.decoder_output_spec = TensorSpec(shape=(self.get_decoder_output_dim(),))
 
     def _require_backbone_module(self, module: nn.Module | None, name: str) -> nn.Module:
         if module is None:
@@ -156,7 +180,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         encoder_module_config,
         module: str | nn.Module | None,
         module_config,
-        input_dim: int,
+        input_spec: DataSpec,
         output_dim: int,
         name: str = "decoder",
     ):
@@ -164,7 +188,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             built_module, module_type, resolved_config = self._build_backbone_module(
                 module=module,
                 module_config=module_config,
-                input_dim=input_dim,
+                input_spec=input_spec,
                 output_dim=output_dim,
                 reverse=False,
                 name=name,
@@ -187,24 +211,13 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
         derived_module = encoder_module.__class__(
             config=encoder_module.config,
-            input_dim=input_dim,
+            input_spec=input_spec,
             latent_dim=output_dim,
             reverse=True,
         )
         if encoder_module_type in {None, "external"}:
             return derived_module, None, None, True
         return derived_module, encoder_module_type, encoder_module_config, True
-
-    def _get_backbone_output_dim(self, module: nn.Module | None, name: str) -> int:
-        resolved_module = self._require_backbone_module(module, name)
-        if hasattr(resolved_module, "get_output_dim"):
-            return int(resolved_module.get_output_dim())  # type: ignore[call-arg]
-        if hasattr(resolved_module, "out_features"):
-            return int(resolved_module.out_features)
-        raise RuntimeError(
-            f"{self.__class__.__name__} requires {name} to expose `get_output_dim()` "
-            "or an `out_features` attribute."
-        )
 
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:
         """Encode inputs into latent representations."""

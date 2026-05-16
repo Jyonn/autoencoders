@@ -7,6 +7,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from ..data.base import TensorSpec
 
 MODELS_ROOT = Path(__file__).resolve().parent
 
@@ -51,9 +52,22 @@ def load_model(name: str, **kwargs: Any):
     """Construct a named autoencoder model from config kwargs."""
 
     init_kwargs: dict[str, Any] = {}
-    for init_key in ("encoder", "decoder", "encoder_config", "decoder_config"):
+    for init_key in ("encoder", "decoder", "encoder_config", "decoder_config", "sample_spec"):
         if init_key in kwargs:
             init_kwargs[init_key] = kwargs.pop(init_key)
+
+    sample_spec = init_kwargs.get("sample_spec")
+    if "input_dim" not in kwargs and sample_spec is not None:
+        if not isinstance(sample_spec, TensorSpec) or not sample_spec.shape:
+            raise ValueError(
+                "load_model() can only infer `input_dim` from a TensorSpec with a concrete final dimension."
+            )
+        input_dim = sample_spec.shape[-1]
+        if input_dim is None:
+            raise ValueError(
+                "load_model() requires a concrete final dimension in `sample_spec` to infer `input_dim`."
+            )
+        kwargs["input_dim"] = int(input_dim)
 
     model_class = get_model_class(name)
     config_class = model_class.config_class

@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from torch import nn
 
 from ..configuration_utils import PretrainedConfig
+from ..data.base import DataSpec
 
 
 class BaseAutoencoderModuleConfig(PretrainedConfig):
@@ -23,7 +24,7 @@ class BaseAutoencoderModule(nn.Module, ABC):
 
     def __init__(self, **kwargs) -> None:
         config = kwargs.pop("config")
-        input_dim = kwargs.pop("input_dim")
+        input_spec = kwargs.pop("input_spec")
         latent_dim = kwargs.pop("latent_dim")
         reverse = kwargs.pop("reverse", False)
         if kwargs:
@@ -31,7 +32,7 @@ class BaseAutoencoderModule(nn.Module, ABC):
             raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
         super().__init__()
         self.config = config
-        self.input_dim = input_dim
+        self.input_spec = input_spec
         self.latent_dim = latent_dim
         self.reverse = reverse
 
@@ -40,5 +41,9 @@ class BaseAutoencoderModule(nn.Module, ABC):
         """Run the backbone module."""
 
     @abstractmethod
-    def get_output_dim(self) -> int:
-        """Return the feature width produced by this module."""
+    def validate_input(self, spec: DataSpec) -> None:
+        """Raise if an input data spec is incompatible with this module."""
+
+    @abstractmethod
+    def infer_output_spec(self, spec: DataSpec) -> DataSpec:
+        """Infer the structural output spec produced by this module."""

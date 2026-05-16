@@ -6,6 +6,7 @@ from typing import Callable
 
 from torch import nn
 
+from ..data.base import DataSpec, TensorSpec
 from .base import BaseAutoencoderModule, BaseAutoencoderModuleConfig
 
 __all__ = [
@@ -51,19 +52,39 @@ class MLPModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.validate_input(self.input_spec)
+        input_dim = self._resolve_input_dim(self.input_spec)
         hidden_dims = (
             list(reversed(self.config.hidden_dims))
             if self.reverse
             else list(self.config.hidden_dims)
         )
-        dims = [self.input_dim, *hidden_dims, self.latent_dim]
+        dims = [input_dim, *hidden_dims, self.latent_dim]
         self.network = self._build_mlp(dims)
 
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
-    def get_output_dim(self) -> int:
-        return self.latent_dim
+    def validate_input(self, spec: DataSpec) -> None:
+        if not isinstance(spec, TensorSpec):
+            raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
+        if not spec.shape:
+            raise ValueError(f"{self.__class__.__name__} requires at least one feature dimension.")
+        if spec.shape[-1] is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
+            )
+
+    def infer_output_spec(self, spec: DataSpec) -> DataSpec:
+        self.validate_input(spec)
+        assert isinstance(spec, TensorSpec)
+        return TensorSpec(shape=(*spec.shape[:-1], self.latent_dim))
+
+    def _resolve_input_dim(self, spec: DataSpec) -> int:
+        assert isinstance(spec, TensorSpec)
+        feature_dim = spec.shape[-1]
+        assert feature_dim is not None
+        return int(feature_dim)
 
     def _build_mlp(self, dims: list[int]) -> nn.Sequential:
         layers: list[nn.Module] = []

@@ -23,6 +23,7 @@ from autoencoders.data import (
     GloVeDataset,
     MultiNLIDataset,
     SNLIDataset,
+    TensorSpec,
 )
 from autoencoders.models.ae.modeling_ae import AutoencoderModel
 from autoencoders.models.betavae.modeling_betavae import BetaVariationalAutoencoderModel
@@ -88,6 +89,17 @@ class LoadingHelpersTest(unittest.TestCase):
     def test_load_model_returns_autoencoder(self) -> None:
         model = load_model("ae", input_dim=16, latent_dim=4, hidden_dims=[8], **self.mlp_backbone_kwargs)
         self.assertIsInstance(model, AutoencoderModel)
+
+    def test_load_model_can_infer_input_dim_from_sample_spec(self) -> None:
+        model = load_model(
+            "ae",
+            sample_spec=TensorSpec(shape=(16,)),
+            latent_dim=4,
+            hidden_dims=[8],
+            **self.mlp_backbone_kwargs,
+        )
+        self.assertIsInstance(model, AutoencoderModel)
+        self.assertEqual(model.config.input_dim, 16)
 
     def test_load_model_returns_denoising_autoencoder(self) -> None:
         model = load_model(

@@ -126,10 +126,10 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def build_model(args: argparse.Namespace, input_dim: int):
+def build_model(args: argparse.Namespace, dataset):
     resolved = args.resolved_configs
     model_kwargs = {
-        "input_dim": input_dim,
+        "sample_spec": dataset.get_sample_spec(),
         **resolved.model_config,
         "encoder": args.encoder,
         "encoder_config": resolved.encoder_config,
@@ -144,9 +144,9 @@ def build_model(args: argparse.Namespace, input_dim: int):
 
 def main() -> None:
     args = parse_args()
-    _, dataloaders, input_dim = prepare_training(args)
-    model = build_model(args, input_dim=input_dim)
-    print_training_overview(args, model, input_dim=input_dim)
+    dataset, dataloaders = prepare_training(args)
+    model = build_model(args, dataset)
+    print_training_overview(args, model, sample_spec=dataset.get_sample_spec())
     validate_model_input_compatibility(args, model, dataloaders)
     if args.model == "factorvae":
         base_args = build_training_arguments(args)

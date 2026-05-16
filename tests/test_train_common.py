@@ -20,6 +20,7 @@ from autoencoders import (
     VectorQuantizedAutoencoderModel,
     build_mlp_backbone_kwargs,
 )
+from autoencoders.data import TensorSpec
 from autoencoders.data.base import DatasetLoaders
 
 
@@ -174,7 +175,7 @@ class TrainCommonTest(unittest.TestCase):
 
         buffer = io.StringIO()
         with redirect_stdout(buffer):
-            train_common.print_training_overview(args, model, input_dim=50)
+            train_common.print_training_overview(args, model, sample_spec=TensorSpec(shape=(50,)))
         output = buffer.getvalue()
 
         self.assertIn("TRAIN PLAN", output)
@@ -235,7 +236,7 @@ class TrainCommonTest(unittest.TestCase):
 
         buffer = io.StringIO()
         with redirect_stdout(buffer):
-            train_common.print_training_overview(args, model, input_dim=50)
+            train_common.print_training_overview(args, model, sample_spec=TensorSpec(shape=(50,)))
         output = buffer.getvalue()
 
         self.assertIn("codebook_size", output)
@@ -286,7 +287,7 @@ class TrainCommonTest(unittest.TestCase):
 
         buffer = io.StringIO()
         with redirect_stdout(buffer):
-            train_common.print_training_overview(args, model, input_dim=50)
+            train_common.print_training_overview(args, model, sample_spec=TensorSpec(shape=(50,)))
         output = buffer.getvalue()
 
         self.assertIn("Decoder (mlp ", output)

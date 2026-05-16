@@ -5,6 +5,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from ...data.base import TensorSpec
 from ...modeling_outputs import HierarchicalVariationalAutoencoderOutput
 from ..base.modeling_vae import BaseVariationalAutoencoderModel
 from .configuration_hvae import HierarchicalVariationalAutoencoderConfig
@@ -24,7 +25,15 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
             self.bottom_mean_projection = None
             self.bottom_logvar_projection = None
         else:
-            encoder_output_dim = self._get_backbone_output_dim(self.encoder, "encoder")
+            if not isinstance(self.encoder_output_spec, TensorSpec):
+                raise RuntimeError(
+                    f"{self.__class__.__name__} requires the encoder to expose a TensorSpec output."
+                )
+            encoder_output_dim = self.encoder_output_spec.shape[-1]
+            if encoder_output_dim is None:
+                raise RuntimeError(
+                    f"{self.__class__.__name__} requires the encoder output feature dimension to be concrete."
+                )
             self.top_mean_projection = nn.Linear(encoder_output_dim, self.config.top_latent_dim, bias=True)
             self.top_logvar_projection = nn.Linear(encoder_output_dim, self.config.top_latent_dim, bias=True)
             self.bottom_mean_projection = nn.Linear(

@@ -277,8 +277,7 @@ def prepare_training(args: argparse.Namespace):
         test_ratio=args.test_ratio,
         seed=args.seed,
     )
-    embedding_matrix = dataset.load_embedding_matrix()
-    return dataset, dataloaders, embedding_matrix.embedding_dim
+    return dataset, dataloaders
 
 
 def build_training_arguments(args: argparse.Namespace) -> TrainingArguments:
@@ -335,7 +334,7 @@ def _print_config_section(title: str, config, descriptions: list[tuple[str, str]
         _print_parameter_row(field_name, value, description)
 
 
-def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) -> None:
+def print_training_overview(args: argparse.Namespace, model, *, sample_spec) -> None:
     command = " ".join(shlex.quote(part) for part in [sys.executable, *sys.argv])
     header = style(" TRAIN PLAN ", fg="white", bg="blue", bold=True)
     summary = style(f"{args.model} on {args.dataset}", fg="white", bold=True)
@@ -347,7 +346,11 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
 
     _print_section("Data")
     _print_parameter_row("dataset", args.dataset, "Dataset or cached embedding source for this run.")
-    _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
+    if hasattr(sample_spec, "shape") and sample_spec.shape:
+        feature_dim = sample_spec.shape[-1]
+        if feature_dim is not None:
+            _print_parameter_row("input_dim", str(feature_dim), "Embedding width seen by the autoencoder.")
+    _print_parameter_row("sample_spec", str(sample_spec), "Structural sample spec provided by the dataset.")
     dataset_config = args.resolved_configs.dataset_config
     if dataset_config.get("dim") is not None:
         _print_parameter_row("dim", _format_parameter_value(dataset_config["dim"]), "Dataset embedding variant selected for sources with multiple dimensions.")
