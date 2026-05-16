@@ -31,12 +31,11 @@ class GloVeDatasetConfig(BaseDatasetConfig):
         self,
         *,
         dim: int = 50,
-        root: str | Path | None = None,
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
         self.dim = dim
-        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+        super().__init__(max_vectors=max_vectors, **kwargs)
 
 
 class GloVeDataset(CachedDataset):
@@ -59,7 +58,7 @@ class GloVeDataset(CachedDataset):
 
         self.dim = dim
         self.max_vectors = config.max_vectors
-        super().__init__(root=config.root)
+        super().__init__()
 
     @property
     def archive_name(self) -> str:

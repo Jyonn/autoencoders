@@ -24,11 +24,9 @@ class BaseDatasetConfig(PretrainedConfig):
     def __init__(
         self,
         *,
-        root: str | Path | None = None,
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
-        self.root = None if root is None else str(root)
         self.max_vectors = max_vectors
         super().__init__(**kwargs)
 
@@ -149,9 +147,10 @@ class CachedDataset(ABC):
     """Base class for datasets that download raw files and cache processed artifacts."""
 
     dataset_name = "dataset"
+    config_class = BaseDatasetConfig
 
-    def __init__(self, root: str | Path | None = None) -> None:
-        self.root = Path(root) if root is not None else default_cache_dir()
+    def __init__(self) -> None:
+        self.root = default_cache_dir()
         self.dataset_dir = self.root / self.dataset_name
         self.raw_dir = self.dataset_dir / "raw"
         self.external_dir = self.dataset_dir / "external"

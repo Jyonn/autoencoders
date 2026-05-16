@@ -174,7 +174,6 @@ class CLIPBackedDatasetConfig(BaseDatasetConfig):
         clip_device: str | None = None,
         normalize_embeddings: bool = True,
         clip_modality: ClipModality = "both",
-        root: str | Path | None = None,
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
@@ -184,7 +183,7 @@ class CLIPBackedDatasetConfig(BaseDatasetConfig):
         self.clip_device = clip_device
         self.normalize_embeddings = normalize_embeddings
         self.clip_modality = clip_modality
-        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+        super().__init__(max_vectors=max_vectors, **kwargs)
 
 
 class CLIPBackedDataset(CachedDataset, ABC):
@@ -217,7 +216,7 @@ class CLIPBackedDataset(CachedDataset, ABC):
         self.normalize_embeddings = config.normalize_embeddings
         self.modality = config.clip_modality
         self.max_vectors = config.max_vectors
-        super().__init__(root=config.root)
+        super().__init__()
 
     @property
     def artifact_name(self) -> str:

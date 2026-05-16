@@ -93,14 +93,13 @@ class EncoderBackedTextDatasetConfig(BaseDatasetConfig):
         encoder: str | None = None,
         encoder_batch_size: int = 128,
         normalize_embeddings: bool = False,
-        root: str | Path | None = None,
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
         self.encoder = encoder
         self.encoder_batch_size = encoder_batch_size
         self.normalize_embeddings = normalize_embeddings
-        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
+        super().__init__(max_vectors=max_vectors, **kwargs)
 
 
 class EncoderBackedTextDataset(CachedDataset, ABC):
@@ -123,7 +122,7 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
         self.encoder_batch_size = config.encoder_batch_size
         self.normalize_embeddings = config.normalize_embeddings
         self.max_vectors = config.max_vectors
-        super().__init__(root=config.root)
+        super().__init__()
 
     @property
     def artifact_name(self) -> str:

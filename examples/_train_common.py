@@ -349,7 +349,7 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("dataset", args.dataset, "Dataset or cached embedding source for this run.")
     _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
     dataset_config = args.resolved_configs.dataset_config
-    if dataset_config["dim"] is not None:
+    if dataset_config.get("dim") is not None:
         _print_parameter_row("dim", _format_parameter_value(dataset_config["dim"]), "Dataset embedding variant selected for sources with multiple dimensions.")
     _print_parameter_row("max_vectors", _format_parameter_value(dataset_config["max_vectors"]), "Optional cap on the number of embedding rows used.")
     if args.dataset in {"snli", "multinli"}:

@@ -27,17 +27,6 @@ class FastTextEnglishDatasetConfig(BaseDatasetConfig):
 
     model_type = "fasttext_dataset"
 
-    def __init__(
-        self,
-        *,
-        dim: int = 300,
-        root: str | Path | None = None,
-        max_vectors: int | None = None,
-        **kwargs,
-    ) -> None:
-        self.dim = dim
-        super().__init__(root=root, max_vectors=max_vectors, **kwargs)
-
 
 class FastTextEnglishDataset(CachedDataset):
     """Downloadable and cacheable access to fastText English word vectors."""
@@ -53,12 +42,9 @@ class FastTextEnglishDataset(CachedDataset):
     ) -> None:
         config = self.config_class(**kwargs) if config is None else config
         self.config = config
-        dim = config.dim
-        if dim != 300:
-            raise ValueError("dim must be 300 for the official fastText English vectors.")
-        self.dim = dim
+        self.dim = 300
         self.max_vectors = config.max_vectors
-        super().__init__(root=config.root)
+        super().__init__()
 
     @property
     def archive_name(self) -> str:
