@@ -80,10 +80,10 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def build_model(args: argparse.Namespace, dataset):
+def build_model(args: argparse.Namespace, sample_spec):
     resolved = args.resolved_configs
     model_kwargs = {
-        "sample_spec": dataset.get_sample_spec(),
+        "sample_spec": sample_spec,
         **resolved.model_config,
         "encoder": args.encoder,
         "encoder_config": resolved.encoder_config,
@@ -114,8 +114,9 @@ def build_trainer(args: argparse.Namespace, model):
 def main() -> None:
     args = parse_args()
     dataset, dataloaders = prepare_training(args)
-    model = build_model(args, dataset)
-    print_training_overview(args, model, sample_spec=dataset.get_sample_spec())
+    sample_spec = dataset.get_sample_spec()
+    model = build_model(args, sample_spec)
+    print_training_overview(args, model, sample_spec=sample_spec)
     validate_model_input_compatibility(args, model, dataloaders)
     trainer = build_trainer(args, model)
     trainer.fit(dataloaders, metadata={"dataset": args.dataset, "model": args.model})
