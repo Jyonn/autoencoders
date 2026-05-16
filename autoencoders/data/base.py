@@ -150,13 +150,21 @@ class CachedDataset(ABC):
     config_class = BaseDatasetConfig
     config: BaseDatasetConfig
 
-    def __init__(self, config: BaseDatasetConfig) -> None:
+    def __init__(self, **kwargs) -> None:
+        config = kwargs.pop("config")
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
         self.config = config
         self.root = default_cache_dir()
         self.dataset_dir = self.root / self.dataset_name
         self.raw_dir = self.dataset_dir / "raw"
         self.external_dir = self.dataset_dir / "external"
         self.processed_dir = self.dataset_dir / "processed"
+
+    @property
+    def max_vectors(self) -> int | None:
+        return getattr(self.config, "max_vectors", None)
 
     def ensure_prepared(
         self,

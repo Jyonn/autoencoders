@@ -28,7 +28,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_quantized_fields(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         outputs = model(inputs=self.inputs)
 
@@ -55,7 +55,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             codebook_weight=1.0,
             use_ema_codebook=True,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
         initial_codebook = model.codebook.weight.detach().clone()
 
@@ -68,7 +68,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertFalse(torch.equal(initial_codebook, model.codebook.weight.detach()))
 
     def test_export_includes_codebook_artifacts(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         artifact = model.export(self.inputs, metadata={"split": "test"})
 
         self.assertEqual(artifact.model_type, "vector_quantized_autoencoder")
@@ -86,7 +86,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.equal(artifact.extras["codebook"], model.codebook.weight.detach()))
 
     def test_export_can_skip_reconstruction(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         artifact = model.export(self.inputs, include_reconstruction=False)
 
@@ -95,7 +95,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(artifact.codebook_indices.shape), (4, 5))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.05)
@@ -111,7 +111,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             self.assertTrue(torch.equal(parameter, loaded.state_dict()[name]), msg=name)
 
     def test_reset_dead_codes_reinitializes_selected_embeddings(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             original_codebook = model.codebook.weight.detach().clone()
             reference_latents = torch.randn(6, 4)
@@ -131,14 +131,14 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             codebook_size=32,
             dead_code_reset=True,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         with self.assertRaisesRegex(ValueError, "is_last_train_step"):
             model(inputs=self.inputs)
 
     def test_vector_vq_requires_multi_vector_inputs(self) -> None:
-        model = VectorQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with self.assertRaisesRegex(ValueError, "rank >= 3"):
             model(inputs=torch.randn(4, 16))
 
@@ -151,7 +151,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             dead_code_reset=True,
             dead_code_threshold=100,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         _ = model(inputs=self.inputs, is_last_train_step=True)

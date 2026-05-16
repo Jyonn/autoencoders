@@ -29,7 +29,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.train()
 
         outputs = model(inputs=self.inputs)
@@ -55,7 +55,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
             kl_warmup_epochs=3,
             kl_start_weight=0.0,
         )
-        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VariationalAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         with self.assertRaisesRegex(ValueError, "current_epoch"):
@@ -63,7 +63,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
 
     def test_decoder_is_inferred_from_builtin_encoder_when_omitted(self) -> None:
         model = VariationalAutoencoderModel(
-            self.config,
+            config=self.config,
             encoder="mlp",
             encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
         )
@@ -83,7 +83,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
             kl_warmup_epochs=3,
             kl_start_weight=0.0,
         )
-        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VariationalAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         outputs = model(inputs=self.inputs, current_epoch=2)
@@ -93,7 +93,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_eval_uses_mean_by_default(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.eval()
 
         outputs = model(inputs=self.inputs)
@@ -101,7 +101,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs.latents, outputs.posterior_mean))
 
     def test_sample_posterior_override_changes_latents(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.eval()
 
         outputs = model(inputs=self.inputs, sample_posterior=True)
@@ -109,7 +109,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertFalse(torch.allclose(outputs.latents, outputs.posterior_mean))
 
     def test_return_dict_false_returns_tuple(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         outputs = model(inputs=self.inputs, return_dict=False)
 
@@ -118,7 +118,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs[2].shape), (4, 4))
 
     def test_export_includes_posterior_statistics(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.eval()
 
         artifact = model.export(self.inputs)
@@ -130,7 +130,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(torch.allclose(artifact.latents, artifact.posterior_mean))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.2)
@@ -145,7 +145,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
             self.assertTrue(torch.equal(parameter, loaded.state_dict()[name]), msg=name)
 
     def test_save_pretrained_writes_builtin_module_specs(self) -> None:
-        model = VariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
@@ -155,7 +155,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
     def test_external_modules_require_reinjection_on_load(self) -> None:
         encoder = nn.Linear(16, 8)
         decoder = nn.Linear(4, 16)
-        model = VariationalAutoencoderModel(self.config, encoder=encoder, decoder=decoder)
+        model = VariationalAutoencoderModel(config=self.config, encoder=encoder, decoder=decoder)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
@@ -171,7 +171,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
 
     def test_decoder_none_with_non_backbone_encoder_raises_error(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot infer decoder"):
-            VariationalAutoencoderModel(self.config, encoder=nn.Linear(16, 8))
+            VariationalAutoencoderModel(config=self.config, encoder=nn.Linear(16, 8))
 
 
 if __name__ == "__main__":

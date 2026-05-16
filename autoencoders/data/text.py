@@ -112,12 +112,22 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
     config_class = EncoderBackedTextDatasetConfig
     config: EncoderBackedTextDatasetConfig
 
-    def __init__(self, config: EncoderBackedTextDatasetConfig) -> None:
-        self.encoder_name = config.encoder or self.default_encoder_name
-        self.encoder_batch_size = config.encoder_batch_size
-        self.normalize_embeddings = config.normalize_embeddings
-        self.max_vectors = config.max_vectors
-        super().__init__(config)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        if self.config.encoder is None:
+            self.config.encoder = self.default_encoder_name
+
+    @property
+    def encoder_name(self) -> str:
+        return str(self.config.encoder)
+
+    @property
+    def encoder_batch_size(self) -> int:
+        return int(self.config.encoder_batch_size)
+
+    @property
+    def normalize_embeddings(self) -> bool:
+        return bool(self.config.normalize_embeddings)
 
     @property
     def artifact_name(self) -> str:

@@ -27,20 +27,20 @@ class FiniteScalarQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_scalar_quantized_indices(self) -> None:
-        model = FiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FiniteScalarQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 4))
         self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 4))
         self.assertIn("commitment_loss", outputs.loss_dict)
 
     def test_export_includes_levels(self) -> None:
-        model = FiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FiniteScalarQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         artifact = model.export(self.inputs)
         self.assertEqual(artifact.extras["num_levels"], 8)
         self.assertEqual(tuple(artifact.extras["levels"].shape), (8,))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = FiniteScalarQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FiniteScalarQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = FiniteScalarQuantizedAutoencoderModel.from_pretrained(tmpdir)

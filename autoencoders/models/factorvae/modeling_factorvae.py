@@ -17,12 +17,8 @@ class FactorVariationalAutoencoderModel(VariationalAutoencoderModel):
     config_class = FactorVariationalAutoencoderConfig
     config: FactorVariationalAutoencoderConfig
 
-    def __init__(
-        self,
-        config: FactorVariationalAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         self.discriminator = self._build_discriminator()
 
     def discriminate(self, latents: torch.Tensor) -> torch.Tensor:

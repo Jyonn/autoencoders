@@ -58,4 +58,4 @@ def load_model(name: str, **kwargs: Any):
     model_class = get_model_class(name)
     config_class = model_class.config_class
     config = config_class(**kwargs)
-    return model_class(config, **init_kwargs)
+    return model_class(config=config, **init_kwargs)

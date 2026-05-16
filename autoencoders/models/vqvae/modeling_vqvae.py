@@ -22,12 +22,8 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             return [codebook_indices.reshape(-1)]
         return super().iter_codebook_index_sets(codebook_indices)
 
-    def __init__(
-        self,
-        config: VectorQuantizedAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self.codebook.weight.requires_grad_(not self.config.use_ema_codebook)
         self.register_buffer("ema_cluster_size", torch.zeros(self.config.codebook_size))

@@ -22,8 +22,9 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     requires_grad_in_eval = False
     min_input_rank = 2
 
-    def __init__(self, config: BaseAutoencoderConfig, **kwargs: object) -> None:
-        super().__init__(config)
+    def __init__(self, **kwargs: object) -> None:
+        config = kwargs.pop("config")
+        super().__init__(config=config)
         self.encoder: nn.Module | None = None
         self.decoder: nn.Module | None = None
         self._encoder_module_type: str | None = None
@@ -87,7 +88,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         module_class = get_module_class(module_name)
         resolved_config = self._coerce_module_config(module_class, module_config)
         built_module = module_class(
-            resolved_config,
+            config=resolved_config,
             input_dim=input_dim,
             latent_dim=output_dim,
             reverse=reverse,
@@ -185,7 +186,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             )
 
         derived_module = encoder_module.__class__(
-            encoder_module.config,
+            config=encoder_module.config,
             input_dim=input_dim,
             latent_dim=output_dim,
             reverse=True,

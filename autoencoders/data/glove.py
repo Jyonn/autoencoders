@@ -46,14 +46,14 @@ class GloVeDataset(CachedDataset):
     config_class = GloVeDatasetConfig
     config: GloVeDatasetConfig
 
-    def __init__(self, config: GloVeDatasetConfig) -> None:
-        dim = config.dim
-        if dim not in {50, 100, 200, 300}:
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        if self.config.dim not in {50, 100, 200, 300}:
             raise ValueError("dim must be one of: 50, 100, 200, 300.")
 
-        self.dim = dim
-        self.max_vectors = config.max_vectors
-        super().__init__(config)
+    @property
+    def dim(self) -> int:
+        return int(self.config.dim)
 
     @property
     def archive_name(self) -> str:

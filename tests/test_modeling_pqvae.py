@@ -27,7 +27,7 @@ class ProductQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_multi_codebook_indices(self) -> None:
-        model = ProductQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ProductQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         outputs = model(inputs=self.inputs)
 
@@ -39,7 +39,7 @@ class ProductQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertIn("codebook_loss", outputs.loss_dict)
 
     def test_export_includes_product_codebooks(self) -> None:
-        model = ProductQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ProductQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         artifact = model.export(self.inputs, metadata={"split": "test"})
 
@@ -50,7 +50,7 @@ class ProductQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(artifact.metadata["split"], "test")
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = ProductQuantizedAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ProductQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.03)

@@ -26,14 +26,14 @@ class TopKSparseAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_enforces_topk_activations(self) -> None:
-        model = TopKSparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = TopKSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         outputs = model(inputs=self.inputs)
         nonzero_counts = (outputs.latents != 0).sum(dim=-1)
         self.assertTrue(torch.equal(nonzero_counts, torch.full_like(nonzero_counts, 2)))
         self.assertIn("topk_sparsity", outputs.loss_dict)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = TopKSparseAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = TopKSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = TopKSparseAutoencoderModel.from_pretrained(tmpdir)

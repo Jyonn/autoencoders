@@ -85,7 +85,7 @@ def build_sequence_dataset_loaders() -> DatasetLoaders:
 class AutoencoderTrainerTest(unittest.TestCase):
     def test_trainer_fits_and_saves_outputs(self) -> None:
         config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
-        model = AutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -129,7 +129,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
     def test_trainer_keeps_advice_disabled_by_default(self) -> None:
         config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
-        model = AutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -147,7 +147,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
     def test_trainer_stops_early_when_patience_is_reached(self) -> None:
         config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
-        model = AutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         class ScriptedTrainer(AETrainer):
@@ -203,7 +203,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             kl_warmup_epochs=3,
             kl_start_weight=0.0,
         )
-        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VariationalAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -236,7 +236,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             kl_weight=0.5,
             free_bits=0.25,
         )
-        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VariationalAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         args = TrainingArguments(
             output_dir="unused",
             epochs=1,
@@ -258,7 +258,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             free_bits=0.02,
             kl_warmup_epochs=5,
         )
-        model = VariationalAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VariationalAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         class ScriptedVAETrainer(VAETrainer):
@@ -308,7 +308,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             hidden_dims=[6],
             contractive_weight=0.1,
         )
-        model = ContractiveAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = ContractiveAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -326,7 +326,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             hidden_dims=[6],
             mmd_weight=2.0,
         )
-        model = WassersteinAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -342,7 +342,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             topk_model = TopKSparseAutoencoderModel(
-                TopKSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], topk=2),
+                config=TopKSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], topk=2),
                 **build_mlp_backbone_kwargs_from_model_config(
                     TopKSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], topk=2)
                 ),
@@ -355,7 +355,13 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             klsae_model = KLSparseAutoencoderModel(
-                KLSparseAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], sparsity_weight=0.1, target_activation=0.05),
+                config=KLSparseAutoencoderConfig(
+                    input_dim=8,
+                    latent_dim=4,
+                    hidden_dims=[6],
+                    sparsity_weight=0.1,
+                    target_activation=0.05,
+                ),
                 **build_mlp_backbone_kwargs_from_model_config(
                     KLSparseAutoencoderConfig(
                         input_dim=8,
@@ -378,7 +384,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             dvae_config = DenoisingVariationalAutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6], kl_weight=0.5)
             dvae_model = DenoisingVariationalAutoencoderModel(
-                dvae_config,
+                config=dvae_config,
                 **build_mlp_backbone_kwargs_from_model_config(dvae_config),
             )
             dvae_metrics = VAETrainer(
@@ -396,7 +402,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
                 kl_weight=0.5,
             )
             hvae_model = HierarchicalVariationalAutoencoderModel(
-                hvae_config,
+                config=hvae_config,
                 **build_mlp_backbone_kwargs_from_model_config(hvae_config),
             )
             hvae_metrics = VAETrainer(
@@ -412,7 +418,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             hidden_dims=[6],
             num_levels=8,
         )
-        model = FiniteScalarQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = FiniteScalarQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -444,7 +450,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             discriminator_hidden_dims=[5],
             adversarial_weight=0.25,
         )
-        model = AdversarialAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -471,7 +477,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             codebook_size=16,
             dead_code_reset=True,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_sequence_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -508,7 +514,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             codebook_size=16,
             use_ema_codebook=False,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         trainer = VQTrainer(model=model, args=TrainingArguments(output_dir="unused", device="cpu", advice=True))
 
         advice = trainer.generate_advice(
@@ -534,7 +540,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             hidden_dims=[6],
             codebook_size=4,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         args = TrainingArguments(output_dir="unused", device="cpu")
         trainer = VQTrainer(model=model, args=args)
 
@@ -555,7 +561,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             codebook_size=4,
             num_codebooks=2,
         )
-        model = ProductQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = ProductQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         args = TrainingArguments(output_dir="unused", device="cpu")
         trainer = VQTrainer(model=model, args=args)
 
@@ -577,7 +583,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             num_quantizers=2,
             dead_code_reset=True,
         )
-        model = ResidualQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = ResidualQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         dataloaders = build_dataset_loaders()
 
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -17,12 +17,8 @@ class AdversarialAutoencoderModel(AutoencoderModel):
     config_class = AdversarialAutoencoderConfig
     config: AdversarialAutoencoderConfig
 
-    def __init__(
-        self,
-        config: AdversarialAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         self.discriminator = self._build_discriminator()
 
     def sample_prior(self, batch_size: int, *, device: torch.device, dtype: torch.dtype) -> torch.Tensor:

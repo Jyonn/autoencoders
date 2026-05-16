@@ -27,7 +27,7 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         outputs = model(inputs=self.inputs)
@@ -45,7 +45,7 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.eval()
 
         outputs = model(inputs=self.inputs)
@@ -60,7 +60,7 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
             noise_type="masking",
             masking_ratio=0.5,
         )
-        model = DenoisingAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
 
         outputs = model(inputs=torch.ones(4, 16))
@@ -77,7 +77,7 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         model.train()
         corrupted = torch.zeros_like(self.inputs)
 
@@ -94,7 +94,7 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
             noise_type="masking",
             masking_ratio=0.25,
         )
-        model = DenoisingAutoencoderModel(config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.125)

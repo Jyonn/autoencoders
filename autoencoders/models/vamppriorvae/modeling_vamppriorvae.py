@@ -18,13 +18,12 @@ class VampPriorVariationalAutoencoderModel(VariationalAutoencoderModel):
     config_class = VampPriorVariationalAutoencoderConfig
     config: VampPriorVariationalAutoencoderConfig
 
-    def __init__(
-        self,
-        config: VampPriorVariationalAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
-        pseudo_inputs = torch.randn(config.num_pseudo_inputs, config.input_dim) * config.pseudo_input_std
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        pseudo_inputs = (
+            torch.randn(self.config.num_pseudo_inputs, self.config.input_dim)
+            * self.config.pseudo_input_std
+        )
         self.pseudo_inputs = nn.Parameter(pseudo_inputs)
 
     @staticmethod

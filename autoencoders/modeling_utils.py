@@ -17,13 +17,13 @@ class PreTrainedAutoencoderModel(nn.Module):
     base_model_prefix = "model"
     weights_name = "pytorch_model.bin"
 
-    def __init__(self, config: Any) -> None:
+    def __init__(self, *, config: Any) -> None:
         super().__init__()
         self.config = config
 
     @classmethod
     def from_config(cls, config: Any, **kwargs: Any) -> "PreTrainedAutoencoderModel":
-        return cls(config, **kwargs)
+        return cls(config=config, **kwargs)
 
     def get_serializable_module_specs(self) -> dict[str, dict[str, Any]]:
         return {}

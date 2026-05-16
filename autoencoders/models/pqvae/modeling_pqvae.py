@@ -16,12 +16,8 @@ class ProductQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     config_class = ProductQuantizedAutoencoderConfig
     config: ProductQuantizedAutoencoderConfig
 
-    def __init__(
-        self,
-        config: ProductQuantizedAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         self.subspace_dim = self.config.latent_dim // self.config.num_codebooks
         self.codebooks = nn.ModuleList(
             [nn.Embedding(self.config.codebook_size, self.subspace_dim) for _ in range(self.config.num_codebooks)]

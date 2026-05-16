@@ -18,12 +18,8 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     config: HierarchicalVectorQuantizedAutoencoderConfig
     min_input_rank = 3
 
-    def __init__(
-        self,
-        config: HierarchicalVectorQuantizedAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)
         self.top_codebook = nn.Embedding(self.config.codebook_size, self.config.top_latent_dim)

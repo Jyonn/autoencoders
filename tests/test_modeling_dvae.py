@@ -28,7 +28,7 @@ class DenoisingVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = DenoisingVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.train()
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
@@ -36,7 +36,7 @@ class DenoisingVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("corrupted_inputs", outputs.hidden_states)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = DenoisingVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = DenoisingVariationalAutoencoderModel.from_pretrained(tmpdir)

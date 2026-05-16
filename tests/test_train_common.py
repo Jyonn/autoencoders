@@ -168,7 +168,7 @@ class TrainCommonTest(unittest.TestCase):
             kl_start_weight=0.0,
         )
         model = VariationalAutoencoderModel(
-            config,
+            config=config,
             **build_mlp_backbone_kwargs([16, 8]),
         )
 
@@ -229,7 +229,7 @@ class TrainCommonTest(unittest.TestCase):
             dead_code_reset=True,
         )
         model = VectorQuantizedAutoencoderModel(
-            config,
+            config=config,
             **build_mlp_backbone_kwargs([16, 8]),
         )
 
@@ -279,7 +279,7 @@ class TrainCommonTest(unittest.TestCase):
         from autoencoders import AutoencoderConfig, AutoencoderModel
 
         model = AutoencoderModel(
-            AutoencoderConfig(input_dim=50, latent_dim=8),
+            config=AutoencoderConfig(input_dim=50, latent_dim=8),
             encoder="mlp",
             encoder_config={"hidden_dims": [16, 8], "activation": "relu", "use_bias": True},
         )
@@ -299,7 +299,7 @@ class TrainCommonTest(unittest.TestCase):
             latent_dim=8,
             codebook_size=64,
         )
-        model = VectorQuantizedAutoencoderModel(config, **build_mlp_backbone_kwargs([16, 8]))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs([16, 8]))
         single_vector_batch = torch.randn(6, 50)
         dataloader = torch.utils.data.DataLoader(single_vector_batch, batch_size=2)
         loaders = DatasetLoaders(train=dataloader, validation=dataloader, test=dataloader)

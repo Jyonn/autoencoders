@@ -15,12 +15,8 @@ class VariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     config_class = VariationalAutoencoderConfig
     config: VariationalAutoencoderConfig
 
-    def __init__(
-        self,
-        config: VariationalAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         if self.encoder is None:
             self.mean_projection = None
             self.logvar_projection = None

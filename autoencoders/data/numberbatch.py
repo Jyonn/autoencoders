@@ -36,10 +36,9 @@ class ConceptNetNumberbatchDataset(CachedDataset):
     config_class = ConceptNetNumberbatchDatasetConfig
     config: ConceptNetNumberbatchDatasetConfig
 
-    def __init__(self, config: ConceptNetNumberbatchDatasetConfig) -> None:
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.dim = 300
-        self.max_vectors = config.max_vectors
-        super().__init__(config)
 
     @property
     def archive_name(self) -> str:

@@ -203,15 +203,36 @@ class CLIPBackedDataset(CachedDataset, ABC):
     config_class = CLIPBackedDatasetConfig
     config: CLIPBackedDatasetConfig
 
-    def __init__(self, config: CLIPBackedDatasetConfig) -> None:
-        self.encoder_name = config.encoder or self.default_encoder_name
-        self.encoder_pretrained = config.clip_pretrained or self.default_pretrained_name
-        self.encoder_batch_size = config.encoder_batch_size
-        self.encoder_device = config.clip_device
-        self.normalize_embeddings = config.normalize_embeddings
-        self.modality = config.clip_modality
-        self.max_vectors = config.max_vectors
-        super().__init__(config)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        if self.config.encoder is None:
+            self.config.encoder = self.default_encoder_name
+        if self.config.clip_pretrained is None:
+            self.config.clip_pretrained = self.default_pretrained_name
+
+    @property
+    def encoder_name(self) -> str:
+        return str(self.config.encoder)
+
+    @property
+    def encoder_pretrained(self) -> str:
+        return str(self.config.clip_pretrained)
+
+    @property
+    def encoder_batch_size(self) -> int:
+        return int(self.config.encoder_batch_size)
+
+    @property
+    def encoder_device(self) -> str | None:
+        return self.config.clip_device
+
+    @property
+    def normalize_embeddings(self) -> bool:
+        return bool(self.config.normalize_embeddings)
+
+    @property
+    def modality(self) -> ClipModality:
+        return self.config.clip_modality
 
     @property
     def artifact_name(self) -> str:

@@ -49,17 +49,14 @@ class MLPModule(BaseAutoencoderModule):
     config_class = MLPModuleConfig
     config: MLPModuleConfig
 
-    def __init__(
-        self,
-        config: MLPModuleConfig,
-        *,
-        input_dim: int,
-        latent_dim: int,
-        reverse: bool = False,
-    ) -> None:
-        super().__init__(config, input_dim=input_dim, latent_dim=latent_dim, reverse=reverse)
-        hidden_dims = list(reversed(config.hidden_dims)) if reverse else list(config.hidden_dims)
-        dims = [input_dim, *hidden_dims, latent_dim]
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        hidden_dims = (
+            list(reversed(self.config.hidden_dims))
+            if self.reverse
+            else list(self.config.hidden_dims)
+        )
+        dims = [self.input_dim, *hidden_dims, self.latent_dim]
         self.network = self._build_mlp(dims)
 
     def forward(self, inputs):  # type: ignore[override]

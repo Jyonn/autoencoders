@@ -66,4 +66,4 @@ def load_dataset(name: str, config=None, **kwargs: Any) -> CachedDataset:
     elif kwargs:
         unknown = ", ".join(sorted(kwargs))
         raise TypeError(f"load_dataset() received both `config` and extra keyword arguments: {unknown}")
-    return dataset_class(config)
+    return dataset_class(config=config)

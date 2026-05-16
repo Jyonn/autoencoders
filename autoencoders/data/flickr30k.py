@@ -22,8 +22,8 @@ class Flickr30kDataset(CLIPBackedDataset):
     config: Flickr30kDatasetConfig
     hf_dataset_name = "AnyModal/flickr30k"
 
-    def __init__(self, config: Flickr30kDatasetConfig) -> None:
-        super().__init__(config)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.manifest_path = self.raw_dir / "records.jsonl"
         self.images_dir = self.raw_dir / "images"
 

@@ -16,12 +16,8 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     config_class = HierarchicalVariationalAutoencoderConfig
     config: HierarchicalVariationalAutoencoderConfig
 
-    def __init__(
-        self,
-        config: HierarchicalVariationalAutoencoderConfig,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config, **kwargs)
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(**kwargs)
         if self.encoder is None:
             self.top_mean_projection = None
             self.top_logvar_projection = None
@@ -41,6 +37,7 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
                 self.config.latent_dim,
                 bias=True,
             )
+
     def get_decoder_input_dim(self) -> int:
         return int(self.config.top_latent_dim + self.config.latent_dim)
 
@@ -63,8 +60,6 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
         bottom_mean = self.bottom_mean_projection(bottom_inputs)
         bottom_logvar = self.bottom_logvar_projection(bottom_inputs)
         return top_mean, top_logvar, bottom_mean, bottom_logvar
-
-
     def forward(
         self,
         inputs: torch.Tensor,

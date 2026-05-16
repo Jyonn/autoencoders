@@ -26,7 +26,7 @@ class BetaVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_uses_beta_weighted_kl_loss(self) -> None:
-        model = BetaVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
         model.train()
 
         outputs = model(inputs=self.inputs)
@@ -38,7 +38,7 @@ class BetaVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIsNotNone(outputs.effective_kl_weight)
 
     def test_beta_is_saved_in_config(self) -> None:
-        model = BetaVariationalAutoencoderModel(self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)

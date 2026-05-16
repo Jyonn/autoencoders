@@ -21,14 +21,14 @@ class BaseAutoencoderModule(nn.Module, ABC):
     config_class = BaseAutoencoderModuleConfig
     config: BaseAutoencoderModuleConfig
 
-    def __init__(
-        self,
-        config: BaseAutoencoderModuleConfig,
-        *,
-        input_dim: int,
-        latent_dim: int,
-        reverse: bool = False,
-    ) -> None:
+    def __init__(self, **kwargs) -> None:
+        config = kwargs.pop("config")
+        input_dim = kwargs.pop("input_dim")
+        latent_dim = kwargs.pop("latent_dim")
+        reverse = kwargs.pop("reverse", False)
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
         super().__init__()
         self.config = config
         self.input_dim = input_dim

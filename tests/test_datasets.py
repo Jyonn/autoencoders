@@ -113,7 +113,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = GloVeDataset(GloVeDatasetConfig(dim=50, max_vectors=2))
+                dataset = GloVeDataset(config=GloVeDatasetConfig(dim=50, max_vectors=2))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
                 with zipfile.ZipFile(dataset.archive_path, "w") as archive:
@@ -139,7 +139,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = GloVeDataset(GloVeDatasetConfig(dim=50, max_vectors=2))
+                dataset = GloVeDataset(config=GloVeDatasetConfig(dim=50, max_vectors=2))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
                 dataset.archive_path.write_bytes(b"not-a-zip")
 
@@ -168,7 +168,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = GloVeDataset(GloVeDatasetConfig(dim=50, max_vectors=2))
+                dataset = GloVeDataset(config=GloVeDatasetConfig(dim=50, max_vectors=2))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
                 dataset.archive_path.write_bytes(b"not-a-zip")
 
@@ -179,7 +179,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = GloVeDataset(GloVeDatasetConfig(dim=50, max_vectors=2))
+                dataset = GloVeDataset(config=GloVeDatasetConfig(dim=50, max_vectors=2))
                 response = FakeResponse(b"partial-download", content_length=32, fail_after_reads=1)
                 progress_stream = io.StringIO()
 
@@ -201,7 +201,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = FastTextEnglishDataset(FastTextEnglishDatasetConfig(max_vectors=2))
+                dataset = FastTextEnglishDataset(config=FastTextEnglishDatasetConfig(max_vectors=2))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
                 with zipfile.ZipFile(dataset.archive_path, "w") as archive:
@@ -223,7 +223,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = ConceptNetNumberbatchDataset(ConceptNetNumberbatchDatasetConfig(max_vectors=2))
+                dataset = ConceptNetNumberbatchDataset(config=ConceptNetNumberbatchDatasetConfig(max_vectors=2))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
                 payload = (
@@ -251,7 +251,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = SNLIDataset(SNLIDatasetConfig(max_vectors=3))
+                dataset = SNLIDataset(config=SNLIDatasetConfig(max_vectors=3))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
                 with zipfile.ZipFile(dataset.archive_path, "w") as archive:
@@ -288,7 +288,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = MultiNLIDataset(MultiNLIDatasetConfig(max_vectors=4))
+                dataset = MultiNLIDataset(config=MultiNLIDatasetConfig(max_vectors=4))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
 
                 with zipfile.ZipFile(dataset.archive_path, "w") as archive:
@@ -339,7 +339,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
-                dataset = Flickr30kDataset(Flickr30kDatasetConfig(max_vectors=5, clip_modality="both"))
+                dataset = Flickr30kDataset(config=Flickr30kDatasetConfig(max_vectors=5, clip_modality="both"))
                 dataset.raw_dir.mkdir(parents=True, exist_ok=True)
                 dataset.images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -387,7 +387,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         self.assertIsInstance(dataset, Flickr30kDataset)
 
     def test_flickr30k_dataset_uses_fixed_hf_source(self) -> None:
-        dataset = Flickr30kDataset(Flickr30kDatasetConfig(max_vectors=10))
+        dataset = Flickr30kDataset(config=Flickr30kDatasetConfig(max_vectors=10))
         self.assertEqual(dataset.hf_dataset_name, "AnyModal/flickr30k")
 
     def test_flickr30k_extract_captions_uses_original_alt_text(self) -> None:
