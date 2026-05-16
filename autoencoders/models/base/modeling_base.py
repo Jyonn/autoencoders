@@ -29,6 +29,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         self._decoder_module_type: str | None = None
         self._encoder_module_config = None
         self._decoder_module_config = None
+        self._decoder_is_auto = False
         self._initialize_backbones(**kwargs)
 
     def get_serializable_module_specs(self) -> dict[str, dict[str, object]]:
@@ -120,7 +121,12 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             output_dim=self.get_encoder_output_dim(),
             name="encoder",
         )
-        self.decoder, self._decoder_module_type, self._decoder_module_config = self._build_decoder_backbone_module(
+        (
+            self.decoder,
+            self._decoder_module_type,
+            self._decoder_module_config,
+            self._decoder_is_auto,
+        ) = self._build_decoder_backbone_module(
             encoder_module=self.encoder,
             encoder_module_type=self._encoder_module_type,
             encoder_module_config=self._encoder_module_config,
@@ -153,7 +159,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         name: str = "decoder",
     ):
         if module is not None:
-            return self._build_backbone_module(
+            built_module, module_type, resolved_config = self._build_backbone_module(
                 module=module,
                 module_config=module_config,
                 input_dim=input_dim,
@@ -161,6 +167,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 reverse=False,
                 name=name,
             )
+            return built_module, module_type, resolved_config, False
 
         if encoder_module is None:
             warnings.warn(
@@ -168,7 +175,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 "encoder backbone was available to derive it from.",
                 stacklevel=3,
             )
-            return None, None, None
+            return None, None, None, False
 
         if not isinstance(encoder_module, BaseAutoencoderModule):
             raise ValueError(
@@ -183,8 +190,8 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             reverse=True,
         )
         if encoder_module_type in {None, "external"}:
-            return derived_module, None, None
-        return derived_module, encoder_module_type, encoder_module_config
+            return derived_module, None, None, True
+        return derived_module, encoder_module_type, encoder_module_config, True
 
     def _get_backbone_output_dim(self, module: nn.Module | None, name: str) -> int:
         resolved_module = self._require_backbone_module(module, name)

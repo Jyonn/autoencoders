@@ -371,16 +371,16 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("input_dim", str(input_dim), "Embedding width seen by the autoencoder.")
     dataset_config = args.resolved_configs.dataset_config
     if dataset_config["dim"] is not None:
-        _print_parameter_row("dataset.dim", _format_parameter_value(dataset_config["dim"]), "Dataset embedding variant selected for sources with multiple dimensions.")
-    _print_parameter_row("dataset.max_vectors", _format_parameter_value(dataset_config["max_vectors"]), "Optional cap on the number of embedding rows used.")
+        _print_parameter_row("dim", _format_parameter_value(dataset_config["dim"]), "Dataset embedding variant selected for sources with multiple dimensions.")
+    _print_parameter_row("max_vectors", _format_parameter_value(dataset_config["max_vectors"]), "Optional cap on the number of embedding rows used.")
     if args.dataset in {"snli", "multinli"}:
-        _print_parameter_row("dataset.encoder", _format_parameter_value(dataset_config["encoder"]), "Sentence encoder used to materialize embeddings.")
-        _print_parameter_row("dataset.encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding raw text into embeddings.")
+        _print_parameter_row("encoder", _format_parameter_value(dataset_config["encoder"]), "Sentence encoder used to materialize embeddings.")
+        _print_parameter_row("encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding raw text into embeddings.")
     if args.dataset == "flickr30k":
-        _print_parameter_row("dataset.encoder", _format_parameter_value(dataset_config["encoder"]), "CLIP vision-text encoder used to materialize embeddings.")
-        _print_parameter_row("dataset.clip_pretrained", _format_parameter_value(dataset_config["clip_pretrained"]), "Pretrained CLIP checkpoint identifier.")
-        _print_parameter_row("dataset.clip_modality", _format_parameter_value(dataset_config["clip_modality"]), "Which CLIP modality embeddings are cached.")
-        _print_parameter_row("dataset.encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding CLIP features.")
+        _print_parameter_row("encoder", _format_parameter_value(dataset_config["encoder"]), "CLIP vision-text encoder used to materialize embeddings.")
+        _print_parameter_row("clip_pretrained", _format_parameter_value(dataset_config["clip_pretrained"]), "Pretrained CLIP checkpoint identifier.")
+        _print_parameter_row("clip_modality", _format_parameter_value(dataset_config["clip_modality"]), "Which CLIP modality embeddings are cached.")
+        _print_parameter_row("encoder_batch_size", str(dataset_config["encoder_batch_size"]), "Batch size used while encoding CLIP features.")
 
     _print_section("Training")
     _print_parameter_row("output_dir", args.output_dir, "Directory where checkpoints and metrics will be written.")
@@ -406,7 +406,10 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
         _print_section("Encoder")
         _print_parameter_row("type", _format_parameter_value(args.encoder), "Selected encoder backbone.")
 
-    if model._decoder_module_type is not None and model.decoder is not None and hasattr(model.decoder, "config"):
+    if getattr(model, "_decoder_is_auto", False):
+        _print_section("Decoder")
+        _print_parameter_row("type", "auto", "Decoder backbone was inferred automatically by reversing the encoder backbone.")
+    elif model._decoder_module_type is not None and model.decoder is not None and hasattr(model.decoder, "config"):
         title = f"Decoder ({model._decoder_module_type})"
         _print_config_section(title, model.decoder.config, MODULE_PARAMETER_SECTIONS.get(model._decoder_module_type, []))
     elif args.decoder is not None:
