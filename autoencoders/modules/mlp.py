@@ -50,15 +50,24 @@ class MLPModule(BaseAutoencoderModule):
     config_class = MLPModuleConfig
     config: MLPModuleConfig
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        input_dim = self._resolve_input_dim(self.input_spec)
-        hidden_dims = (
-            list(reversed(self.config.hidden_dims))
-            if self.reverse
-            else list(self.config.hidden_dims)
+    def __init__(
+        self,
+        config: MLPModuleConfig,
+        input_spec: DataSpec,
+        latent_dim: int | None = None,
+        reverse: bool = False,
+    ) -> None:
+        super().__init__(
+            config=config,
+            input_spec=input_spec,
+            latent_dim=latent_dim,
+            reverse=reverse,
         )
-        dims = [input_dim, *hidden_dims, self.latent_dim]
+        input_dim = self._resolve_input_dim(self.input_spec)
+        hidden_dims = self._get_effective_hidden_dims()
+        dims = [input_dim, *hidden_dims]
+        if self.latent_dim is not None:
+            dims.append(self.latent_dim)
         self.network = self._build_mlp(dims)
 
     def forward(self, inputs):  # type: ignore[override]
@@ -73,7 +82,7 @@ class MLPModule(BaseAutoencoderModule):
             raise ValueError(
                 f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
             )
-        return TensorSpec(shape=(*spec.shape[:-1], self.latent_dim))
+        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim(spec)))
 
     def _resolve_input_dim(self, spec: DataSpec) -> int:
         assert isinstance(spec, TensorSpec)
@@ -81,7 +90,24 @@ class MLPModule(BaseAutoencoderModule):
         assert feature_dim is not None
         return int(feature_dim)
 
+    def _resolve_output_feature_dim(self, spec: DataSpec) -> int:
+        if self.latent_dim is not None:
+            return self.latent_dim
+        hidden_dims = self._get_effective_hidden_dims()
+        if hidden_dims:
+            return hidden_dims[-1]
+        return self._resolve_input_dim(spec)
+
+    def _get_effective_hidden_dims(self) -> list[int]:
+        return (
+            list(reversed(self.config.hidden_dims))
+            if self.reverse
+            else list(self.config.hidden_dims)
+        )
+
     def _build_mlp(self, dims: list[int]) -> nn.Sequential:
+        if len(dims) <= 1:
+            return nn.Sequential(nn.Identity())
         layers: list[nn.Module] = []
         activation_factory = self._get_activation_factory()
 

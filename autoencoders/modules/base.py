@@ -23,21 +23,22 @@ class BaseAutoencoderModule(nn.Module, ABC):
     config: BaseAutoencoderModuleConfig
     input_spec: DataSpec
     output_spec: DataSpec
-    latent_dim: int
+    latent_dim: int | None
     reverse: bool
 
-    def __init__(self, **kwargs) -> None:
-        config = kwargs.pop("config")
-        input_spec = kwargs.pop("input_spec")
-        latent_dim = kwargs.pop("latent_dim")
-        reverse = kwargs.pop("reverse", False)
-        if kwargs:
-            unknown = ", ".join(sorted(kwargs))
-            raise TypeError(f"{self.__class__.__name__} received unexpected keyword arguments: {unknown}")
+    def __init__(
+        self,
+        config: BaseAutoencoderModuleConfig,
+        input_spec: DataSpec,
+        latent_dim: int | None = None,
+        reverse: bool = False,
+    ) -> None:
         super().__init__()
         self.config = config
         self.input_spec = input_spec
-        self.latent_dim = int(latent_dim)
+        if latent_dim is not None and latent_dim <= 0:
+            raise ValueError("latent_dim must be a positive integer when provided.")
+        self.latent_dim = None if latent_dim is None else int(latent_dim)
         self.reverse = bool(reverse)
         self.output_spec = self.infer_output_spec(self.input_spec)
 

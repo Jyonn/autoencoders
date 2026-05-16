@@ -70,7 +70,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         module: str | nn.Module | None,
         module_config,
         input_spec: DataSpec,
-        output_dim: int,
+        output_dim: int | None,
         reverse: bool = False,
         name: str,
     ):
@@ -181,7 +181,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         module: str | nn.Module | None,
         module_config,
         input_spec: DataSpec,
-        output_dim: int,
+        output_dim: int | None,
         name: str = "decoder",
     ):
         if module is not None:

@@ -150,6 +150,18 @@ class AutoencoderModelTest(unittest.TestCase):
 
         self.assertEqual(module.output_spec, TensorSpec(shape=(4,)))
 
+    def test_mlp_module_uses_last_hidden_dim_when_latent_dim_is_omitted(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
+            input_spec=TensorSpec(shape=(16,)),
+            latent_dim=None,
+        )
+
+        outputs = module(torch.randn(2, 16))
+
+        self.assertEqual(module.output_spec, TensorSpec(shape=(8,)))
+        self.assertEqual(tuple(outputs.shape), (2, 8))
+
     def test_mlp_module_rejects_non_tensor_specs_during_init(self) -> None:
         with self.assertRaisesRegex(ValueError, "expects a TensorSpec input"):
             MLPModule(
