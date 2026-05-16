@@ -16,6 +16,80 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from ..configuration_utils import PretrainedConfig
 
 
+class DataSpec(ABC):
+    """Base structural description for dataset samples and module I/O."""
+
+    @abstractmethod
+    def matches(self, other: "DataSpec") -> bool:
+        """Return whether this spec is structurally compatible with another spec."""
+
+
+@dataclass(frozen=True)
+class TensorSpec(DataSpec):
+    """Description of a tensor-valued sample without a batch dimension."""
+
+    shape: tuple[int | None, ...]
+
+    def __post_init__(self) -> None:
+        normalized_shape = tuple(self.shape)
+        for index, dim in enumerate(normalized_shape):
+            if dim is not None and dim <= 0:
+                raise ValueError(f"TensorSpec.shape[{index}] must be positive or None, got {dim!r}.")
+        object.__setattr__(self, "shape", normalized_shape)
+
+    def matches(self, other: DataSpec) -> bool:
+        if not isinstance(other, TensorSpec):
+            return False
+        if len(self.shape) != len(other.shape):
+            return False
+        for left_dim, right_dim in zip(self.shape, other.shape):
+            if left_dim is not None and right_dim is not None and left_dim != right_dim:
+                return False
+        return True
+
+
+@dataclass(frozen=True)
+class ListSpec(DataSpec):
+    """Description of a repeated homogeneous structure."""
+
+    element_spec: DataSpec
+    num_elements: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.num_elements is not None and self.num_elements <= 0:
+            raise ValueError("ListSpec.num_elements must be positive or None.")
+
+    def matches(self, other: DataSpec) -> bool:
+        if not isinstance(other, ListSpec):
+            return False
+        if (
+            self.num_elements is not None
+            and other.num_elements is not None
+            and self.num_elements != other.num_elements
+        ):
+            return False
+        return self.element_spec.matches(other.element_spec)
+
+
+@dataclass(frozen=True)
+class DictSpec(DataSpec):
+    """Description of a structured dictionary sample."""
+
+    elements: dict[str, DataSpec]
+    restrict_keys: bool = True
+
+    def matches(self, other: DataSpec) -> bool:
+        if not isinstance(other, DictSpec):
+            return False
+        if self.restrict_keys and set(self.elements) != set(other.elements):
+            return False
+        for key, spec in self.elements.items():
+            other_spec = other.elements.get(key)
+            if other_spec is None or not spec.matches(other_spec):
+                return False
+        return True
+
+
 class BaseDatasetConfig(PretrainedConfig):
     """Base configuration shared by built-in datasets."""
 
@@ -134,13 +208,17 @@ class ItemProgressBar:
         self.stream.flush()
 
 
-class AutoencoderDataset(Dataset[torch.Tensor]):
+class AutoencoderDataset(Dataset[object]):
     """Simple dataset contract for autoencoder-friendly tensor samples."""
 
     split: str
 
     def __init__(self, split: str = "train") -> None:
         self.split = split
+
+    @abstractmethod
+    def get_sample_spec(self) -> DataSpec:
+        """Return the structural description for one dataset sample."""
 
 
 class CachedDataset(ABC):
@@ -165,6 +243,10 @@ class CachedDataset(ABC):
     @property
     def max_vectors(self) -> int | None:
         return getattr(self.config, "max_vectors", None)
+
+    @abstractmethod
+    def get_sample_spec(self, *, download: bool = True) -> DataSpec:
+        """Return the structural description of one prepared sample."""
 
     def ensure_prepared(
         self,
@@ -278,13 +360,13 @@ class CachedDataset(ABC):
 class DatasetSplits:
     """A deterministic set of dataset splits."""
 
-    train: Dataset[torch.Tensor]
-    validation: Dataset[torch.Tensor]
-    test: Dataset[torch.Tensor]
+    train: Dataset[object]
+    validation: Dataset[object]
+    test: Dataset[object]
 
 
 def split_dataset(
-    dataset: Dataset[torch.Tensor],
+    dataset: Dataset[object],
     *,
     validation_ratio: float = 0.1,
     test_ratio: float = 0.1,
@@ -320,9 +402,9 @@ def split_dataset(
 class DatasetLoaders:
     """Convenience wrapper for train, validation, and test dataloaders."""
 
-    train: DataLoader[torch.Tensor]
-    validation: DataLoader[torch.Tensor]
-    test: DataLoader[torch.Tensor]
+    train: DataLoader[object]
+    validation: DataLoader[object]
+    test: DataLoader[object]
 
 
 def create_dataloaders(

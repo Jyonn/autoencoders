@@ -15,6 +15,7 @@ from .base import (
     DatasetLoaders,
     DatasetSplits,
     ItemProgressBar,
+    TensorSpec,
     create_dataloaders,
     split_dataset,
 )
@@ -256,6 +257,10 @@ class CLIPBackedDataset(CachedDataset, ABC):
     def load_embedding_matrix(self, *, download: bool = True) -> EmbeddingMatrix:
         self.ensure_prepared(download=download)
         return load_embedding_artifact(self.artifact_dir)
+
+    def get_sample_spec(self, *, download: bool = True) -> TensorSpec:
+        embedding_matrix = self.load_embedding_matrix(download=download)
+        return TensorSpec(shape=(embedding_matrix.embedding_dim,))
 
     def as_dataset(self, *, download: bool = True) -> EmbeddingTensorDataset:
         return EmbeddingTensorDataset(self.load_embedding_matrix(download=download))

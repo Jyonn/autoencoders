@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch
 
-from .base import AutoencoderDataset
+from .base import AutoencoderDataset, TensorSpec
 
 
 @dataclass
@@ -45,6 +45,9 @@ class EmbeddingTensorDataset(AutoencoderDataset):
 
     def __getitem__(self, index: int) -> torch.Tensor:
         return self.embedding_matrix.matrix[index]
+
+    def get_sample_spec(self) -> TensorSpec:
+        return TensorSpec(shape=(self.embedding_matrix.embedding_dim,))
 
 
 def load_text_embedding_matrix(

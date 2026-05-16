@@ -10,6 +10,7 @@ from .base import (
     CachedDataset,
     DatasetLoaders,
     DatasetSplits,
+    TensorSpec,
     create_dataloaders,
     split_dataset,
 )
@@ -131,6 +132,10 @@ class GloVeDataset(CachedDataset):
     def load_embedding_matrix(self, *, download: bool = True) -> EmbeddingMatrix:
         self.ensure_prepared(download=download)
         return load_embedding_artifact(self.artifact_dir)
+
+    def get_sample_spec(self, *, download: bool = True) -> TensorSpec:
+        del download
+        return TensorSpec(shape=(self.dim,))
 
     def as_dataset(self, *, download: bool = True) -> EmbeddingTensorDataset:
         return EmbeddingTensorDataset(self.load_embedding_matrix(download=download))

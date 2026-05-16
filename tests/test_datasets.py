@@ -16,16 +16,19 @@ import torch
 from autoencoders.data import (
     ConceptNetNumberbatchDatasetConfig,
     ConceptNetNumberbatchDataset,
+    DictSpec,
     FastTextEnglishDatasetConfig,
     FastTextEnglishDataset,
     Flickr30kDatasetConfig,
     Flickr30kDataset,
     GloVeDatasetConfig,
     GloVeDataset,
+    ListSpec,
     MultiNLIDatasetConfig,
     MultiNLIDataset,
     SNLIDatasetConfig,
     SNLIDataset,
+    TensorSpec,
     create_dataloaders,
     default_cache_dir,
     load_dataset,
@@ -86,6 +89,26 @@ class FakeCLIPEncoder:
 
 
 class DatasetUtilitiesTest(unittest.TestCase):
+    def test_data_specs_match_recursively(self) -> None:
+        self.assertTrue(TensorSpec(shape=(50,)).matches(TensorSpec(shape=(50,))))
+        self.assertTrue(TensorSpec(shape=(None, 50)).matches(TensorSpec(shape=(10, 50))))
+        self.assertFalse(TensorSpec(shape=(50,)).matches(TensorSpec(shape=(51,))))
+        self.assertTrue(
+            ListSpec(element_spec=TensorSpec(shape=(50,)), num_elements=None).matches(
+                ListSpec(element_spec=TensorSpec(shape=(50,)), num_elements=10)
+            )
+        )
+        self.assertTrue(
+            DictSpec(elements={"inputs": TensorSpec(shape=(50,))}, restrict_keys=False).matches(
+                DictSpec(elements={"inputs": TensorSpec(shape=(50,)), "mask": TensorSpec(shape=(50,))}, restrict_keys=False)
+            )
+        )
+        self.assertFalse(
+            DictSpec(elements={"inputs": TensorSpec(shape=(50,))}).matches(
+                DictSpec(elements={"other": TensorSpec(shape=(50,))})
+            )
+        )
+
     def test_item_progress_bar_reports_completion(self) -> None:
         stream = io.StringIO()
         progress = ItemProgressBar("Encoding captions", 5, stream=stream)
@@ -196,6 +219,7 @@ class DatasetUtilitiesTest(unittest.TestCase):
         self.assertIsInstance(dataset, GloVeDataset)
         self.assertEqual(dataset.dim, 50)
         self.assertEqual(dataset.max_vectors, 10)
+        self.assertEqual(dataset.get_sample_spec(), TensorSpec(shape=(50,)))
 
     def test_fasttext_dataset_prepare_and_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -246,6 +270,8 @@ class DatasetUtilitiesTest(unittest.TestCase):
         numberbatch = load_dataset("numberbatch", max_vectors=10)
         self.assertIsInstance(fasttext, FastTextEnglishDataset)
         self.assertIsInstance(numberbatch, ConceptNetNumberbatchDataset)
+        self.assertEqual(fasttext.get_sample_spec(), TensorSpec(shape=(300,)))
+        self.assertEqual(numberbatch.get_sample_spec(), TensorSpec(shape=(300,)))
 
     def test_snli_dataset_prepare_and_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
