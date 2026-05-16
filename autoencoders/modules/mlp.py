@@ -64,7 +64,7 @@ class MLPModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
-    def validate_input(self, spec: DataSpec) -> None:
+    def infer_output_spec(self, spec: DataSpec) -> DataSpec:
         if not isinstance(spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
         if not spec.shape:
@@ -73,10 +73,6 @@ class MLPModule(BaseAutoencoderModule):
             raise ValueError(
                 f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
             )
-
-    def infer_output_spec(self, spec: DataSpec) -> DataSpec:
-        self.validate_input(spec)
-        assert isinstance(spec, TensorSpec)
         return TensorSpec(shape=(*spec.shape[:-1], self.latent_dim))
 
     def _resolve_input_dim(self, spec: DataSpec) -> int:

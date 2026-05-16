@@ -23,6 +23,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
     config: BaseAutoencoderModuleConfig
     input_spec: DataSpec
     output_spec: DataSpec
+    latent_dim: int
+    reverse: bool
 
     def __init__(self, **kwargs) -> None:
         config = kwargs.pop("config")
@@ -35,9 +37,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
         super().__init__()
         self.config = config
         self.input_spec = input_spec
-        self.latent_dim = latent_dim
-        self.reverse = reverse
-        self.validate_input(self.input_spec)
+        self.latent_dim = int(latent_dim)
+        self.reverse = bool(reverse)
         self.output_spec = self.infer_output_spec(self.input_spec)
 
     @abstractmethod
@@ -45,9 +46,5 @@ class BaseAutoencoderModule(nn.Module, ABC):
         """Run the backbone module."""
 
     @abstractmethod
-    def validate_input(self, spec: DataSpec) -> None:
-        """Raise if an input data spec is incompatible with this module."""
-
-    @abstractmethod
     def infer_output_spec(self, spec: DataSpec) -> DataSpec:
-        """Infer the structural output spec produced by this module."""
+        """Validate an input spec and infer the structural output spec produced by this module."""
