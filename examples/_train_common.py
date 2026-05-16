@@ -338,6 +338,14 @@ def _print_section(title: str) -> None:
     print(style(title, fg="yellow", bold=True))
 
 
+def _print_auto_decoder_section(module_type: str | None) -> None:
+    resolved_type = module_type or "backbone"
+    prefix = style(f"Decoder ({resolved_type} ", fg="yellow", bold=True)
+    auto = style("[auto]", fg="black", bg="yellow", bold=True)
+    suffix = style(")", fg="yellow", bold=True)
+    print(f"{prefix}{auto}{suffix}")
+
+
 def _print_parameter_row(name: str, value: str, description: str) -> None:
     label = style(f"{name:<24}", fg="cyan")
     rendered_value = style(value, fg="white", bold=True)
@@ -407,8 +415,7 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
         _print_parameter_row("type", _format_parameter_value(args.encoder), "Selected encoder backbone.")
 
     if getattr(model, "_decoder_is_auto", False):
-        _print_section("Decoder")
-        _print_parameter_row("type", "auto", "Decoder backbone was inferred automatically by reversing the encoder backbone.")
+        _print_auto_decoder_section(model._decoder_module_type or model._encoder_module_type)
     elif model._decoder_module_type is not None and model.decoder is not None and hasattr(model.decoder, "config"):
         title = f"Decoder ({model._decoder_module_type})"
         _print_config_section(title, model.decoder.config, MODULE_PARAMETER_SECTIONS.get(model._decoder_module_type, []))

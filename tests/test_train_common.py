@@ -243,6 +243,55 @@ class TrainCommonTest(unittest.TestCase):
         self.assertIn("dead_code_reset", output)
         self.assertIn("Decoder (mlp)", output)
 
+    def test_print_training_overview_marks_auto_decoder_in_header(self) -> None:
+        args = argparse.Namespace(
+            dataset="glove",
+            model="ae",
+            output_dir="artifacts/test-ae",
+            encoder="mlp",
+            decoder=None,
+            validation_ratio=0.1,
+            test_ratio=0.1,
+            seed=42,
+            epochs=5,
+            patience=None,
+            batch_size=256,
+            learning_rate=1e-3,
+            device="cpu",
+            show_only_best_epochs=True,
+            advice=True,
+            resolved_configs=train_cli.ResolvedConfigArguments(
+                dataset_config={
+                    "dim": 50,
+                    "max_vectors": 50000,
+                    "encoder": None,
+                    "encoder_batch_size": 128,
+                    "clip_pretrained": "laion2b_s34b_b79k",
+                    "clip_device": None,
+                    "clip_modality": "both",
+                },
+                model_config={},
+                encoder_config={"hidden_dims": [16, 8], "activation": "relu", "use_bias": True},
+                decoder_config=None,
+                trainer_config={},
+            ),
+        )
+        from autoencoders import AutoencoderConfig, AutoencoderModel
+
+        model = AutoencoderModel(
+            AutoencoderConfig(input_dim=50, latent_dim=8),
+            encoder="mlp",
+            encoder_config={"hidden_dims": [16, 8], "activation": "relu", "use_bias": True},
+        )
+
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            train_common.print_training_overview(args, model, input_dim=50)
+        output = buffer.getvalue()
+
+        self.assertIn("Decoder (mlp ", output)
+        self.assertIn("[auto]", output)
+
     def test_validate_model_input_compatibility_prints_friendly_message(self) -> None:
         args = argparse.Namespace(dataset="glove", model="vqvae")
         config = VectorQuantizedAutoencoderConfig(
