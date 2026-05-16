@@ -133,8 +133,7 @@ class GloVeDataset(CachedDataset):
         self.ensure_prepared(download=download)
         return load_embedding_artifact(self.artifact_dir)
 
-    def get_sample_spec(self, *, download: bool = True) -> TensorSpec:
-        del download
+    def get_sample_spec(self) -> TensorSpec:
         return TensorSpec(shape=(self.dim,))
 
     def as_dataset(self, *, download: bool = True) -> EmbeddingTensorDataset:

@@ -153,8 +153,8 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
         self.ensure_prepared(download=download)
         return load_embedding_artifact(self.artifact_dir)
 
-    def get_sample_spec(self, *, download: bool = True) -> TensorSpec:
-        embedding_matrix = self.load_embedding_matrix(download=download)
+    def get_sample_spec(self) -> TensorSpec:
+        embedding_matrix = self.load_embedding_matrix()
         return TensorSpec(shape=(embedding_matrix.embedding_dim,))
 
     def as_dataset(self, *, download: bool = True) -> EmbeddingTensorDataset:

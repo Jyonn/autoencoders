@@ -245,7 +245,7 @@ class CachedDataset(ABC):
         return getattr(self.config, "max_vectors", None)
 
     @abstractmethod
-    def get_sample_spec(self, *, download: bool = True) -> DataSpec:
+    def get_sample_spec(self) -> DataSpec:
         """Return the structural description of one prepared sample."""
 
     def ensure_prepared(
