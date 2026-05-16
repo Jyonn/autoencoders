@@ -18,6 +18,7 @@ class MultiNLIDataset(ZipBackedTextDataset):
 
     dataset_name = "multinli"
     config_class = MultiNLIDatasetConfig
+    config: MultiNLIDatasetConfig
     base_url = "https://cims.nyu.edu/~sbowman/multinli/multinli_1.0.zip"
     required_members = (
         "multinli_1.0/multinli_1.0_train.jsonl",

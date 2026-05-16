@@ -15,6 +15,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     """A two-level vector quantized autoencoder for embedding inputs."""
 
     config_class = HierarchicalVectorQuantizedAutoencoderConfig
+    config: HierarchicalVectorQuantizedAutoencoderConfig
     min_input_rank = 3
 
     def __init__(

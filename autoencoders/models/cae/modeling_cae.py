@@ -13,6 +13,7 @@ class ContractiveAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder with a contractive encoder penalty."""
 
     config_class = ContractiveAutoencoderConfig
+    config: ContractiveAutoencoderConfig
     requires_grad_in_eval = True
 
     def compute_contractive_loss(self, encoded: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:

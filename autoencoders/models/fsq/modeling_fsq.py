@@ -14,6 +14,7 @@ class FiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
     """An autoencoder with per-dimension finite scalar quantization."""
 
     config_class = FiniteScalarQuantizedAutoencoderConfig
+    config: FiniteScalarQuantizedAutoencoderConfig
 
     def __init__(
         self,

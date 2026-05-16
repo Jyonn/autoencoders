@@ -15,6 +15,7 @@ class FactorVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A variational autoencoder with a latent total-correlation penalty."""
 
     config_class = FactorVariationalAutoencoderConfig
+    config: FactorVariationalAutoencoderConfig
 
     def __init__(
         self,

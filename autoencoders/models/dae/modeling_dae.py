@@ -13,6 +13,7 @@ class DenoisingAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder trained to reconstruct clean inputs from noisy ones."""
 
     config_class = DenoisingAutoencoderConfig
+    config: DenoisingAutoencoderConfig
 
     def corrupt_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         if self.config.noise_type == "gaussian":

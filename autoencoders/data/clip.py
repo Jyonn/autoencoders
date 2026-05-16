@@ -177,6 +177,14 @@ class CLIPBackedDatasetConfig(BaseDatasetConfig):
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
+        if "encoder_name" in kwargs and encoder is None:
+            encoder = kwargs.pop("encoder_name")
+        if "encoder_pretrained" in kwargs and clip_pretrained is None:
+            clip_pretrained = kwargs.pop("encoder_pretrained")
+        if "encoder_device" in kwargs and clip_device is None:
+            clip_device = kwargs.pop("encoder_device")
+        if "modality" in kwargs and clip_modality == "both":
+            clip_modality = kwargs.pop("modality")
         self.encoder = encoder
         self.clip_pretrained = clip_pretrained
         self.encoder_batch_size = encoder_batch_size
@@ -193,22 +201,9 @@ class CLIPBackedDataset(CachedDataset, ABC):
     default_encoder_name = "ViT-B-32"
     default_pretrained_name = "laion2b_s34b_b79k"
     config_class = CLIPBackedDatasetConfig
+    config: CLIPBackedDatasetConfig
 
-    def __init__(
-        self,
-        config: CLIPBackedDatasetConfig | None = None,
-        **kwargs,
-    ) -> None:
-        if "encoder_name" in kwargs and "encoder" not in kwargs:
-            kwargs["encoder"] = kwargs.pop("encoder_name")
-        if "encoder_pretrained" in kwargs and "clip_pretrained" not in kwargs:
-            kwargs["clip_pretrained"] = kwargs.pop("encoder_pretrained")
-        if "encoder_device" in kwargs and "clip_device" not in kwargs:
-            kwargs["clip_device"] = kwargs.pop("encoder_device")
-        if "modality" in kwargs and "clip_modality" not in kwargs:
-            kwargs["clip_modality"] = kwargs.pop("modality")
-        config = self.config_class(**kwargs) if config is None else config
-        self.config = config
+    def __init__(self, config: CLIPBackedDatasetConfig) -> None:
         self.encoder_name = config.encoder or self.default_encoder_name
         self.encoder_pretrained = config.clip_pretrained or self.default_pretrained_name
         self.encoder_batch_size = config.encoder_batch_size
@@ -216,7 +211,7 @@ class CLIPBackedDataset(CachedDataset, ABC):
         self.normalize_embeddings = config.normalize_embeddings
         self.modality = config.clip_modality
         self.max_vectors = config.max_vectors
-        super().__init__()
+        super().__init__(config)
 
     @property
     def artifact_name(self) -> str:

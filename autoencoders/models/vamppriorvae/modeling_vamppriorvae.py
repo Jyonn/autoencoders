@@ -16,6 +16,7 @@ class VampPriorVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A VAE whose prior is a learned mixture induced by pseudo-inputs."""
 
     config_class = VampPriorVariationalAutoencoderConfig
+    config: VampPriorVariationalAutoencoderConfig
 
     def __init__(
         self,

@@ -34,17 +34,12 @@ class FastTextEnglishDataset(CachedDataset):
     dataset_name = "fasttext"
     base_url = "https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip"
     config_class = FastTextEnglishDatasetConfig
+    config: FastTextEnglishDatasetConfig
 
-    def __init__(
-        self,
-        config: FastTextEnglishDatasetConfig | None = None,
-        **kwargs,
-    ) -> None:
-        config = self.config_class(**kwargs) if config is None else config
-        self.config = config
+    def __init__(self, config: FastTextEnglishDatasetConfig) -> None:
         self.dim = 300
         self.max_vectors = config.max_vectors
-        super().__init__()
+        super().__init__(config)
 
     @property
     def archive_name(self) -> str:

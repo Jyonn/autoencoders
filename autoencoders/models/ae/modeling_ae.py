@@ -12,3 +12,4 @@ class AutoencoderModel(BaseAutoencoderModel):
     """A deterministic MLP autoencoder for vector-like feature inputs."""
 
     config_class = AutoencoderConfig
+    config: AutoencoderConfig

@@ -14,6 +14,7 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """A simple MLP VQ-VAE for vector-like feature inputs."""
 
     config_class = VectorQuantizedAutoencoderConfig
+    config: VectorQuantizedAutoencoderConfig
     min_input_rank = 3
 
     def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:

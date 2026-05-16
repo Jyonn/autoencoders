@@ -13,6 +13,7 @@ class InformationVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A VAE regularized with an additional MMD prior-matching penalty."""
 
     config_class = InformationVariationalAutoencoderConfig
+    config: InformationVariationalAutoencoderConfig
 
     def sample_prior(self, batch_size: int, *, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
         return torch.randn(batch_size, self.config.latent_dim, device=device, dtype=dtype)

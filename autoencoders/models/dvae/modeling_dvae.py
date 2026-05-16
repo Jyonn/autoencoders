@@ -13,6 +13,7 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A VAE trained to reconstruct clean inputs from noisy observations."""
 
     config_class = DenoisingVariationalAutoencoderConfig
+    config: DenoisingVariationalAutoencoderConfig
 
     def corrupt_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         if self.config.noise_type == "gaussian":

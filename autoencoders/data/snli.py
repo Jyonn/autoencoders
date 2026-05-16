@@ -18,6 +18,7 @@ class SNLIDataset(ZipBackedTextDataset):
 
     dataset_name = "snli"
     config_class = SNLIDatasetConfig
+    config: SNLIDatasetConfig
     base_url = "https://nlp.stanford.edu/projects/snli/snli_1.0.zip"
     required_members = (
         "snli_1.0/snli_1.0_train.jsonl",

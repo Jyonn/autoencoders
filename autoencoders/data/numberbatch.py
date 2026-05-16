@@ -34,17 +34,12 @@ class ConceptNetNumberbatchDataset(CachedDataset):
     dataset_name = "numberbatch"
     base_url = "https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz"
     config_class = ConceptNetNumberbatchDatasetConfig
+    config: ConceptNetNumberbatchDatasetConfig
 
-    def __init__(
-        self,
-        config: ConceptNetNumberbatchDatasetConfig | None = None,
-        **kwargs,
-    ) -> None:
-        config = self.config_class(**kwargs) if config is None else config
-        self.config = config
+    def __init__(self, config: ConceptNetNumberbatchDatasetConfig) -> None:
         self.dim = 300
         self.max_vectors = config.max_vectors
-        super().__init__()
+        super().__init__(config)
 
     @property
     def archive_name(self) -> str:

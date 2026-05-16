@@ -17,6 +17,7 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """A vector quantized autoencoder using Gumbel-softmax assignments."""
 
     config_class = GumbelQuantizedAutoencoderConfig
+    config: GumbelQuantizedAutoencoderConfig
     min_input_rank = 3
 
     def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:

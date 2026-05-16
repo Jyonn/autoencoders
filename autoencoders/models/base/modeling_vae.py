@@ -15,6 +15,7 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
     """Shared VAE forward path and KL utilities."""
 
     config_class = BaseVariationalAutoencoderConfig
+    config: BaseVariationalAutoencoderConfig
 
     @abstractmethod
     def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

@@ -16,6 +16,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
     """Shared VQ forward path, losses, and export hooks."""
 
     config_class = BaseVectorQuantizedAutoencoderConfig
+    config: BaseVectorQuantizedAutoencoderConfig
 
     def __init__(
         self,

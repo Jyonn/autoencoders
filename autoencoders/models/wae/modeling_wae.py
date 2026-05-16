@@ -13,6 +13,7 @@ class WassersteinAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder regularized with MMD to a Gaussian prior."""
 
     config_class = WassersteinAutoencoderConfig
+    config: WassersteinAutoencoderConfig
 
     def sample_prior(self, batch_size: int, *, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
         return torch.randn(batch_size, self.config.latent_dim, device=device, dtype=dtype)

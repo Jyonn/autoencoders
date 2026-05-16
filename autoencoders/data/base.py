@@ -148,8 +148,10 @@ class CachedDataset(ABC):
 
     dataset_name = "dataset"
     config_class = BaseDatasetConfig
+    config: BaseDatasetConfig
 
-    def __init__(self) -> None:
+    def __init__(self, config: BaseDatasetConfig) -> None:
+        self.config = config
         self.root = default_cache_dir()
         self.dataset_dir = self.root / self.dataset_name
         self.raw_dir = self.dataset_dir / "raw"

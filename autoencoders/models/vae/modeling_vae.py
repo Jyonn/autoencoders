@@ -13,6 +13,7 @@ class VariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     """A basic MLP variational autoencoder for vector-like feature inputs."""
 
     config_class = VariationalAutoencoderConfig
+    config: VariationalAutoencoderConfig
 
     def __init__(
         self,

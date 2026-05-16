@@ -63,4 +63,7 @@ def load_dataset(name: str, config=None, **kwargs: Any) -> CachedDataset:
     dataset_class = get_dataset_class(name)
     if config is None:
         config = dataset_class.config_class(**kwargs)
+    elif kwargs:
+        unknown = ", ".join(sorted(kwargs))
+        raise TypeError(f"load_dataset() received both `config` and extra keyword arguments: {unknown}")
     return dataset_class(config)

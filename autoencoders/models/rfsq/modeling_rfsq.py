@@ -14,6 +14,7 @@ class ResidualFiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
     """An autoencoder with stacked residual scalar quantizers."""
 
     config_class = ResidualFiniteScalarQuantizedAutoencoderConfig
+    config: ResidualFiniteScalarQuantizedAutoencoderConfig
 
     def __init__(
         self,

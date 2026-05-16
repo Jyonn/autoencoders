@@ -14,6 +14,7 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """An MLP autoencoder with residual vector quantization."""
 
     config_class = ResidualQuantizedAutoencoderConfig
+    config: ResidualQuantizedAutoencoderConfig
 
     def __init__(
         self,

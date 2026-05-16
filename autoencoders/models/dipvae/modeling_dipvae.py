@@ -13,6 +13,7 @@ class DIPVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A variational autoencoder with covariance regularization."""
 
     config_class = DIPVariationalAutoencoderConfig
+    config: DIPVariationalAutoencoderConfig
 
     def compute_dip_loss(self, posterior_mean: torch.Tensor) -> torch.Tensor:
         centered_mean = posterior_mean - posterior_mean.mean(dim=0, keepdim=True)

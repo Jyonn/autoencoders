@@ -96,6 +96,8 @@ class EncoderBackedTextDatasetConfig(BaseDatasetConfig):
         max_vectors: int | None = None,
         **kwargs,
     ) -> None:
+        if "encoder_name" in kwargs and encoder is None:
+            encoder = kwargs.pop("encoder_name")
         self.encoder = encoder
         self.encoder_batch_size = encoder_batch_size
         self.normalize_embeddings = normalize_embeddings
@@ -108,21 +110,14 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
     encoder_family = "sentence-transformers"
     default_encoder_name = "sentence-transformers/all-MiniLM-L6-v2"
     config_class = EncoderBackedTextDatasetConfig
+    config: EncoderBackedTextDatasetConfig
 
-    def __init__(
-        self,
-        config: EncoderBackedTextDatasetConfig | None = None,
-        **kwargs,
-    ) -> None:
-        if "encoder_name" in kwargs and "encoder" not in kwargs:
-            kwargs["encoder"] = kwargs.pop("encoder_name")
-        config = self.config_class(**kwargs) if config is None else config
-        self.config = config
+    def __init__(self, config: EncoderBackedTextDatasetConfig) -> None:
         self.encoder_name = config.encoder or self.default_encoder_name
         self.encoder_batch_size = config.encoder_batch_size
         self.normalize_embeddings = config.normalize_embeddings
         self.max_vectors = config.max_vectors
-        super().__init__()
+        super().__init__(config)
 
     @property
     def artifact_name(self) -> str:

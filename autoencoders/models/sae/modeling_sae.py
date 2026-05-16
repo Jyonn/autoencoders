@@ -13,6 +13,7 @@ class SparseAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder with latent L1 sparsity regularization."""
 
     config_class = SparseAutoencoderConfig
+    config: SparseAutoencoderConfig
 
     def compute_sparsity_loss(self, latents: torch.Tensor) -> torch.Tensor:
         return latents.abs().mean()

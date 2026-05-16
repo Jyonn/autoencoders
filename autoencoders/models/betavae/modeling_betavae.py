@@ -10,3 +10,4 @@ class BetaVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A beta-VAE that reuses the standard variational autoencoder implementation."""
 
     config_class = BetaVariationalAutoencoderConfig
+    config: BetaVariationalAutoencoderConfig

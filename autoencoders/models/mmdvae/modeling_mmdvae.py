@@ -11,6 +11,7 @@ class MMDVariationalAutoencoderModel(InformationVariationalAutoencoderModel):
     """A VAE regularized primarily through MMD prior matching."""
 
     config_class = MMDVariationalAutoencoderConfig
+    config: MMDVariationalAutoencoderConfig
 
     def forward(
         self,

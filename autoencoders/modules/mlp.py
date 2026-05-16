@@ -47,6 +47,7 @@ class MLPModule(BaseAutoencoderModule):
     """Reusable feed-forward backbone for vector inputs."""
 
     config_class = MLPModuleConfig
+    config: MLPModuleConfig
 
     def __init__(
         self,

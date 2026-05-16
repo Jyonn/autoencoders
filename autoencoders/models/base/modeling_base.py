@@ -18,6 +18,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     """Shared model skeleton for deterministic autoencoders."""
 
     config_class = BaseAutoencoderConfig
+    config: BaseAutoencoderConfig
     requires_grad_in_eval = False
     min_input_rank = 2
 

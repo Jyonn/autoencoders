@@ -13,6 +13,7 @@ class KLSparseAutoencoderModel(AutoencoderModel):
     """An autoencoder with KL divergence sparsity regularization on latent activity."""
 
     config_class = KLSparseAutoencoderConfig
+    config: KLSparseAutoencoderConfig
 
     def compute_kl_sparsity_loss(self, latents: torch.Tensor) -> torch.Tensor:
         rho = torch.full(

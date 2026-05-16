@@ -44,21 +44,16 @@ class GloVeDataset(CachedDataset):
     dataset_name = "glove"
     base_url = "https://nlp.stanford.edu/data/glove.6B.zip"
     config_class = GloVeDatasetConfig
+    config: GloVeDatasetConfig
 
-    def __init__(
-        self,
-        config: GloVeDatasetConfig | None = None,
-        **kwargs,
-    ) -> None:
-        config = self.config_class(**kwargs) if config is None else config
-        self.config = config
+    def __init__(self, config: GloVeDatasetConfig) -> None:
         dim = config.dim
         if dim not in {50, 100, 200, 300}:
             raise ValueError("dim must be one of: 50, 100, 200, 300.")
 
         self.dim = dim
         self.max_vectors = config.max_vectors
-        super().__init__()
+        super().__init__(config)
 
     @property
     def archive_name(self) -> str:

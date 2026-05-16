@@ -19,6 +19,7 @@ class BaseAutoencoderModule(nn.Module, ABC):
     """Base class for reusable backbone modules."""
 
     config_class = BaseAutoencoderModuleConfig
+    config: BaseAutoencoderModuleConfig
 
     def __init__(
         self,

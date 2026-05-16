@@ -14,6 +14,7 @@ class ProductQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     """An MLP autoencoder with product quantization in latent space."""
 
     config_class = ProductQuantizedAutoencoderConfig
+    config: ProductQuantizedAutoencoderConfig
 
     def __init__(
         self,

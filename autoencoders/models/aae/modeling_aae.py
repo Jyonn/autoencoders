@@ -15,6 +15,7 @@ class AdversarialAutoencoderModel(AutoencoderModel):
     """A deterministic autoencoder regularized by latent adversarial matching."""
 
     config_class = AdversarialAutoencoderConfig
+    config: AdversarialAutoencoderConfig
 
     def __init__(
         self,

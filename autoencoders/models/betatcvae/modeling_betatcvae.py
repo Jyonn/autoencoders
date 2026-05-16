@@ -15,6 +15,7 @@ class BetaTCVariationalAutoencoderModel(VariationalAutoencoderModel):
     """A VAE with decomposed KL regularization."""
 
     config_class = BetaTCVariationalAutoencoderConfig
+    config: BetaTCVariationalAutoencoderConfig
 
     def _log_density_gaussian(self, sample: torch.Tensor, mean: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         normalization = math.log(2.0 * math.pi)

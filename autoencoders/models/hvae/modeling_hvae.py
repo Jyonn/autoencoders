@@ -14,6 +14,7 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     """A two-level latent VAE for vector-like embeddings."""
 
     config_class = HierarchicalVariationalAutoencoderConfig
+    config: HierarchicalVariationalAutoencoderConfig
 
     def __init__(
         self,

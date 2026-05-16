@@ -13,6 +13,7 @@ class TopKSparseAutoencoderModel(AutoencoderModel):
     """An autoencoder that keeps only the top-k latent activations per sample."""
 
     config_class = TopKSparseAutoencoderConfig
+    config: TopKSparseAutoencoderConfig
 
     def apply_topk(self, latents: torch.Tensor) -> torch.Tensor:
         topk_values, topk_indices = torch.topk(latents.abs(), k=self.config.topk, dim=-1)
