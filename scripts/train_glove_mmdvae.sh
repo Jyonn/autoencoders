@@ -12,12 +12,12 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vae.py" \
   --output-dir artifacts/glove/mmdvae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --kl-weight 0.0 \
-  --mmd-weight 10.0 \
-  --free-bits 0.02 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.kl_weight 0.0 \
+  --model.mmd_weight 10.0 \
+  --model.free_bits 0.02 \
   --advice \
   "$@"

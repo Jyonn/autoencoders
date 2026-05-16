@@ -13,8 +13,8 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_ae.py" \
   --output-dir artifacts/fasttext/ae \
   --dim 300 \
   --max-vectors 50000 \
-  --latent-dim 32 \
-  --hidden-dims 256 128 \
-  --activation relu \
-  --reconstruction-loss mse \
+  --model.latent_dim 32 \
+  --encoder.hidden_dims "[256, 128]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
   "$@"

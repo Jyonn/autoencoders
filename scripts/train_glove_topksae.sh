@@ -7,9 +7,9 @@ exec "${SCRIPT_DIR}/_train_glove.sh" train_ae.py topksae \
   --output-dir artifacts/glove/topksae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --topk 4 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.topk 4 \
   "$@"

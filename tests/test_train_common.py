@@ -59,6 +59,7 @@ class TrainCommonTest(unittest.TestCase):
             args = train_cli.parse_config_arguments(
                 parser,
                 default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                default_trainer_config={},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
                 default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
@@ -68,7 +69,7 @@ class TrainCommonTest(unittest.TestCase):
         self.assertEqual(args.resolved_configs.encoder_config["hidden_dims"], [32, 16])
         self.assertEqual(args.resolved_configs.encoder_config["activation"], "gelu")
 
-    def test_parse_config_arguments_translates_legacy_hidden_dims_flag(self) -> None:
+    def test_parse_config_arguments_rejects_legacy_hidden_dims_flag(self) -> None:
         parser = argparse.ArgumentParser()
         parser.add_argument("--model", choices=["ae"], default="ae")
         parser.add_argument("--encoder", default="mlp")
@@ -83,15 +84,15 @@ class TrainCommonTest(unittest.TestCase):
             "64",
         ]
         with patch.object(sys, "argv", argv):
-            args = train_cli.parse_config_arguments(
-                parser,
-                default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
-                default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
-                default_encoder="mlp",
-                default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
-            )
-
-        self.assertEqual(args.resolved_configs.encoder_config["hidden_dims"], [128, 64])
+            with self.assertRaises(ValueError):
+                train_cli.parse_config_arguments(
+                    parser,
+                    default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                    default_trainer_config={},
+                    default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
+                    default_encoder="mlp",
+                    default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+                )
 
     def test_parse_config_arguments_supports_dotted_dataset_options(self) -> None:
         parser = argparse.ArgumentParser()
@@ -115,6 +116,7 @@ class TrainCommonTest(unittest.TestCase):
             args = train_cli.parse_config_arguments(
                 parser,
                 default_dataset_config={"encoder": None, "encoder_batch_size": 128, "clip_pretrained": "laion2b", "clip_device": None, "clip_modality": "both"},
+                default_trainer_config={},
                 default_model_config={"latent_dim": 16, "reconstruction_loss": "mse"},
                 default_encoder="mlp",
                 default_encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
@@ -153,10 +155,9 @@ class TrainCommonTest(unittest.TestCase):
                 model_config={},
                 encoder_config=None,
                 decoder_config=None,
+                trainer_config={},
             ),
             latent_dim=8,
-            discriminator_learning_rate=None,
-            discriminator_steps=1,
         )
         config = VariationalAutoencoderConfig(
             input_dim=50,
@@ -214,6 +215,7 @@ class TrainCommonTest(unittest.TestCase):
                 model_config={},
                 encoder_config=None,
                 decoder_config=None,
+                trainer_config={},
             ),
             latent_dim=8,
         )

@@ -7,8 +7,8 @@ exec "${SCRIPT_DIR}/_train_glove.sh" train_ae.py ae \
   --output-dir artifacts/glove/ae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
   "$@"

@@ -12,16 +12,16 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vae.py" \
   --output-dir artifacts/glove/dipvae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --kl-weight 0.1 \
-  --free-bits 0.02 \
-  --kl-warmup-epochs 20 \
-  --kl-start-weight 0.0 \
-  --dip-weight 10.0 \
-  --dip-offdiag-weight 1.0 \
-  --dip-diag-weight 1.0 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.kl_weight 0.1 \
+  --model.free_bits 0.02 \
+  --model.kl_warmup_epochs 20 \
+  --model.kl_start_weight 0.0 \
+  --model.dip_weight 10.0 \
+  --model.dip_offdiag_weight 1.0 \
+  --model.dip_diag_weight 1.0 \
   --advice \
   "$@"

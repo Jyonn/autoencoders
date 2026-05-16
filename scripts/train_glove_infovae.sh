@@ -12,14 +12,14 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vae.py" \
   --output-dir artifacts/glove/infovae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --kl-weight 0.1 \
-  --kl-warmup-epochs 20 \
-  --kl-start-weight 0.0 \
-  --free-bits 0.02 \
-  --mmd-weight 5.0 \
-  --mmd-bandwidths 0.1 0.2 0.5 1.0 2.0 5.0 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.kl_weight 0.1 \
+  --model.kl_warmup_epochs 20 \
+  --model.kl_start_weight 0.0 \
+  --model.free_bits 0.02 \
+  --model.mmd_weight 5.0 \
+  --model.mmd_bandwidths "[0.1, 0.2, 0.5, 1.0, 2.0, 5.0]" \
   "$@"

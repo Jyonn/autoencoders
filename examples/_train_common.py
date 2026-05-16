@@ -61,9 +61,6 @@ MODEL_PARAMETER_SECTIONS = {
     "aae": [
         ("adversarial_weight", "Strength of the latent adversarial matching loss."),
         ("discriminator_hidden_dims", "Hidden layer sizes of the latent discriminator."),
-        ("generator_learning_rate", "Optional optimizer rate for the encoder adversarial path."),
-        ("discriminator_learning_rate", "Optional optimizer rate for the discriminator."),
-        ("discriminator_steps", "How many discriminator updates run per training batch."),
     ],
     "vae": [
         ("kl_weight", "Weight applied to KL regularization."),
@@ -122,8 +119,6 @@ MODEL_PARAMETER_SECTIONS = {
         ("kl_start_weight", "Initial KL weight at the start of warmup."),
         ("tc_weight", "Strength of the total-correlation disentanglement penalty."),
         ("discriminator_hidden_dims", "Hidden layer sizes of the total-correlation discriminator."),
-        ("discriminator_learning_rate", "Optional optimizer rate for the TC discriminator."),
-        ("discriminator_steps", "How many TC discriminator updates run per training batch."),
     ],
     "dipvae": [
         ("kl_weight", "Weight applied to the base KL regularization term."),
@@ -200,6 +195,18 @@ MODEL_PARAMETER_SECTIONS = {
         ("ema_decay", "EMA decay factor for codebook updates."),
         ("dead_code_reset", "Whether unused hierarchy codes are reset after each training epoch."),
         ("dead_code_threshold", "Usage count threshold below which a code is considered dead."),
+    ],
+}
+
+TRAINER_PARAMETER_SECTIONS = {
+    "aae": [
+        ("generator_learning_rate", "Optional optimizer rate for the encoder adversarial path."),
+        ("discriminator_learning_rate", "Optional optimizer rate for the discriminator."),
+        ("discriminator_steps", "How many discriminator updates run per training batch."),
+    ],
+    "factorvae": [
+        ("discriminator_learning_rate", "Optional optimizer rate for the TC discriminator."),
+        ("discriminator_steps", "How many TC discriminator updates run per training batch."),
     ],
 }
 
@@ -381,6 +388,12 @@ def print_training_overview(args: argparse.Namespace, model, *, input_dim: int) 
     _print_parameter_row("learning_rate", str(args.learning_rate), "Adam optimizer learning rate.")
     _print_parameter_row("device", args.device, "Target runtime device for training.")
     _print_parameter_row("advice", _format_parameter_value(args.advice), "Whether end-of-run hyperparameter suggestions are printed.")
+    trainer_descriptions = TRAINER_PARAMETER_SECTIONS.get(args.model, [])
+    trainer_config = args.resolved_configs.trainer_config
+    for field_name, description in trainer_descriptions:
+        if field_name not in trainer_config:
+            continue
+        _print_parameter_row(field_name, _format_parameter_value(trainer_config[field_name]), description)
 
     _print_config_section("Model", model.config, COMMON_MODEL_PARAMETERS + MODEL_PARAMETER_SECTIONS.get(args.model, []))
 

@@ -7,11 +7,11 @@ exec "${SCRIPT_DIR}/_train_glove.sh" train_ae.py aae \
   --output-dir artifacts/glove/aae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --adversarial-weight 1.0 \
-  --discriminator-hidden-dims 128 64 \
-  --discriminator-steps 1 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.adversarial_weight 1.0 \
+  --model.discriminator_hidden_dims "[128, 64]" \
+  --trainer.discriminator_steps 1 \
   "$@"

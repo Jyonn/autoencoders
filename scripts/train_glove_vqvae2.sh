@@ -12,16 +12,16 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vq.py" \
   --output-dir artifacts/glove/vqvae2 \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --top-latent-dim 8 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --codebook-size 256 \
-  --commitment-weight 0.25 \
-  --codebook-weight 1.0 \
-  --use-ema-codebook \
-  --dead-code-reset \
-  --dead-code-threshold 0 \
+  --model.latent_dim 16 \
+  --model.top_latent_dim 8 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.codebook_size 256 \
+  --model.commitment_weight 0.25 \
+  --model.codebook_weight 1.0 \
+  --model.use_ema_codebook true \
+  --model.dead_code_reset true \
+  --model.dead_code_threshold 0 \
   --advice \
   "$@"

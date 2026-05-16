@@ -89,6 +89,10 @@ MODEL_DEFAULTS = {
         "dimension_wise_kl_weight": 1.0,
     },
 }
+DEFAULT_TRAINER_CONFIG = {
+    "discriminator_learning_rate": None,
+    "discriminator_steps": 1,
+}
 DEFAULT_ENCODER_CONFIG = {
     "hidden_dims": [64, 32],
     "activation": "relu",
@@ -102,16 +106,16 @@ def parse_args() -> argparse.Namespace:
     add_training_args(parser)
     add_backbone_args(parser, default_encoder="mlp")
     parser.add_argument("--model", default="vae", choices=MODEL_CHOICES, help="Model name.")
-    parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional FactorVAE discriminator optimizer learning rate.")
-    parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of FactorVAE discriminator updates per batch.")
     parser.epilog = (
         "Model and backbone options use dotted syntax. "
         "Examples: --model.kl_weight 0.1 --encoder mlp --encoder.hidden_dims \"[128, 64]\" "
+        "--trainer.discriminator_steps 2 "
         "--dataset.encoder sentence-transformers/all-MiniLM-L6-v2"
     )
     args = parse_config_arguments(
         parser,
         default_dataset_config=DATASET_DEFAULT_CONFIG,
+        default_trainer_config=DEFAULT_TRAINER_CONFIG,
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vae", {})},
         default_encoder="mlp",
         default_encoder_config=DEFAULT_ENCODER_CONFIG,
@@ -148,6 +152,7 @@ def main() -> None:
     validate_model_input_compatibility(args, model, dataloaders)
     if args.model == "factorvae":
         base_args = build_training_arguments(args)
+        trainer_config = args.resolved_configs.trainer_config
         trainer_args = FactorVariationalAutoencoderTrainingArguments(
             output_dir=base_args.output_dir,
             epochs=base_args.epochs,
@@ -157,8 +162,8 @@ def main() -> None:
             device=base_args.device,
             seed=base_args.seed,
             show_only_best_epochs=base_args.show_only_best_epochs,
-            discriminator_learning_rate=args.discriminator_learning_rate,
-            discriminator_steps=args.discriminator_steps,
+            discriminator_learning_rate=trainer_config["discriminator_learning_rate"],
+            discriminator_steps=trainer_config["discriminator_steps"],
         )
         trainer = FactorVAETrainer(model=model, args=trainer_args)
     else:

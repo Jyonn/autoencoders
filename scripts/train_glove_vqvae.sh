@@ -7,16 +7,16 @@ exec "${SCRIPT_DIR}/_train_glove.sh" train_vq.py vqvae \
   --output-dir artifacts/glove/vqvae \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --codebook-size 256 \
-  --commitment-weight 0.25 \
-  --codebook-weight 1.0 \
-  --use-ema-codebook \
-  --ema-decay 0.99 \
-  --ema-epsilon 1e-5 \
-  --dead-code-reset \
-  --dead-code-threshold 0 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.codebook_size 256 \
+  --model.commitment_weight 0.25 \
+  --model.codebook_weight 1.0 \
+  --model.use_ema_codebook true \
+  --model.ema_decay 0.99 \
+  --model.ema_epsilon 1e-5 \
+  --model.dead_code_reset true \
+  --model.dead_code_threshold 0 \
   "$@"

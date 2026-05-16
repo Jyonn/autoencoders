@@ -42,6 +42,11 @@ MODEL_DEFAULTS = {
     "wae": {"mmd_weight": 10.0, "mmd_bandwidths": [0.1, 0.2, 0.5, 1.0, 2.0]},
     "aae": {"adversarial_weight": 1.0, "discriminator_hidden_dims": [128, 64]},
 }
+DEFAULT_TRAINER_CONFIG = {
+    "generator_learning_rate": None,
+    "discriminator_learning_rate": None,
+    "discriminator_steps": 1,
+}
 DEFAULT_ENCODER_CONFIG = {
     "hidden_dims": [64, 32],
     "activation": "relu",
@@ -55,17 +60,16 @@ def parse_args() -> argparse.Namespace:
     add_training_args(parser)
     add_backbone_args(parser, default_encoder="mlp")
     parser.add_argument("--model", default="ae", choices=MODEL_CHOICES, help="Model name.")
-    parser.add_argument("--generator-learning-rate", type=float, default=None, help="Optional AAE encoder adversarial optimizer learning rate.")
-    parser.add_argument("--discriminator-learning-rate", type=float, default=None, help="Optional AAE discriminator optimizer learning rate.")
-    parser.add_argument("--discriminator-steps", type=int, default=1, help="Number of AAE discriminator updates per batch.")
     parser.epilog = (
         "Backbone and model options use dotted syntax. "
         "Examples: --model.latent_dim 16 --encoder mlp --encoder.hidden_dims \"[128, 64]\" "
+        "--trainer.discriminator_steps 2 "
         "--dataset.encoder sentence-transformers/all-MiniLM-L6-v2"
     )
     args = parse_config_arguments(
         parser,
         default_dataset_config=DATASET_DEFAULT_CONFIG,
+        default_trainer_config=DEFAULT_TRAINER_CONFIG,
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("ae", {})},
         default_encoder="mlp",
         default_encoder_config=DEFAULT_ENCODER_CONFIG,
@@ -96,12 +100,13 @@ def build_model(args: argparse.Namespace, input_dim: int):
 
 def build_trainer(args: argparse.Namespace, model):
     if args.model == "aae":
+        trainer_config = args.resolved_configs.trainer_config
         return AdversarialAutoencoderTrainer(
             model=model,
             args=AdversarialAutoencoderTrainingArguments(
-                discriminator_learning_rate=args.discriminator_learning_rate,
-                generator_learning_rate=args.generator_learning_rate,
-                discriminator_steps=args.discriminator_steps,
+                discriminator_learning_rate=trainer_config["discriminator_learning_rate"],
+                generator_learning_rate=trainer_config["generator_learning_rate"],
+                discriminator_steps=trainer_config["discriminator_steps"],
                 **build_training_arguments(args).__dict__,
             ),
         )

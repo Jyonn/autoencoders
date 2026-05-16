@@ -12,12 +12,12 @@ exec "${PYTHON_BIN}" "${PROJECT_ROOT}/examples/train_vq.py" \
   --output-dir artifacts/glove/rfsq \
   --dim 50 \
   --max-vectors 50000 \
-  --latent-dim 16 \
-  --hidden-dims 128 64 \
-  --activation relu \
-  --reconstruction-loss mse \
-  --num-levels 8 \
-  --num-quantizers 4 \
-  --commitment-weight 0.25 \
+  --model.latent_dim 16 \
+  --encoder.hidden_dims "[128, 64]" \
+  --encoder.activation relu \
+  --model.reconstruction_loss mse \
+  --model.num_levels 8 \
+  --model.num_quantizers 4 \
+  --model.commitment_weight 0.25 \
   --advice \
   "$@"

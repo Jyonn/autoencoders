@@ -99,6 +99,7 @@ def parse_args() -> argparse.Namespace:
     args = parse_config_arguments(
         parser,
         default_dataset_config=DATASET_DEFAULT_CONFIG,
+        default_trainer_config={},
         default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("vqvae", {})},
         default_encoder="mlp",
         default_encoder_config=DEFAULT_ENCODER_CONFIG,
