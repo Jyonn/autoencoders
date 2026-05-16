@@ -50,19 +50,8 @@ class MLPModule(BaseAutoencoderModule):
     config_class = MLPModuleConfig
     config: MLPModuleConfig
 
-    def __init__(
-        self,
-        config: MLPModuleConfig,
-        input_spec: DataSpec,
-        latent_dim: int | None = None,
-        reverse: bool = False,
-    ) -> None:
-        super().__init__(
-            config=config,
-            input_spec=input_spec,
-            latent_dim=latent_dim,
-            reverse=reverse,
-        )
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         input_dim = self._resolve_input_dim(self.input_spec)
         hidden_dims = self._get_effective_hidden_dims()
         dims = [input_dim, *hidden_dims]
