@@ -60,14 +60,6 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             }
         return module_specs
 
-    def _coerce_module_config(self, module_class, module_config):
-        config_class = module_class.config_class
-        if isinstance(module_config, config_class):
-            return module_config
-        if isinstance(module_config, dict):
-            return config_class(**module_config)
-        return config_class.from_dict(module_config.to_dict())
-
     def _build_backbone_module(
         self,
         *,
@@ -95,7 +87,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
 
         module_name = module
         module_class = get_module_class(module_name)
-        resolved_config = self._coerce_module_config(module_class, module_config)
+        resolved_config = module_class.config_class(**module_config)
         built_module = module_class(
             config=resolved_config,
             input_spec=input_spec,
