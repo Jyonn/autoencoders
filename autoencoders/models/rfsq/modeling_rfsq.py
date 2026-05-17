@@ -46,12 +46,16 @@ class ResidualFiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         **kwargs: object,
     ) -> ResidualFiniteScalarQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
-        quantized_latents, codebook_indices = self.quantize(encoded)
-        latents = encoded + (quantized_latents - encoded).detach()
-        reconstruction = self.decode(latents)
+        core_inputs = self.project_to_core(encoded)
+        quantized_latents, codebook_indices = self.quantize(core_inputs)
+        latents = core_inputs + (quantized_latents - core_inputs).detach()
+        reconstruction = self.decode(self.project_from_core(latents))
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
-        commitment_loss = F.mse_loss(encoded, quantized_latents.detach())
-        quantization_residual_loss = F.mse_loss(encoded - quantized_latents.detach(), torch.zeros_like(encoded))
+        commitment_loss = F.mse_loss(core_inputs, quantized_latents.detach())
+        quantization_residual_loss = F.mse_loss(
+            core_inputs - quantized_latents.detach(),
+            torch.zeros_like(core_inputs),
+        )
         codebook_loss = torch.zeros_like(commitment_loss)
         loss = reconstruction_loss + self.config.commitment_weight * commitment_loss
         use_return_dict = self.config.return_dict if return_dict is None else return_dict

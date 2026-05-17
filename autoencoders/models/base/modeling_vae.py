@@ -6,9 +6,11 @@ from abc import abstractmethod
 
 import torch
 
+from ...data.base import DataSpec
 from ...modeling_outputs import AutoencoderExport, VariationalAutoencoderOutput
 from .configuration_vae import BaseVariationalAutoencoderConfig
 from .modeling_base import BaseAutoencoderModel
+from ...modules import BaseAutoencoderModule
 
 
 class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
@@ -20,6 +22,18 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
     @abstractmethod
     def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode inputs into posterior parameters."""
+
+    def get_decoder_input_spec(self) -> DataSpec:
+        if self.core_spec is not None:
+            return self.core_spec
+        return super().get_decoder_input_spec()
+
+    def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
+        if isinstance(self.decoder, BaseAutoencoderModule):
+            if self.decoder.input_spec.matches(self.get_decoder_input_spec()):
+                return latents
+            return self.project_from_core(latents)
+        return latents
 
     def reparameterize(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * posterior_logvar)
@@ -117,7 +131,7 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
             posterior_logvar=posterior_logvar,
             sample_posterior=sample_posterior,
         )
-        reconstruction = self.decode(latents)
+        reconstruction = self.decode(self.prepare_decoder_inputs(latents))
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
         free_bits_kl_loss = self.compute_free_bits_kl_loss(posterior_mean, posterior_logvar)

@@ -74,7 +74,7 @@ class VampPriorVariationalAutoencoderModel(VariationalAutoencoderModel):
             posterior_logvar=posterior_logvar,
             sample_posterior=sample_posterior,
         )
-        reconstruction = self.decode(latents)
+        reconstruction = self.decode(self.prepare_decoder_inputs(latents))
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_per_example, pseudo_mean, pseudo_logvar = self.compute_kl_components(
             posterior_mean,

@@ -673,8 +673,9 @@ class AdversarialAutoencoderTrainer(AETrainer):
 
             if training:
                 self.optimizer.zero_grad()
-                latents = self.model.encode(batch)
-                reconstruction = self.model.decode(latents)
+                encoded = self.model.encode(batch)
+                latents = self.model.project_to_core(encoded)
+                reconstruction = self.model.decode(self.model.project_from_core(latents))
                 reconstruction_loss = self.model.compute_loss(reconstruction, batch)
                 reconstruction_loss.backward()
                 self.optimizer.step()
@@ -682,7 +683,7 @@ class AdversarialAutoencoderTrainer(AETrainer):
                 for _ in range(self.adversarial_args.discriminator_steps):
                     self.discriminator_optimizer.zero_grad()
                     with torch.no_grad():
-                        detached_latents = self.model.encode(batch)
+                        detached_latents = self.model.project_to_core(self.model.encode(batch))
                     prior_samples = self.model.sample_prior(
                         batch.shape[0],
                         device=batch.device,
@@ -693,7 +694,7 @@ class AdversarialAutoencoderTrainer(AETrainer):
                     self.discriminator_optimizer.step()
 
                 self.generator_optimizer.zero_grad()
-                adversarial_latents = self.model.encode(batch)
+                adversarial_latents = self.model.project_to_core(self.model.encode(batch))
                 adversarial_loss = self.model.compute_adversarial_loss(adversarial_latents)
                 (self.model.config.adversarial_weight * adversarial_loss).backward()
                 self.generator_optimizer.step()

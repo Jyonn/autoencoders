@@ -53,6 +53,9 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     def get_latent_output_spec(self):
         return TensorSpec(shape=(self.get_decoder_input_dim(),))
 
+    def get_decoder_input_spec(self):
+        return self.get_latent_output_spec()
+
     def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         encoded = self._require_backbone_module(self.encoder, "encoder")(inputs)
         if (
@@ -92,7 +95,7 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
             bottom_latents = bottom_mean
 
         latents = torch.cat([top_latents, bottom_latents], dim=-1)
-        reconstruction = self.decode(latents)
+        reconstruction = self.decode(self.prepare_decoder_inputs(latents))
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         top_kl_loss = self.compute_kl_loss(top_mean, top_logvar)
         bottom_kl_loss = self.compute_kl_loss(bottom_mean, bottom_logvar)

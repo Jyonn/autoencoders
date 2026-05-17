@@ -54,7 +54,7 @@ class DenoisingVariationalAutoencoderModel(VariationalAutoencoderModel):
             posterior_logvar=posterior_logvar,
             sample_posterior=sample_posterior,
         )
-        reconstruction = self.decode(latents)
+        reconstruction = self.decode(self.prepare_decoder_inputs(latents))
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_loss = self.compute_kl_loss(posterior_mean, posterior_logvar)
         free_bits_kl_loss = self.compute_free_bits_kl_loss(posterior_mean, posterior_logvar)
