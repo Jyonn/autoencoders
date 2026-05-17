@@ -11,7 +11,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
     torch = None
 
 if torch is not None:
-    from autoencoders import build_mlp_backbone_kwargs_from_model_config, InformationVariationalAutoencoderConfig, InformationVariationalAutoencoderModel
+    from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
+    from autoencoders import InformationVariationalAutoencoderConfig, InformationVariationalAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")

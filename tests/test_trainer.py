@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 
+from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
 from autoencoders import (
     AETrainer,
     AdversarialAutoencoderConfig,
@@ -44,7 +45,6 @@ from autoencoders import (
     VectorQuantizedAutoencoderModel,
     WassersteinAutoencoderConfig,
     WassersteinAutoencoderModel,
-    build_mlp_backbone_kwargs_from_model_config,
 )
 from autoencoders.data import DatasetLoaders, EmbeddingMatrix, EmbeddingTensorDataset
 

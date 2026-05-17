@@ -3,51 +3,45 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import torch
 
 from ..data.base import DatasetLoaders
+from ..function import resolve_device, set_seed
 from .display import TrainerDisplay, TrainerDisplayConfig
 
-
-def resolve_device(device_name: str) -> torch.device:
-    """Resolve a user-facing device string into a torch device."""
-
-    if device_name == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
-    return torch.device(device_name)
-
-
-def set_seed(seed: int) -> None:
-    """Set the global torch seed used by training."""
-
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-@dataclass
-class TrainingArguments:
+class TrainingConfig:
     """High-level settings for autoencoder training runs."""
 
-    output_dir: str = "artifacts/train-autoencoder"
-    epochs: int = 5
-    patience: int | None = None
-    learning_rate: float = 1e-3
-    batch_size: int = 256
-    device: str = "auto"
-    seed: int = 42
-    show_only_best_epochs: bool = True
-    advice: bool = False
+    def __init__(
+        self,
+        output_dir: str = "artifacts/train-autoencoder",
+        epochs: int = 5,
+        patience: int | None = None,
+        learning_rate: float = 1e-3,
+        batch_size: int = 256,
+        device: str = "auto",
+        seed: int = 42,
+        show_only_best_epochs: bool = True,
+        advice: bool = False,
+        **kwargs,
+    ) -> None:
+        self.output_dir = output_dir
+        self.epochs = epochs
+        self.patience = patience
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.device = device
+        self.seed = seed
+        self.show_only_best_epochs = show_only_best_epochs
+        self.advice = advice
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        self._validate()
 
-    def __post_init__(self) -> None:
+    def _validate(self) -> None:
         if self.epochs < 0:
             raise ValueError("epochs must be greater than or equal to 0.")
         if self.patience is not None and self.patience <= 0:
@@ -55,17 +49,27 @@ class TrainingArguments:
         if self.epochs == 0 and self.patience is None:
             raise ValueError("patience must be provided when epochs is set to 0.")
 
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self.__dict__)
 
-@dataclass
-class AdversarialAutoencoderTrainingArguments(TrainingArguments):
+
+class AdversarialAutoencoderTrainingConfig(TrainingConfig):
     """Training settings specific to adversarial autoencoders."""
 
-    discriminator_learning_rate: float | None = None
-    generator_learning_rate: float | None = None
-    discriminator_steps: int = 1
+    def __init__(
+        self,
+        discriminator_learning_rate: float | None = None,
+        generator_learning_rate: float | None = None,
+        discriminator_steps: int = 1,
+        **kwargs,
+    ) -> None:
+        self.discriminator_learning_rate = discriminator_learning_rate
+        self.generator_learning_rate = generator_learning_rate
+        self.discriminator_steps = discriminator_steps
+        super().__init__(**kwargs)
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
+    def _validate(self) -> None:
+        super()._validate()
         if self.discriminator_learning_rate is not None and self.discriminator_learning_rate <= 0:
             raise ValueError("discriminator_learning_rate must be greater than 0 when provided.")
         if self.generator_learning_rate is not None and self.generator_learning_rate <= 0:
@@ -74,19 +78,30 @@ class AdversarialAutoencoderTrainingArguments(TrainingArguments):
             raise ValueError("discriminator_steps must be greater than 0.")
 
 
-@dataclass
-class FactorVariationalAutoencoderTrainingArguments(TrainingArguments):
+class FactorVariationalAutoencoderTrainingConfig(TrainingConfig):
     """Training settings specific to FactorVAE models."""
 
-    discriminator_learning_rate: float | None = None
-    discriminator_steps: int = 1
+    def __init__(
+        self,
+        discriminator_learning_rate: float | None = None,
+        discriminator_steps: int = 1,
+        **kwargs,
+    ) -> None:
+        self.discriminator_learning_rate = discriminator_learning_rate
+        self.discriminator_steps = discriminator_steps
+        super().__init__(**kwargs)
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
+    def _validate(self) -> None:
+        super()._validate()
         if self.discriminator_learning_rate is not None and self.discriminator_learning_rate <= 0:
             raise ValueError("discriminator_learning_rate must be greater than 0 when provided.")
         if self.discriminator_steps <= 0:
             raise ValueError("discriminator_steps must be greater than 0.")
+
+
+TrainingArguments = TrainingConfig
+AdversarialAutoencoderTrainingArguments = AdversarialAutoencoderTrainingConfig
+FactorVariationalAutoencoderTrainingArguments = FactorVariationalAutoencoderTrainingConfig
 
 
 class AETrainer:
@@ -95,7 +110,7 @@ class AETrainer:
     def __init__(
         self,
         model,
-        args: TrainingArguments,
+        args: TrainingConfig,
         optimizer: torch.optim.Optimizer | None = None,
         display: TrainerDisplayConfig | TrainerDisplay | None = None,
     ) -> None:
@@ -201,7 +216,7 @@ class AETrainer:
             "final_test_metrics": test_metrics,
             "history": history,
             "stopped_early": stopped_early,
-            "training_args": asdict(self.args),
+            "training_args": self.args.to_dict(),
         }
         metrics["advice"] = self.generate_advice(metrics) if self.args.advice else []
         if metadata:
@@ -412,7 +427,7 @@ class FactorVAETrainer(VAETrainer):
     def __init__(
         self,
         model,
-        args: FactorVariationalAutoencoderTrainingArguments,
+        args: FactorVariationalAutoencoderTrainingConfig,
         optimizer: torch.optim.Optimizer | None = None,
         display: TrainerDisplayConfig | TrainerDisplay | None = None,
     ) -> None:
@@ -428,7 +443,7 @@ class FactorVAETrainer(VAETrainer):
         )
 
     @property
-    def factor_args(self) -> FactorVariationalAutoencoderTrainingArguments:
+    def factor_args(self) -> FactorVariationalAutoencoderTrainingConfig:
         return self.args
 
     def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
@@ -628,7 +643,7 @@ class AdversarialAutoencoderTrainer(AETrainer):
     def __init__(
         self,
         model,
-        args: AdversarialAutoencoderTrainingArguments,
+        args: AdversarialAutoencoderTrainingConfig,
         optimizer: torch.optim.Optimizer | None = None,
         display: TrainerDisplayConfig | TrainerDisplay | None = None,
     ) -> None:
@@ -644,7 +659,7 @@ class AdversarialAutoencoderTrainer(AETrainer):
         )
 
     @property
-    def adversarial_args(self) -> AdversarialAutoencoderTrainingArguments:
+    def adversarial_args(self) -> AdversarialAutoencoderTrainingConfig:
         return self.args
 
     def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:

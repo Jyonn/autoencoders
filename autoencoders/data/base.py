@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import sys
 from typing import Callable
@@ -14,6 +13,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 
 from ..configuration_utils import PretrainedConfig
+from ..function import default_cache_dir, format_num_bytes
 
 
 class DataSpec(ABC):
@@ -103,28 +103,6 @@ class BaseDatasetConfig(PretrainedConfig):
     ) -> None:
         self.max_vectors = max_vectors
         super().__init__(**kwargs)
-
-
-def default_cache_dir() -> Path:
-    """Return the default cache directory for downloadable datasets."""
-
-    cache_dir = os.environ.get("AUTOENCODERS_CACHE")
-    if cache_dir:
-        return Path(cache_dir).expanduser()
-    return Path.home() / ".cache" / "autoencoders"
-
-
-def format_num_bytes(num_bytes: int) -> str:
-    """Format a byte count into a compact human-readable string."""
-
-    value = float(num_bytes)
-    units = ["B", "KB", "MB", "GB", "TB"]
-    for unit in units:
-        if value < 1024.0 or unit == units[-1]:
-            return f"{value:.1f}{unit}"
-        value /= 1024.0
-    return f"{num_bytes}B"
-
 
 class DownloadProgressBar:
     """A small terminal progress bar for dataset downloads."""
@@ -239,6 +217,10 @@ class CachedDataset(ABC):
         self.raw_dir = self.dataset_dir / "raw"
         self.external_dir = self.dataset_dir / "external"
         self.processed_dir = self.dataset_dir / "processed"
+
+    @abstractmethod
+    def get_dataloaders(self, **kwargs) -> DatasetLoaders:
+        pass
 
     @property
     def max_vectors(self) -> int | None:

@@ -11,7 +11,6 @@ from .base import (
     ListSpec,
     TensorSpec,
     create_dataloaders,
-    default_cache_dir,
     split_dataset,
 )
 from .clip import (
@@ -35,6 +34,7 @@ from .loading import get_dataset_class, get_dataset_modules, load_dataset
 from .multinli import MultiNLIDataset, MultiNLIDatasetConfig
 from .numberbatch import ConceptNetNumberbatchDataset, ConceptNetNumberbatchDatasetConfig
 from .snli import SNLIDataset, SNLIDatasetConfig
+from ..function import default_cache_dir, format_num_bytes
 from .text import (
     EncoderBackedTextDataset,
     EncoderBackedTextDatasetConfig,
@@ -79,6 +79,7 @@ __all__ = [
     "TextEmbeddingExample",
     "create_dataloaders",
     "default_cache_dir",
+    "format_num_bytes",
     "get_dataset_class",
     "get_dataset_modules",
     "load_dataset",

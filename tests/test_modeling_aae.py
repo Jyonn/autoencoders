@@ -7,7 +7,8 @@ import unittest
 
 import torch
 
-from autoencoders import build_mlp_backbone_kwargs_from_model_config, AdversarialAutoencoderConfig, AdversarialAutoencoderModel
+from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
+from autoencoders import AdversarialAutoencoderConfig, AdversarialAutoencoderModel
 
 
 class AdversarialAutoencoderModelTest(unittest.TestCase):

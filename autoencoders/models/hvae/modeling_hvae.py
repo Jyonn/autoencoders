@@ -25,11 +25,11 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
             self.bottom_mean_projection = None
             self.bottom_logvar_projection = None
         else:
-            if not isinstance(self.encoder_output_spec, TensorSpec):
+            if not isinstance(self.core_spec, TensorSpec):
                 raise RuntimeError(
                     f"{self.__class__.__name__} requires the encoder to expose a TensorSpec output."
                 )
-            encoder_output_dim = self.encoder_output_spec.shape[-1]
+            encoder_output_dim = self.core_spec.shape[-1]
             if encoder_output_dim is None:
                 raise RuntimeError(
                     f"{self.__class__.__name__} requires the encoder output feature dimension to be concrete."

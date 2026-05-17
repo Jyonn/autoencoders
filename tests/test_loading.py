@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import unittest
 
+from tests._mlp_helpers import build_mlp_backbone_kwargs
 from autoencoders import (
     FastTextEnglishDatasetConfig,
     Flickr30kDatasetConfig,
     GloVeDatasetConfig,
     MultiNLIDatasetConfig,
     SNLIDatasetConfig,
-    build_mlp_backbone_kwargs,
     get_module_modules,
     load_dataset,
     load_model,

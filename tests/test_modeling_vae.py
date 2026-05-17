@@ -14,7 +14,8 @@ if torch is not None:
     from pathlib import Path
     from torch import nn
 
-    from autoencoders import build_mlp_backbone_kwargs_from_model_config, VariationalAutoencoderConfig, VariationalAutoencoderModel
+    from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
+    from autoencoders import VariationalAutoencoderConfig, VariationalAutoencoderModel
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")

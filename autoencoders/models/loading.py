@@ -5,9 +5,12 @@ from __future__ import annotations
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Type
 
 from ..data.base import TensorSpec
+
+if TYPE_CHECKING:
+    from .base.modeling_base import BaseAutoencoderModel
 
 MODELS_ROOT = Path(__file__).resolve().parent
 
@@ -27,7 +30,7 @@ def get_model_modules() -> dict[str, str]:
     return _discover_model_modules()
 
 
-def get_model_class(name: str):
+def get_model_class(name: str) -> Type["BaseAutoencoderModel"]:
     """Dynamically import and return a named autoencoder model class."""
 
     module_path = get_model_modules().get(name)
@@ -71,5 +74,10 @@ def load_model(name: str, **kwargs: Any):
 
     model_class = get_model_class(name)
     config_class = model_class.config_class
-    config = config_class(**kwargs)
+    config = kwargs.pop("config", None)
+    if config is None:
+        config = config_class(**kwargs)
+    elif kwargs:
+        unknown = ", ".join(sorted(kwargs))
+        raise TypeError(f"load_model() received both `config` and extra keyword arguments: {unknown}")
     return model_class(config=config, **init_kwargs)

@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable
 
 from torch import nn
 
 from ..data.base import DataSpec, TensorSpec
-from .base import BaseAutoencoderModule, BaseAutoencoderModuleConfig
+from ..function import get_activation_factory
+from .base import (
+    BaseAutoencoderModule,
+    BaseAutoencoderModuleConfig,
+    BaseModuleLayerBuilder,
+    LayerBuilderList,
+    ModuleTraceStep,
+)
 
 __all__ = [
     "MLPModule",
     "MLPModuleConfig",
-    "build_mlp_backbone_kwargs",
-    "build_mlp_backbone_kwargs_from_model_config",
 ]
 
 
@@ -45,199 +49,130 @@ class MLPModuleConfig(BaseAutoencoderModuleConfig):
         super().__init__(**kwargs)
 
 
-@dataclass(frozen=True)
-class _MLPBuilder:
-    in_dim: int
-    out_dim: int
-    first: bool
-    last: bool
-    activation: str
-    use_bias: bool
+class MLPLayerBuilder(BaseModuleLayerBuilder):
+    def __init__(
+            self,
+            in_dim: int,
+            out_dim: int,
+            first: bool,
+            last: bool,
+            activation: Callable[[], nn.Module],
+            use_bias: bool,
+    ) -> None:
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.first = first
+        self.last = last
+        self.activation = activation
+        self.use_bias = use_bias
 
-    def reverse(self) -> "_MLPBuilder":
-        return _MLPBuilder(
-            in_dim=self.out_dim,
-            out_dim=self.in_dim,
-            first=self.last,
-            last=self.first,
-            activation=self.activation,
+    def reverse(self):
+        self.in_dim, self.out_dim = self.out_dim, self.in_dim
+        self.first, self.last = self.last, self.first
+
+    def build(self) -> nn.Module:
+        return MLPLayer(
+            in_dim=self.in_dim,
+            out_dim=self.out_dim,
+            activation=None if self.last else self.activation(),
             use_bias=self.use_bias,
         )
 
-    def build(self) -> list[nn.Module]:
-        layers: list[nn.Module] = [nn.Linear(self.in_dim, self.out_dim, bias=self.use_bias)]
-        if not self.last:
-            layers.append(_get_activation_factory(self.activation)())
-        return layers
+    def infer_output_spec(self, input_spec: DataSpec) -> DataSpec:
+        if not isinstance(input_spec, TensorSpec):
+            raise ValueError(f"{self.__class__.__name__} expects TensorSpec inputs.")
+        return TensorSpec(shape=(*input_spec.shape[:-1], self.out_dim))
 
-
-@dataclass(frozen=True)
-class _MLPBuilderList:
-    builders: tuple[_MLPBuilder, ...]
-
-    @classmethod
-    def from_dims(
-        cls,
-        dims: list[int],
-        *,
-        activation: str,
-        use_bias: bool,
-    ) -> "_MLPBuilderList":
-        builders = tuple(
-            _MLPBuilder(
-                in_dim=in_dim,
-                out_dim=out_dim,
-                first=index == 0,
-                last=index == len(dims) - 2,
-                activation=activation,
-                use_bias=use_bias,
+    def get_trace_steps(self, input_spec: DataSpec) -> list[ModuleTraceStep]:
+        linear_output_spec = self.infer_output_spec(input_spec)
+        steps = [
+            ModuleTraceStep(
+                name=f"linear({self.in_dim}->{self.out_dim})",
+                input_spec=input_spec,
+                output_spec=linear_output_spec,
             )
-            for index, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]))
-        )
-        return cls(builders)
-
-    def reverse(self) -> "_MLPBuilderList":
-        return _MLPBuilderList(tuple(builder.reverse() for builder in reversed(self.builders)))
-
-    def build(self) -> nn.Sequential:
-        if not self.builders:
-            return nn.Sequential(nn.Identity())
-        layers: list[nn.Module] = []
-        for builder in self.builders:
-            layers.extend(builder.build())
-        return nn.Sequential(*layers)
-
-    @property
-    def output_dim(self) -> int | None:
-        if not self.builders:
-            return None
-        return self.builders[-1].out_dim
+        ]
+        if not self.last:
+            steps.append(
+                ModuleTraceStep(
+                    name=f"activation({self.activation().__class__.__name__})",
+                    input_spec=linear_output_spec,
+                    output_spec=linear_output_spec,
+                )
+            )
+        return steps
 
 
-def _get_activation_factory(activation: str) -> Callable[[], nn.Module]:
-    activations: dict[str, Callable[[], nn.Module]] = {
-        "relu": nn.ReLU,
-        "gelu": nn.GELU,
-        "silu": nn.SiLU,
-        "tanh": nn.Tanh,
-    }
-    return activations[activation]
+class MLPLayer(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        activation: nn.Module | None,
+        use_bias: bool,
+    ) -> None:
+        super().__init__()
+        self.linear = nn.Linear(in_dim, out_dim, bias=use_bias)
+        self.activation = activation
 
+    def forward(self, inputs):  # type: ignore[override]
+        outputs = self.linear(inputs)
+        if self.activation is not None:
+            outputs = self.activation(outputs)
+        return outputs
 
 class MLPModule(BaseAutoencoderModule):
     """Reusable feed-forward backbone for vector inputs."""
 
     config_class = MLPModuleConfig
     config: MLPModuleConfig
-    builder_list: _MLPBuilderList
+    input_spec: TensorSpec
+    output_spec: TensorSpec
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        reference_input_dim = self._resolve_reference_input_dim()
-        dims = [reference_input_dim, *self.config.hidden_dims]
-        self.builder_list = _MLPBuilderList.from_dims(
-            dims,
-            activation=self.config.activation,
-            use_bias=self.config.use_bias,
-        )
+
+        self._require_tensor_spec()
+        dims = [self._resolve_input_dim(), *self.config.hidden_dims]
+        self.output_spec = TensorSpec(shape=(*self.input_spec.shape[:-1], dims[-1]))
+
+        self.builder_list = self._construct_builder_list(dims)
         if self.reverse:
-            self.builder_list = self.builder_list.reverse()
+            self.builder_list.reverse()
+            self.input_spec, self.output_spec = self.output_spec, self.input_spec
         self.network = self.builder_list.build()
 
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
-    def infer_input_spec(self) -> TensorSpec:
-        spec = self._require_tensor_spec(self.reference_input_spec)
-        if not self.reverse:
-            return spec
-        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_forward_output_feature_dim(spec)))
+    def get_trace(self) -> list[ModuleTraceStep]:
+        return self.builder_list.get_trace(self.input_spec)
 
-    def infer_output_spec(self) -> TensorSpec:
-        spec = self.input_spec
-        self._require_tensor_spec(spec)
-        reference_spec = self._require_tensor_spec(self.reference_input_spec)
-        if self.reverse:
-            return TensorSpec(shape=reference_spec.shape)
-        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim()))
+    def _construct_builder_list(self, dims):
+        builders = [
+            MLPLayerBuilder(
+                in_dim=in_dim,
+                out_dim=out_dim,
+                first=index == 0,
+                last=index == len(dims) - 2,
+                activation=get_activation_factory(self.config.activation),
+                use_bias=self.config.use_bias,
+            )
+            for index, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:]))
+        ]
+        return LayerBuilderList(builders)
 
-    def _require_tensor_spec(self, spec: DataSpec) -> TensorSpec:
-        if not isinstance(spec, TensorSpec):
+    def _require_tensor_spec(self):
+        if not isinstance(self.input_spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
-        if not spec.shape:
+        if not self.input_spec.shape:
             raise ValueError(f"{self.__class__.__name__} requires at least one feature dimension.")
-        if spec.shape[-1] is None:
+        if self.input_spec.shape[-1] is None:
             raise ValueError(
                 f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
             )
-        return spec
-
-    def _resolve_reference_input_dim(self) -> int:
-        spec = self._require_tensor_spec(self.reference_input_spec)
-        feature_dim = spec.shape[-1]
-        assert feature_dim is not None
-        return int(feature_dim)
 
     def _resolve_input_dim(self) -> int:
-        spec = self._require_tensor_spec(self.input_spec)
-        feature_dim = spec.shape[-1]
+        feature_dim = self.input_spec.shape[-1]
         assert feature_dim is not None
         return int(feature_dim)
-
-    def _resolve_forward_output_feature_dim(self, spec: TensorSpec) -> int:
-        if self.config.hidden_dims:
-            return self.config.hidden_dims[-1]
-        feature_dim = spec.shape[-1]
-        assert feature_dim is not None
-        return int(feature_dim)
-
-    def _resolve_output_feature_dim(self) -> int:
-        if hasattr(self, "builder_list") and self.builder_list.output_dim is not None:
-            return self.builder_list.output_dim
-        if self.config.hidden_dims:
-            if self.reverse:
-                return self.config.hidden_dims[0]
-            return self.config.hidden_dims[-1]
-        return self._resolve_input_dim()
-
-
-def build_mlp_backbone_kwargs(
-    hidden_dims: list[int],
-    activation: str = "relu",
-    use_bias: bool = True,
-    decoder_hidden_dims: list[int] | None = None,
-) -> dict[str, object]:
-    encoder_config = {
-        "hidden_dims": list(hidden_dims),
-        "activation": activation,
-        "use_bias": use_bias,
-    }
-    effective_decoder_hidden_dims = (
-        list(reversed(hidden_dims))
-        if decoder_hidden_dims is None
-        else list(decoder_hidden_dims)
-    )
-    decoder_config = {
-        "hidden_dims": effective_decoder_hidden_dims,
-        "activation": activation,
-        "use_bias": use_bias,
-    }
-    return {
-        "encoder": "mlp",
-        "decoder": "mlp",
-        "encoder_config": encoder_config,
-        "decoder_config": decoder_config,
-    }
-
-
-def build_mlp_backbone_kwargs_from_model_config(config) -> dict[str, object]:
-    return build_mlp_backbone_kwargs(
-        hidden_dims=list(config.hidden_dims),
-        activation=getattr(config, "activation", "relu"),
-        use_bias=getattr(config, "use_bias", True),
-        decoder_hidden_dims=(
-            None
-            if getattr(config, "decoder_hidden_dims", None) is None
-            else list(config.decoder_hidden_dims)
-        ),
-    )

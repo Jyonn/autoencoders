@@ -7,7 +7,8 @@ import unittest
 
 import torch
 
-from autoencoders import build_mlp_backbone_kwargs_from_model_config, ContractiveAutoencoderConfig, ContractiveAutoencoderModel
+from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
+from autoencoders import ContractiveAutoencoderConfig, ContractiveAutoencoderModel
 
 
 class ContractiveAutoencoderModelTest(unittest.TestCase):

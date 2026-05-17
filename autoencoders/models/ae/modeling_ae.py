@@ -13,3 +13,6 @@ class AutoencoderModel(BaseAutoencoderModel):
 
     config_class = AutoencoderConfig
     config: AutoencoderConfig
+
+    def core_forward(self, latents: torch.Tensor) -> torch.Tensor:
+        return latents

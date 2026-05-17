@@ -7,8 +7,6 @@ from .modules import (
     BaseAutoencoderModuleConfig,
     MLPModule,
     MLPModuleConfig,
-    build_mlp_backbone_kwargs,
-    build_mlp_backbone_kwargs_from_model_config,
     get_module_class,
     get_module_modules,
 )
@@ -76,8 +74,6 @@ __all__ = [
     "BaseAutoencoderConfig",
     "BaseAutoencoderModule",
     "BaseAutoencoderModuleConfig",
-    "build_mlp_backbone_kwargs",
-    "build_mlp_backbone_kwargs_from_model_config",
     "BaseVariationalAutoencoderConfig",
     "BaseVectorQuantizedAutoencoderConfig",
     "BetaVariationalAutoencoderConfig",
@@ -131,6 +127,7 @@ __all__ = [
 ]
 
 try:
+    from .function import default_cache_dir, format_num_bytes, get_activation_factory, resolve_device, set_seed
     from .models.aae.modeling_aae import AdversarialAutoencoderModel
     from .modeling_utils import PreTrainedAutoencoderModel
     from .data import (
@@ -196,16 +193,17 @@ try:
     from .training import (
         AETrainer,
         AdversarialAutoencoderTrainer,
+        AdversarialAutoencoderTrainingConfig,
         AdversarialAutoencoderTrainingArguments,
         FactorVAETrainer,
+        FactorVariationalAutoencoderTrainingConfig,
         FactorVariationalAutoencoderTrainingArguments,
         TrainerDisplay,
         TrainerDisplayConfig,
+        TrainingConfig,
         TrainingArguments,
         VAETrainer,
         VQTrainer,
-        resolve_device,
-        set_seed,
     )
 except ModuleNotFoundError as exc:
     if exc.name != "torch":
@@ -216,6 +214,7 @@ else:
             "AETrainer",
             "AdversarialAutoencoderModel",
             "AdversarialAutoencoderTrainer",
+            "AdversarialAutoencoderTrainingConfig",
             "AdversarialAutoencoderTrainingArguments",
             "AutoencoderModel",
             "AutoencoderDataset",
@@ -243,6 +242,7 @@ else:
             "EncoderBackedTextDatasetConfig",
             "FactorVAETrainer",
             "FactorVariationalAutoencoderModel",
+            "FactorVariationalAutoencoderTrainingConfig",
             "FactorVariationalAutoencoderTrainingArguments",
             "FastTextEnglishDataset",
             "FastTextEnglishDatasetConfig",
@@ -252,6 +252,9 @@ else:
             "GloVeDataset",
             "GloVeDatasetConfig",
             "GumbelQuantizedAutoencoderModel",
+            "default_cache_dir",
+            "format_num_bytes",
+            "get_activation_factory",
             "HierarchicalVectorQuantizedAutoencoderModel",
             "HierarchicalVariationalAutoencoderModel",
             "InformationVariationalAutoencoderModel",
@@ -268,6 +271,7 @@ else:
             "TopKSparseAutoencoderModel",
             "TrainerDisplay",
             "TrainerDisplayConfig",
+            "TrainingConfig",
             "TrainingArguments",
             "VAETrainer",
             "VampPriorVariationalAutoencoderModel",

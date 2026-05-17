@@ -6,23 +6,24 @@ import argparse
 import importlib.util
 import io
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 import torch
+import yaml
 
+from tests._mlp_helpers import build_mlp_backbone_kwargs
 from autoencoders import (
     VariationalAutoencoderConfig,
     VariationalAutoencoderModel,
     VectorQuantizedAutoencoderConfig,
     VectorQuantizedAutoencoderModel,
-    build_mlp_backbone_kwargs,
 )
 from autoencoders.data import TensorSpec
 from autoencoders.data.base import DatasetLoaders
-
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[1] / "examples"
 TRAIN_COMMON_PATH = EXAMPLES_DIR / "_train_common.py"
@@ -37,8 +38,83 @@ train_cli = importlib.util.module_from_spec(CLI_SPEC)
 assert CLI_SPEC.loader is not None
 CLI_SPEC.loader.exec_module(train_cli)
 
+TRAIN_AE_PATH = EXAMPLES_DIR / "train_ae.py"
+TRAIN_AE_SPEC = importlib.util.spec_from_file_location("train_ae", TRAIN_AE_PATH)
+train_ae = importlib.util.module_from_spec(TRAIN_AE_SPEC)
+assert TRAIN_AE_SPEC.loader is not None
+TRAIN_AE_SPEC.loader.exec_module(train_ae)
+
 
 class TrainCommonTest(unittest.TestCase):
+    def test_train_ae_parse_args_supports_yaml_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "train_ae.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "dataset": {"name": "glove", "dim": 50, "max_vectors": 128},
+                        "model": {"name": "ae", "latent_dim": 8, "reconstruction_loss": "mse"},
+                        "encoder": {
+                            "name": "mlp",
+                            "hidden_dims": [32, 16],
+                            "activation": "gelu",
+                            "use_bias": True,
+                        },
+                        "decoder": {
+                            "name": "mlp",
+                            "hidden_dims": [16, 32, 50],
+                            "activation": "gelu",
+                            "use_bias": True,
+                        },
+                        "trainer": {
+                            "output_dir": "artifacts/test-yaml-ae",
+                            "epochs": 1,
+                            "batch_size": 64,
+                            "learning_rate": 5e-4,
+                            "device": "cpu",
+                            "validation_ratio": 0.2,
+                            "test_ratio": 0.1,
+                            "seed": 7,
+                            "show_only_best_epochs": False,
+                            "advice": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            argv = ["train_ae.py", "--config", str(config_path)]
+            with patch.object(sys, "argv", argv):
+                args = train_ae.parse_args()
+
+        self.assertEqual(args.dataset, "glove")
+        self.assertEqual(args.model, "ae")
+        self.assertEqual(args.encoder, "mlp")
+        self.assertEqual(args.decoder, "mlp")
+        self.assertEqual(args.output_dir, "artifacts/test-yaml-ae")
+        self.assertEqual(args.batch_size, 64)
+        self.assertEqual(args.model_config["latent_dim"], 8)
+        self.assertEqual(args.encoder_config["hidden_dims"], [32, 16])
+        self.assertEqual(args.decoder_config["hidden_dims"], [16, 32, 50])
+        self.assertEqual(args.dataset_config.max_vectors, 128)
+
+    def test_train_ae_build_model_supports_explicit_decoder_from_yaml_flow(self) -> None:
+        args = argparse.Namespace(
+            model="ae",
+            encoder="mlp",
+            decoder="mlp",
+            model_config={"latent_dim": 4, "reconstruction_loss": "mse"},
+            encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
+            decoder_config={"hidden_dims": [8, 12, 16], "activation": "relu", "use_bias": True},
+            trainer_config={},
+        )
+
+        model = train_ae.build_model(args, TensorSpec(shape=(16,)))
+        inputs = torch.randn(2, 16)
+        outputs = model(inputs)
+
+        self.assertEqual(tuple(outputs.reconstruction.shape), (2, 16))
+
     def test_parse_config_arguments_supports_dotted_model_and_encoder_options(self) -> None:
         parser = argparse.ArgumentParser()
         parser.add_argument("--model", choices=["ae"], default="ae")

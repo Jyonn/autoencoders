@@ -15,7 +15,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
 if torch is not None:
     from torch import nn
 
-    from autoencoders import build_mlp_backbone_kwargs_from_model_config, AutoencoderConfig, AutoencoderModel
+    from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
+    from autoencoders import AutoencoderConfig, AutoencoderModel
     from autoencoders.data import DictSpec, TensorSpec
     from autoencoders.modules import MLPModule, MLPModuleConfig
 
@@ -179,6 +180,55 @@ class AutoencoderModelTest(unittest.TestCase):
                 config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
                 input_spec=DictSpec(elements={"inputs": TensorSpec(shape=(16,))}),
             )
+
+    def test_mlp_module_trace_reports_linear_and_activation_shapes(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
+            input_spec=TensorSpec(shape=(16,)),
+        )
+
+        trace = module.get_trace()
+
+        self.assertEqual([step.name for step in trace], [
+            "linear(16->12)",
+            "activation(ReLU)",
+            "linear(12->8)",
+        ])
+        self.assertEqual(trace[0].input_spec, TensorSpec(shape=(16,)))
+        self.assertEqual(trace[0].output_spec, TensorSpec(shape=(12,)))
+        self.assertEqual(trace[1].input_spec, TensorSpec(shape=(12,)))
+        self.assertEqual(trace[1].output_spec, TensorSpec(shape=(12,)))
+        self.assertEqual(trace[2].input_spec, TensorSpec(shape=(12,)))
+        self.assertEqual(trace[2].output_spec, TensorSpec(shape=(8,)))
+
+    def test_autoencoder_pipeline_trace_reports_backbone_and_projection_shapes(self) -> None:
+        model = AutoencoderModel(
+            config=self.config,
+            encoder="mlp",
+            encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
+        )
+
+        trace = model.get_pipeline_trace()
+
+        self.assertEqual(
+            [step.name for step in trace],
+            [
+                "sample",
+                "encoder[mlp]",
+                "encoder_to_core_projection",
+                "core",
+                "core_to_decoder_projection",
+                "decoder[mlp]",
+            ],
+        )
+        self.assertEqual(trace[0].output_spec, TensorSpec(shape=(16,)))
+        self.assertEqual(trace[1].output_spec, TensorSpec(shape=(8,)))
+        self.assertEqual(trace[2].output_spec, TensorSpec(shape=(4,)))
+        self.assertEqual(trace[3].output_spec, TensorSpec(shape=(4,)))
+        self.assertEqual(trace[4].output_spec, TensorSpec(shape=(8,)))
+        self.assertEqual(trace[5].output_spec, TensorSpec(shape=(16,)))
+        self.assertIsNotNone(trace[1].children)
+        self.assertIsNotNone(trace[5].children)
 
 
 if __name__ == "__main__":

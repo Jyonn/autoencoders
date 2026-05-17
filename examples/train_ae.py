@@ -1,125 +1,198 @@
-"""Train deterministic autoencoder-family models on a named dataset."""
+"""Train deterministic autoencoder-family models from a YAML configuration."""
 
 from __future__ import annotations
 
-import argparse
+from pathlib import Path
+import sys
+from typing import Any
 
-from _cli import parse_config_arguments
-from _train_common import (
-    add_backbone_args,
-    add_dataset_args,
-    add_training_args,
-    build_training_arguments,
-    prepare_training,
-    print_training_overview,
-    validate_model_input_compatibility,
-)
-from autoencoders import (
-    AETrainer,
-    AdversarialAutoencoderTrainer,
-    AdversarialAutoencoderTrainingArguments,
-    load_model,
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from autoencoders.function import set_seed
+from autoencoders.data.base import DataSpec
+from autoencoders.data.loading import get_dataset_class, load_dataset
+from autoencoders.models.loading import get_model_class
+from autoencoders.training.display import style
+from autoencoders.training.trainer import AETrainer, TrainingConfig
+from examples.utils.config_init import ConfigInit
 
 
-MODEL_CHOICES = ["ae", "dae", "cae", "sae", "topksae", "klsae", "wae", "aae"]
-COMMON_MODEL_DEFAULTS = {
-    "latent_dim": 16,
-    "reconstruction_loss": "mse",
-}
-MODEL_DEFAULTS = {
-    "dae": {
-        "noise_type": "gaussian",
-        "noise_std": 0.1,
-        "masking_ratio": 0.3,
-        "apply_noise_in_eval": False,
-    },
-    "cae": {"contractive_weight": 1e-2},
-    "sae": {"sparsity_weight": 1e-3},
-    "topksae": {"topk": 4},
-    "klsae": {"sparsity_weight": 1e-3, "target_activation": 0.05},
-    "wae": {"mmd_weight": 10.0, "mmd_bandwidths": [0.1, 0.2, 0.5, 1.0, 2.0]},
-    "aae": {"adversarial_weight": 1.0, "discriminator_hidden_dims": [128, 64]},
-}
-DEFAULT_TRAINER_CONFIG = {
-    "generator_learning_rate": None,
-    "discriminator_learning_rate": None,
-    "discriminator_steps": 1,
-}
-DEFAULT_ENCODER_CONFIG = {
-    "hidden_dims": [64, 32],
-    "activation": "relu",
-    "use_bias": True,
-}
+def _mapping_or_empty(value) -> dict[str, Any]:
+    if not value:
+        return {}
+    return value()
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    add_dataset_args(parser)
-    add_training_args(parser)
-    add_backbone_args(parser, default_encoder="mlp")
-    parser.add_argument("--model", default="ae", choices=MODEL_CHOICES, help="Model name.")
-    parser.epilog = (
-        "Backbone and model options use dotted syntax. "
-        "Examples: --model.latent_dim 16 --encoder mlp --encoder.hidden_dims \"[128, 64]\" "
-        "--trainer.discriminator_steps 2 "
-        "--dataset.encoder sentence-transformers/all-MiniLM-L6-v2"
-    )
-    args = parse_config_arguments(
-        parser,
-        default_trainer_config=DEFAULT_TRAINER_CONFIG,
-        default_model_config={**COMMON_MODEL_DEFAULTS, **MODEL_DEFAULTS.get("ae", {})},
-        default_encoder="mlp",
-        default_encoder_config=DEFAULT_ENCODER_CONFIG,
-    )
-    args.resolved_configs.model_config = {
-        **COMMON_MODEL_DEFAULTS,
-        **MODEL_DEFAULTS.get(args.model, {}),
-        **args.resolved_configs.model_config,
+def _build_effective_config(configurations) -> dict[str, Any]:
+    return {
+        "dataset": {
+            "name": configurations.dataset.name,
+            "config": _mapping_or_empty(configurations.dataset.config),
+        },
+        "model": {
+            "name": configurations.model.name,
+            "config": _mapping_or_empty(configurations.model.config),
+        },
+        "encoder": {
+            "name": configurations.encoder.name or None,
+            "config": _mapping_or_empty(configurations.encoder.config),
+        },
+        "decoder": (
+            {
+                "name": configurations.decoder.name or None,
+                "config": _mapping_or_empty(configurations.decoder.config),
+            }
+            if configurations.decoder
+            else None
+        ),
+        "trainer": _mapping_or_empty(configurations.trainer),
     }
-    return args
 
 
-def build_model(args: argparse.Namespace, sample_spec):
-    resolved = args.resolved_configs
-    model_kwargs = {
-        "sample_spec": sample_spec,
-        **resolved.model_config,
-        "encoder": args.encoder,
-        "encoder_config": resolved.encoder_config,
-    }
-    if args.decoder is not None:
-        model_kwargs.update(
-            decoder=args.decoder,
-            decoder_config=resolved.decoder_config,
+_LEVEL_COLORS = ("cyan", "magenta", "blue", "green")
+
+
+def _render_scalar(value: Any) -> str:
+    if value is None:
+        return style("null", fg="yellow", dim=True)
+    if isinstance(value, bool):
+        return style("true" if value else "false", fg="yellow", bold=True)
+    if isinstance(value, (int, float)):
+        return style(str(value), fg="green", bold=True)
+    return style(str(value), fg="white")
+
+
+def _render_config_lines(value: Any, *, depth: int = 0) -> list[str]:
+    indent = "  " * depth
+    key_color = _LEVEL_COLORS[depth % len(_LEVEL_COLORS)]
+    lines: list[str] = []
+
+    if isinstance(value, dict):
+        for key, child in value.items():
+            rendered_key = style(str(key), fg=key_color, bold=True)
+            if isinstance(child, dict):
+                if not child:
+                    lines.append(f"{indent}{rendered_key}: {style('{}', fg='white', dim=True)}")
+                else:
+                    lines.append(f"{indent}{rendered_key}:")
+                    lines.extend(_render_config_lines(child, depth=depth + 1))
+            elif isinstance(child, list):
+                if not child:
+                    lines.append(f"{indent}{rendered_key}: {style('[]', fg='white', dim=True)}")
+                else:
+                    lines.append(f"{indent}{rendered_key}:")
+                    lines.extend(_render_config_lines(child, depth=depth + 1))
+            else:
+                lines.append(f"{indent}{rendered_key}: {_render_scalar(child)}")
+        return lines
+
+    if isinstance(value, list):
+        dash = style("-", fg=key_color, bold=True)
+        for child in value:
+            if isinstance(child, (dict, list)):
+                lines.append(f"{indent}{dash}")
+                lines.extend(_render_config_lines(child, depth=depth + 1))
+            else:
+                lines.append(f"{indent}{dash} {_render_scalar(child)}")
+        return lines
+
+    return [f"{indent}{_render_scalar(value)}"]
+
+
+def _print_effective_config(configurations) -> None:
+    print()
+    print(style(" Effective Config ", fg="white", bg="blue", bold=True))
+    for line in _render_config_lines(_build_effective_config(configurations)):
+        print(line)
+    print(style(" End Config ", fg="black", bg="yellow", bold=True))
+    print()
+
+
+def _format_spec(spec: DataSpec) -> str:
+    return style(str(spec), fg="green")
+
+
+def _print_pipeline_trace(model) -> None:
+    if not hasattr(model, "get_pipeline_trace"):
+        return
+
+    print(style(" Shape Trace ", fg="white", bg="magenta", bold=True))
+    pipeline = model.get_pipeline_trace()
+    if not pipeline:
+        print(style("  <empty>", fg="yellow", dim=True))
+        print(style(" End Trace ", fg="black", bg="yellow", bold=True))
+        print()
+        return
+
+    first_step = pipeline[0]
+    print(
+        f"{style(first_step.name, fg='cyan', bold=True)} "
+        f"{style(':', fg='magenta', dim=True)} "
+        f"{_format_spec(first_step.output_spec)}"
+    )
+
+    for step in pipeline[1:]:
+        header = (
+            f"{style(step.name, fg='cyan', bold=True)} "
+            f"{style('->', fg='magenta', dim=True)} "
+            f"{_format_spec(step.output_spec)}"
         )
-    return load_model(args.model, **model_kwargs)
-
-
-def build_trainer(args: argparse.Namespace, model):
-    if args.model == "aae":
-        trainer_config = args.resolved_configs.trainer_config
-        return AdversarialAutoencoderTrainer(
-            model=model,
-            args=AdversarialAutoencoderTrainingArguments(
-                discriminator_learning_rate=trainer_config["discriminator_learning_rate"],
-                generator_learning_rate=trainer_config["generator_learning_rate"],
-                discriminator_steps=trainer_config["discriminator_steps"],
-                **build_training_arguments(args).__dict__,
-            ),
-        )
-    return AETrainer(model=model, args=build_training_arguments(args))
+        print(header)
+        for child in step.children or []:
+            child_line = (
+                f"  {style('↳', fg='yellow', bold=True)} "
+                f"{style(child.name, fg='blue')} "
+                f"{style('->', fg='magenta', dim=True)} "
+                f"{_format_spec(child.output_spec)}"
+            )
+            print(child_line)
+    print(style(" End Trace ", fg="black", bg="yellow", bold=True))
+    print()
 
 
 def main() -> None:
-    args = parse_args()
-    dataset, dataloaders = prepare_training(args)
+    configurations = ConfigInit(
+        required_args=['config'],
+        default_args=[],
+        makedirs=[]
+    ).parse().config
+
+    _print_effective_config(configurations)
+
+    set_seed(configurations.trainer.seed)
+    dataset_class = get_dataset_class(configurations.dataset.name)
+    dataset = load_dataset(
+        configurations.dataset.name,
+        config=dataset_class.config_class(**_mapping_or_empty(configurations.dataset.config)),
+    )
+
+    dataloaders = dataset.get_dataloaders(
+        batch_size=configurations.trainer.batch_size,
+        validation_ratio=configurations.trainer.validation_ratio,
+        test_ratio=configurations.trainer.test_ratio,
+        seed=configurations.trainer.seed,
+    )
+
     sample_spec = dataset.get_sample_spec()
-    model = build_model(args, sample_spec)
-    print_training_overview(args, model, sample_spec=sample_spec)
-    validate_model_input_compatibility(args, model, dataloaders)
-    trainer = build_trainer(args, model)
-    trainer.fit(dataloaders, metadata={"dataset": args.dataset, "model": args.model})
+
+    model_class = get_model_class(configurations.model.name)
+    model_config = model_class.config_class(**configurations.model.config())
+    model = model_class(
+        config=model_config,
+        sample_spec=sample_spec,
+        encoder=configurations.encoder.name or None,
+        encoder_config=configurations.encoder.config() if configurations.encoder.config else None,
+        decoder=configurations.decoder.name or None,
+        decoder_config=configurations.decoder.config() if configurations.decoder.config else None,
+    )
+    _print_pipeline_trace(model)
+
+    trainer = AETrainer(
+        model=model,
+        args=TrainingConfig(**configurations.trainer()),
+    )
+    trainer.fit(dataloaders, metadata={"dataset": configurations.dataset.name, "model": configurations.model.name})
 
 
 if __name__ == "__main__":
