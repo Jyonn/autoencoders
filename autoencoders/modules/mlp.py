@@ -6,7 +6,7 @@ from typing import Callable
 
 from torch import nn
 
-from ..data.base import DataSpec, TensorSpec
+from ..data.base import TensorSpec
 from .base import BaseAutoencoderModule, BaseAutoencoderModuleConfig
 
 __all__ = [
@@ -52,7 +52,7 @@ class MLPModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        input_dim = self._resolve_input_dim(self.input_spec)
+        input_dim = self._resolve_input_dim()
         hidden_dims = self._get_effective_hidden_dims()
         dims = [input_dim, *hidden_dims]
         self.network = self._build_mlp(dims)
@@ -60,7 +60,8 @@ class MLPModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
-    def infer_output_spec(self, spec: DataSpec) -> DataSpec:
+    def infer_output_spec(self) -> DataSpec:
+        spec = self.input_spec
         if not isinstance(spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
         if not spec.shape:
@@ -69,19 +70,20 @@ class MLPModule(BaseAutoencoderModule):
             raise ValueError(
                 f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
             )
-        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim(spec)))
+        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim()))
 
-    def _resolve_input_dim(self, spec: DataSpec) -> int:
+    def _resolve_input_dim(self) -> int:
+        spec = self.input_spec
         assert isinstance(spec, TensorSpec)
         feature_dim = spec.shape[-1]
         assert feature_dim is not None
         return int(feature_dim)
 
-    def _resolve_output_feature_dim(self, spec: DataSpec) -> int:
+    def _resolve_output_feature_dim(self) -> int:
         hidden_dims = self._get_effective_hidden_dims()
         if hidden_dims:
             return hidden_dims[-1]
-        return self._resolve_input_dim(spec)
+        return self._resolve_input_dim()
 
     def _get_effective_hidden_dims(self) -> list[int]:
         return (
