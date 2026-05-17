@@ -41,3 +41,6 @@ class BaseAutoencoderModule(nn.Module, ABC):
     @abstractmethod
     def infer_output_spec(self) -> DataSpec:
         """Validate an input spec and infer the structural output spec produced by this module."""
+
+    def build_reversed(self, input_spec: DataSpec) -> "BaseAutoencoderModule":
+        return self.__class__(config=self.config, input_spec=input_spec, reverse=True)

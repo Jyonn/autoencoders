@@ -262,11 +262,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 f"When `{name}=None`, the encoder must be a built-in or custom `{BaseAutoencoderModule.__name__}`."
             )
 
-        derived_module = encoder_module.__class__(
-            config=encoder_module.config,
-            input_spec=input_spec,
-            reverse=True,
-        )
+        derived_module = encoder_module.build_reversed(input_spec)
         if encoder_module_type in {None, "external"}:
             return derived_module, None, None, True
         return derived_module, encoder_module_type, encoder_module_config, True

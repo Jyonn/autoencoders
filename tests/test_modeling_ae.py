@@ -160,6 +160,18 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(module.output_spec, TensorSpec(shape=(8,)))
         self.assertEqual(tuple(outputs.shape), (2, 8))
 
+    def test_mlp_module_build_reversed_restores_original_output_dim(self) -> None:
+        encoder = MLPModule(
+            config=MLPModuleConfig(hidden_dims=[12, 8], activation="relu", use_bias=True),
+            input_spec=TensorSpec(shape=(16,)),
+        )
+
+        decoder = encoder.build_reversed(TensorSpec(shape=(8,)))
+        outputs = decoder(torch.randn(2, 8))
+
+        self.assertEqual(decoder.output_spec, TensorSpec(shape=(16,)))
+        self.assertEqual(tuple(outputs.shape), (2, 16))
+
     def test_mlp_module_rejects_non_tensor_specs_during_init(self) -> None:
         with self.assertRaisesRegex(ValueError, "expects a TensorSpec input"):
             MLPModule(
