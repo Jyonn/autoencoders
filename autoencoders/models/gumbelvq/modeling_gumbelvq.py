@@ -28,7 +28,8 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self._reset_codebook()
 
-    def validate_core_spec(self, core_spec) -> None:
+    def validate_core_spec(self) -> None:
+        core_spec = self.core_spec
         if not isinstance(core_spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} requires the core space to expose a TensorSpec.")
         if len(core_spec.shape) < 2:

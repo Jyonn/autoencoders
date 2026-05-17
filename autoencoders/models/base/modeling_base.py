@@ -99,7 +99,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             self.core_spec = self._build_projection_output_spec(self.core_spec, self.config.latent_dim)
 
         if self.core_spec is not None:
-            self.validate_core_spec(self.core_spec)
+            self.validate_core_spec()
 
         self.decoder = None
         self.decoder_config = None
@@ -217,8 +217,8 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
 
-    def validate_core_spec(self, core_spec: DataSpec) -> None:
-        del core_spec
+    def validate_core_spec(self) -> None:
+        pass
 
     def get_epoch_metrics(
         self,
