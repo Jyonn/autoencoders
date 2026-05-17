@@ -18,11 +18,11 @@ class VariationalAutoencoderModel(BaseVariationalAutoencoderModel):
 
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
-        if self.encoder is None or not isinstance(self.core_spec, TensorSpec):
+        if self.encoder is None or not isinstance(self.encoder_output_spec, TensorSpec):
             self.mean_projection = None
             self.logvar_projection = None
         else:
-            encoder_output_dim = self.core_spec.shape[-1]
+            encoder_output_dim = self.encoder_output_spec.shape[-1]
             if encoder_output_dim is None:
                 self.mean_projection = None
                 self.logvar_projection = None

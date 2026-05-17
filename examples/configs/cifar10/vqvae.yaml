@@ -22,8 +22,6 @@ encoder:
     activation: relu
     use_bias: true
 
-decoder: null
-
 trainer:
   output_dir: artifacts/cifar10/vqvae
   validation_ratio: 0.1

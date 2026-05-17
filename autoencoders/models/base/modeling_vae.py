@@ -111,7 +111,6 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         global_step: int | None = None,
         current_epoch: int | None = None,
     ) -> VariationalAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        self.validate_inputs(inputs)
         posterior_mean, posterior_logvar = self.encode(inputs)
         latents = self.sample_latents(
             posterior_mean=posterior_mean,

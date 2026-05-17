@@ -13,6 +13,7 @@ except ModuleNotFoundError:  # pragma: no cover
 if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import GumbelQuantizedAutoencoderConfig, GumbelQuantizedAutoencoderModel
+    from autoencoders.data import TensorSpec
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -34,9 +35,12 @@ class GumbelQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(artifact.extras["codebook"].shape), (32, 4))
 
     def test_gumbel_vq_requires_multi_vector_inputs(self) -> None:
-        model = GumbelQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
-        with self.assertRaisesRegex(ValueError, "rank >= 3"):
-            model(inputs=torch.randn(4, 16))
+        with self.assertRaisesRegex(ValueError, "rank >= 2"):
+            GumbelQuantizedAutoencoderModel(
+                config=self.config,
+                sample_spec=TensorSpec(shape=(16,)),
+                **build_mlp_backbone_kwargs_from_model_config(self.config),
+            )
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = GumbelQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))

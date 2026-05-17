@@ -13,6 +13,7 @@ except ModuleNotFoundError:  # pragma: no cover
 if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import HierarchicalVectorQuantizedAutoencoderConfig, HierarchicalVectorQuantizedAutoencoderModel
+    from autoencoders.data import TensorSpec
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -42,9 +43,12 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(artifact.extras["bottom_codebook"].shape), (16, 4))
 
     def test_vqvae2_requires_multi_vector_inputs(self) -> None:
-        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
-        with self.assertRaisesRegex(ValueError, "rank >= 3"):
-            model(inputs=torch.randn(4, 16))
+        with self.assertRaisesRegex(ValueError, "rank >= 2"):
+            HierarchicalVectorQuantizedAutoencoderModel(
+                config=self.config,
+                sample_spec=TensorSpec(shape=(16,)),
+                **build_mlp_backbone_kwargs_from_model_config(self.config),
+            )
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
         model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))

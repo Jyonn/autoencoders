@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...data.base import TensorSpec
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae import VectorQuantizedAutoencoderConfig
 
@@ -15,7 +16,18 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
 
     config_class = VectorQuantizedAutoencoderConfig
     config: VectorQuantizedAutoencoderConfig
-    min_input_rank = 3
+
+    def validate_core_spec(self, core_spec) -> None:
+        if not isinstance(core_spec, TensorSpec):
+            raise ValueError(f"{self.__class__.__name__} requires the core space to expose a TensorSpec.")
+        if len(core_spec.shape) < 2:
+            raise ValueError(
+                f"{self.__class__.__name__} requires the core TensorSpec to have rank >= 2, got {core_spec.shape}."
+            )
+        if core_spec.shape[-1] is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires a concrete final feature dimension in the core TensorSpec."
+            )
 
     def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
         if codebook_indices.ndim in {2, 3}:
@@ -23,6 +35,9 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         return super().iter_codebook_index_sets(codebook_indices)
 
     def __init__(self, **kwargs: object) -> None:
+        config = kwargs.get("config")
+        if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
+            kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
         super().__init__(**kwargs)
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self.codebook.weight.requires_grad_(not self.config.use_ema_codebook)

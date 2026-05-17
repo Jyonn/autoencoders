@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass
 import warnings
 import torch
@@ -32,7 +32,6 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     config_class = BaseAutoencoderConfig
     config: BaseAutoencoderConfig
     requires_grad_in_eval = False
-    min_input_rank = 2
 
     encoder: BaseAutoencoderModule | None
     decoder: BaseAutoencoderModule | None
@@ -88,7 +87,8 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 stacklevel=3,
             )
 
-        self.core_spec = self.encoder.output_spec if isinstance(self.encoder, BaseAutoencoderModule) else None
+        self.encoder_output_spec = self.encoder.output_spec if isinstance(self.encoder, BaseAutoencoderModule) else None
+        self.core_spec = self.encoder_output_spec
         self.encoder_to_core_projection = None
         self.core_to_decoder_projection = None
         if self.config.latent_dim is not None and self.core_spec is not None:
@@ -96,6 +96,10 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             assert self.core_spec.shape[-1] is not None
             self.encoder_to_core_projection = self._build_projection(self.core_spec.shape[-1], self.config.latent_dim)
             self.core_to_decoder_projection = self._build_projection(self.config.latent_dim, self.core_spec.shape[-1])
+            self.core_spec = self._build_projection_output_spec(self.core_spec, self.config.latent_dim)
+
+        if self.core_spec is not None:
+            self.validate_core_spec(self.core_spec)
 
         self.decoder = None
         self.decoder_config = None
@@ -113,7 +117,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             )
             self.decoder = decoder_class(
                 config=self.decoder_config,
-                input_spec=self.encoder.output_spec if isinstance(self.encoder, BaseAutoencoderModule) else self.sample_spec,
+                input_spec=self.get_decoder_input_spec(),
             )
             self._decoder_module_type = decoder
             self._decoder_module_config = self.decoder_config
@@ -204,16 +208,17 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         """Decode latent representations back into feature space."""
         return self._require_backbone_module(self.decoder, "decoder")(latents)
 
+    def get_decoder_input_spec(self) -> DataSpec:
+        if self.encoder_output_spec is not None:
+            return self.encoder_output_spec
+        return self.sample_spec
+
     def reconstruct(self, inputs: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(inputs=inputs, return_dict=True)
         return outputs.reconstruction
 
-    def validate_inputs(self, inputs: torch.Tensor) -> None:
-        if inputs.ndim < self.min_input_rank:
-            raise ValueError(
-                f"{self.__class__.__name__} expects inputs with rank >= {self.min_input_rank}, "
-                f"but received shape {tuple(inputs.shape)}."
-            )
+    def validate_core_spec(self, core_spec: DataSpec) -> None:
+        del core_spec
 
     def get_epoch_metrics(
         self,
@@ -253,10 +258,6 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             return F.l1_loss(reconstruction, targets)
         raise ValueError(f"Unsupported reconstruction loss: {self.config.reconstruction_loss}")
 
-    @abstractmethod
-    def core_forward(self, latents: torch.Tensor) -> torch.Tensor:
-        pass
-
     def get_core_trace(self, input_spec: DataSpec) -> list[PipelineTraceStep]:
         return [PipelineTraceStep(name="core", input_spec=input_spec, output_spec=input_spec)]
 
@@ -293,10 +294,10 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         if core_trace:
             current_spec = core_trace[-1].output_spec
 
-        if self.core_to_decoder_projection is not None and self.core_spec is not None:
-            assert isinstance(self.core_spec, TensorSpec)
-            assert self.core_spec.shape[-1] is not None
-            projected_spec = self._build_projection_output_spec(current_spec, self.core_spec.shape[-1])
+        if self.core_to_decoder_projection is not None and self.encoder_output_spec is not None:
+            assert isinstance(self.encoder_output_spec, TensorSpec)
+            assert self.encoder_output_spec.shape[-1] is not None
+            projected_spec = self._build_projection_output_spec(current_spec, self.encoder_output_spec.shape[-1])
             trace.append(
                 PipelineTraceStep(
                     name="core_to_decoder_projection",
@@ -325,10 +326,9 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         return_dict: bool | None = None,
         **kwargs: object,
     ) -> BaseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
         core_inputs = self.project_to_core(encoded)
-        latents = self.core_forward(core_inputs)
+        latents = core_inputs
         decoder_inputs = self.project_from_core(latents)
         reconstruction = self.decode(decoder_inputs)
 

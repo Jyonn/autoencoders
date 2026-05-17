@@ -29,7 +29,7 @@ class TopKSparseAutoencoderModel(AutoencoderModel):
     ) -> TopKSparseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         core_inputs = self.project_to_core(encoded)
-        latents = self.apply_topk(self.core_forward(core_inputs))
+        latents = self.apply_topk(core_inputs)
         reconstruction = self.decode(self.project_from_core(latents))
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)

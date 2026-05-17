@@ -17,9 +17,11 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
 
     config_class = HierarchicalVectorQuantizedAutoencoderConfig
     config: HierarchicalVectorQuantizedAutoencoderConfig
-    min_input_rank = 3
 
     def __init__(self, **kwargs: object) -> None:
+        config = kwargs.get("config")
+        if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
+            kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
         super().__init__(**kwargs)
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)
@@ -33,6 +35,18 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
             torch.zeros(2, self.config.codebook_size, max(self.config.top_latent_dim, self.config.latent_dim)),
         )
         self._reset_codebooks()
+
+    def validate_core_spec(self, core_spec) -> None:
+        if not isinstance(core_spec, TensorSpec):
+            raise ValueError(f"{self.__class__.__name__} requires the core space to expose a TensorSpec.")
+        if len(core_spec.shape) < 2:
+            raise ValueError(
+                f"{self.__class__.__name__} requires the core TensorSpec to have rank >= 2, got {core_spec.shape}."
+            )
+        if core_spec.shape[-1] is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires a concrete final feature dimension in the core TensorSpec."
+            )
 
     def _reset_codebooks(self) -> None:
         for codebook in (self.top_codebook, self.bottom_codebook):
@@ -142,6 +156,17 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         extras["bottom_codebook"] = self.bottom_codebook.weight.detach().clone()
         return extras
 
+    def get_decoder_input_dim(self) -> int:
+        return int(self.config.top_latent_dim + self.config.latent_dim)
+
+    def get_decoder_input_spec(self):
+        if not isinstance(self.core_spec, TensorSpec):
+            return super().get_decoder_input_spec()
+        return TensorSpec(shape=(*self.core_spec.shape[:-1], self.get_decoder_input_dim()))
+
+    def get_latent_output_spec(self):
+        return TensorSpec(shape=(self.get_decoder_input_dim(),))
+
     def forward(
         self,
         inputs: torch.Tensor,
@@ -149,14 +174,18 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         is_last_train_step: bool | None = None,
         **kwargs: object,
     ) -> HierarchicalQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
-        top_encoded = self.top_encoder(encoded)
+        core_inputs = self.project_to_core(encoded)
+        top_encoded = self.top_encoder(core_inputs)
         top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook)
-        bottom_context = encoded + self.top_decoder(top_quantized)
+        bottom_context = core_inputs + self.top_decoder(top_quantized)
         bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook)
         codebook_indices = torch.stack([top_indices, bottom_indices], dim=-1)
-        self._maybe_reset_dead_codes(encoded=encoded, codebook_indices=codebook_indices, is_last_train_step=is_last_train_step)
+        self._maybe_reset_dead_codes(
+            encoded=core_inputs,
+            codebook_indices=codebook_indices,
+            is_last_train_step=is_last_train_step,
+        )
         top_latents = top_encoded + (top_quantized - top_encoded).detach()
         bottom_latents = bottom_context + (bottom_quantized - bottom_context).detach()
         latents = torch.cat([top_latents, bottom_latents], dim=-1)
@@ -164,11 +193,11 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         top_commitment_loss, bottom_commitment_loss = self.compute_commitment_loss_components(
-            encoded, top_quantized, top_encoded, bottom_quantized, bottom_context
+            core_inputs, top_quantized, top_encoded, bottom_quantized, bottom_context
         )
         commitment_loss = top_commitment_loss + bottom_commitment_loss
         if self.training and self.config.use_ema_codebook:
-            self.on_quantizer_training_step(encoded.detach(), codebook_indices.detach())
+            self.on_quantizer_training_step(core_inputs.detach(), codebook_indices.detach())
             top_codebook_loss = torch.zeros_like(commitment_loss)
             bottom_codebook_loss = torch.zeros_like(commitment_loss)
             codebook_loss = torch.zeros_like(commitment_loss)
@@ -210,8 +239,3 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
                 "bottom_codebook_loss": bottom_codebook_loss,
             },
         )
-    def get_decoder_input_dim(self) -> int:
-        return int(self.config.top_latent_dim + self.config.latent_dim)
-
-    def get_latent_output_spec(self):
-        return TensorSpec(shape=(self.get_decoder_input_dim(),))

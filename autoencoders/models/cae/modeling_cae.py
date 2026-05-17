@@ -43,7 +43,7 @@ class ContractiveAutoencoderModel(AutoencoderModel):
 
         encoded = self.encode(encoder_inputs)
         core_inputs = self.project_to_core(encoded)
-        latents = self.core_forward(core_inputs)
+        latents = core_inputs
         reconstruction = self.decode(self.project_from_core(latents))
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)

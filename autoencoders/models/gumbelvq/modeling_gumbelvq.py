@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...data.base import TensorSpec
 from ...modeling_outputs import GumbelQuantizedAutoencoderOutput
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_gumbelvq import GumbelQuantizedAutoencoderConfig
@@ -18,17 +19,31 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
 
     config_class = GumbelQuantizedAutoencoderConfig
     config: GumbelQuantizedAutoencoderConfig
-    min_input_rank = 3
+
+    def __init__(self, **kwargs: object) -> None:
+        config = kwargs.get("config")
+        if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
+            kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
+        super().__init__(**kwargs)
+        self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
+        self._reset_codebook()
+
+    def validate_core_spec(self, core_spec) -> None:
+        if not isinstance(core_spec, TensorSpec):
+            raise ValueError(f"{self.__class__.__name__} requires the core space to expose a TensorSpec.")
+        if len(core_spec.shape) < 2:
+            raise ValueError(
+                f"{self.__class__.__name__} requires the core TensorSpec to have rank >= 2, got {core_spec.shape}."
+            )
+        if core_spec.shape[-1] is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires a concrete final feature dimension in the core TensorSpec."
+            )
 
     def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
         if codebook_indices.ndim == 2:
             return [codebook_indices.reshape(-1)]
         return super().iter_codebook_index_sets(codebook_indices)
-
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(**kwargs)
-        self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
-        self._reset_codebook()
 
     def _reset_codebook(self) -> None:
         nn.init.uniform_(
@@ -103,7 +118,7 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             is_last_train_step=is_last_train_step,
             **kwargs,
         )
-        assignment_entropy = self.compute_assignment_entropy(outputs.encoded)
+        assignment_entropy = self.compute_assignment_entropy(self.project_to_core(outputs.encoded))
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
         if not use_return_dict:
             return outputs.loss, outputs.reconstruction, outputs.latents

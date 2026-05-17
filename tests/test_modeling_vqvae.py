@@ -140,9 +140,12 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             model(inputs=self.inputs)
 
     def test_vector_vq_requires_multi_vector_inputs(self) -> None:
-        model = VectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
-        with self.assertRaisesRegex(ValueError, "rank >= 3"):
-            model(inputs=torch.randn(4, 16))
+        with self.assertRaisesRegex(ValueError, "rank >= 2"):
+            VectorQuantizedAutoencoderModel(
+                config=self.config,
+                sample_spec=TensorSpec(shape=(16,)),
+                **build_mlp_backbone_kwargs_from_model_config(self.config),
+            )
 
     def test_dead_code_reset_count_is_recorded_on_last_train_step(self) -> None:
         config = VectorQuantizedAutoencoderConfig(

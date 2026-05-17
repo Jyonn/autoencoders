@@ -135,7 +135,6 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         is_last_train_step: bool | None = None,
         **kwargs: object,
     ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
-        self.validate_inputs(inputs)
         encoded = self.encode(inputs)
         core_inputs = self.project_to_core(encoded)
         quantized_latents, codebook_indices = self.quantize(core_inputs)
