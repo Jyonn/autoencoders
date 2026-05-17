@@ -35,8 +35,9 @@ class KLSparseAutoencoderModel(AutoencoderModel):
         **kwargs: object,
     ) -> KLSparseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
-        latents = self.latent_transform(encoded)
-        reconstruction = self.decode(latents)
+        core_inputs = self.project_to_core(encoded)
+        latents = self.core_forward(core_inputs)
+        reconstruction = self.decode(self.project_from_core(latents))
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         kl_sparsity_loss = self.compute_kl_sparsity_loss(latents)

@@ -55,7 +55,7 @@ from autoencoders.models.vqvae.modeling_vqvae import VectorQuantizedAutoencoderM
 
 class LoadingHelpersTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.mlp_backbone_kwargs = build_mlp_backbone_kwargs([8])
+        self.mlp_backbone_kwargs = build_mlp_backbone_kwargs([8], input_dim=16)
 
     def test_load_dataset_returns_glove(self) -> None:
         dataset = load_dataset("glove", dim=50, max_vectors=32)

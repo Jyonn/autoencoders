@@ -5,10 +5,11 @@ dataset:
     max_vectors: 5000
 
 model:
-  name: ae
+  name: cae
   config:
     latent_dim: 16
     reconstruction_loss: mse
+    contractive_weight: 0.01
 
 encoder:
   name: mlp
@@ -20,12 +21,12 @@ encoder:
 decoder:
   name: mlp
   config:
-    hidden_dims: [ 64, 50 ]
+    hidden_dims: [64, 50]
     activation: relu
     use_bias: true
 
 trainer:
-  output_dir: artifacts/glove/ae
+  output_dir: artifacts/glove/cae
   validation_ratio: 0.1
   test_ratio: 0.1
   seed: 42

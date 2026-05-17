@@ -50,8 +50,9 @@ class DenoisingAutoencoderModel(AutoencoderModel):
             model_inputs = inputs
 
         encoded = self.encode(model_inputs)
-        latents = self.latent_transform(encoded)
-        reconstruction = self.decode(latents)
+        core_inputs = self.project_to_core(encoded)
+        latents = self.core_forward(core_inputs)
+        reconstruction = self.decode(self.project_from_core(latents))
 
         loss = self.compute_loss(reconstruction, inputs)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict

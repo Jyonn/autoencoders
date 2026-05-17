@@ -5,10 +5,12 @@ dataset:
     max_vectors: 5000
 
 model:
-  name: ae
+  name: aae
   config:
     latent_dim: 16
     reconstruction_loss: mse
+    adversarial_weight: 1.0
+    discriminator_hidden_dims: [64, 32]
 
 encoder:
   name: mlp
@@ -20,18 +22,21 @@ encoder:
 decoder:
   name: mlp
   config:
-    hidden_dims: [ 64, 50 ]
+    hidden_dims: [64, 50]
     activation: relu
     use_bias: true
 
 trainer:
-  output_dir: artifacts/glove/ae
+  output_dir: artifacts/glove/aae
   validation_ratio: 0.1
   test_ratio: 0.1
   seed: 42
   epochs: ${epoch}$
   batch_size: 128
   learning_rate: 0.001
+  discriminator_learning_rate: 0.001
+  generator_learning_rate: 0.001
+  discriminator_steps: 1
   device: auto
   show_only_best_epochs: true
   advice: false

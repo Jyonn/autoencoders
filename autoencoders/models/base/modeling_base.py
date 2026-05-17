@@ -82,6 +82,11 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         elif isinstance(encoder, nn.Module):
             self.encoder = encoder
             self._encoder_module_type = "external"
+        else:
+            warnings.warn(
+                f"{self.__class__.__name__} was initialized without an explicit encoder backbone.",
+                stacklevel=3,
+            )
 
         self.core_spec = self.encoder.output_spec if isinstance(self.encoder, BaseAutoencoderModule) else None
         self.encoder_to_core_projection = None
@@ -182,6 +187,18 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     def encode(self, inputs: torch.Tensor) -> torch.Tensor:
         """Encode inputs into latent representations."""
         return self._require_backbone_module(self.encoder, "encoder")(inputs)
+
+    def project_to_core(self, encoded: torch.Tensor) -> torch.Tensor:
+        """Project encoder outputs into the core latent space when configured."""
+        if self.encoder_to_core_projection is None:
+            return encoded
+        return self.encoder_to_core_projection(encoded)
+
+    def project_from_core(self, latents: torch.Tensor) -> torch.Tensor:
+        """Project core latents into decoder inputs when configured."""
+        if self.core_to_decoder_projection is None:
+            return latents
+        return self.core_to_decoder_projection(latents)
 
     def decode(self, latents: torch.Tensor) -> torch.Tensor:
         """Decode latent representations back into feature space."""
@@ -310,13 +327,10 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     ) -> BaseAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         self.validate_inputs(inputs)
         encoded = self.encode(inputs)
-        latents = encoded
-        if self.encoder_to_core_projection is not None:
-            latents = self.encoder_to_core_projection(encoded)
-        latents = self.core_forward(latents)
-        if self.core_to_decoder_projection is not None:
-            latents = self.core_to_decoder_projection(latents)
-        reconstruction = self.decode(latents)
+        core_inputs = self.project_to_core(encoded)
+        latents = self.core_forward(core_inputs)
+        decoder_inputs = self.project_from_core(latents)
+        reconstruction = self.decode(decoder_inputs)
 
         loss = self.compute_loss(reconstruction, inputs)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict

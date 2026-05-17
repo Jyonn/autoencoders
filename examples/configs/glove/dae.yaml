@@ -5,10 +5,14 @@ dataset:
     max_vectors: 5000
 
 model:
-  name: ae
+  name: dae
   config:
     latent_dim: 16
     reconstruction_loss: mse
+    noise_type: gaussian
+    noise_std: 0.1
+    masking_ratio: 0.3
+    apply_noise_in_eval: false
 
 encoder:
   name: mlp
@@ -20,12 +24,12 @@ encoder:
 decoder:
   name: mlp
   config:
-    hidden_dims: [ 64, 50 ]
+    hidden_dims: [64, 50]
     activation: relu
     use_bias: true
 
 trainer:
-  output_dir: artifacts/glove/ae
+  output_dir: artifacts/glove/dae
   validation_ratio: 0.1
   test_ratio: 0.1
   seed: 42

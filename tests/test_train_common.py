@@ -246,7 +246,7 @@ class TrainCommonTest(unittest.TestCase):
         )
         model = VariationalAutoencoderModel(
             config=config,
-            **build_mlp_backbone_kwargs([16, 8]),
+            **build_mlp_backbone_kwargs([16, 8], input_dim=50),
         )
 
         buffer = io.StringIO()
@@ -307,7 +307,7 @@ class TrainCommonTest(unittest.TestCase):
         )
         model = VectorQuantizedAutoencoderModel(
             config=config,
-            **build_mlp_backbone_kwargs([16, 8]),
+            **build_mlp_backbone_kwargs([16, 8], input_dim=50),
         )
 
         buffer = io.StringIO()
@@ -376,7 +376,7 @@ class TrainCommonTest(unittest.TestCase):
             latent_dim=8,
             codebook_size=64,
         )
-        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs([16, 8]))
+        model = VectorQuantizedAutoencoderModel(config=config, **build_mlp_backbone_kwargs([16, 8], input_dim=50))
         single_vector_batch = torch.randn(6, 50)
         dataloader = torch.utils.data.DataLoader(single_vector_batch, batch_size=2)
         loaders = DatasetLoaders(train=dataloader, validation=dataloader, test=dataloader)

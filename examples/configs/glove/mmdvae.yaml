@@ -5,10 +5,17 @@ dataset:
     max_vectors: 5000
 
 model:
-  name: ae
+  name: mmdvae
   config:
     latent_dim: 16
     reconstruction_loss: mse
+    kl_weight: 0.0
+    free_bits: 0.02
+    kl_warmup_epochs: 0
+    kl_start_weight: 0.0
+    use_mean_in_eval: true
+    mmd_weight: 10.0
+    mmd_bandwidths: [0.1, 0.2, 0.5, 1.0, 2.0, 5.0]
 
 encoder:
   name: mlp
@@ -20,12 +27,12 @@ encoder:
 decoder:
   name: mlp
   config:
-    hidden_dims: [ 64, 50 ]
+    hidden_dims: [64, 50]
     activation: relu
     use_bias: true
 
 trainer:
-  output_dir: artifacts/glove/ae
+  output_dir: artifacts/glove/mmdvae
   validation_ratio: 0.1
   test_ratio: 0.1
   seed: 42

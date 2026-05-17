@@ -42,12 +42,13 @@ class ContractiveAutoencoderModel(AutoencoderModel):
             encoder_inputs = inputs
 
         encoded = self.encode(encoder_inputs)
-        latents = self.latent_transform(encoded)
-        reconstruction = self.decode(latents)
+        core_inputs = self.project_to_core(encoded)
+        latents = self.core_forward(core_inputs)
+        reconstruction = self.decode(self.project_from_core(latents))
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
         if torch.is_grad_enabled():
-            contractive_loss = self.compute_contractive_loss(encoded, encoder_inputs)
+            contractive_loss = self.compute_contractive_loss(latents, encoder_inputs)
         else:
             contractive_loss = torch.zeros_like(reconstruction_loss)
         loss = reconstruction_loss + self.config.contractive_weight * contractive_loss

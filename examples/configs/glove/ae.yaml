@@ -20,7 +20,7 @@ encoder:
 decoder:
   name: mlp
   config:
-    hidden_dims: [ 64, 50 ]
+    hidden_dims: [64, 50]
     activation: relu
     use_bias: true
 
