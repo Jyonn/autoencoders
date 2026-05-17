@@ -52,12 +52,14 @@ _VQ_MODEL_NAMES = {
 
 
 def _mapping_or_empty(value) -> dict[str, Any]:
+    """Collapse an optional ConfigInit node into a plain mapping."""
     if not value:
         return {}
     return value()
 
 
 def _build_effective_config(configurations) -> dict[str, Any]:
+    """Render the normalized YAML structure we actually train with."""
     return {
         "dataset": {
             "name": configurations.dataset.name,
@@ -182,6 +184,7 @@ def _print_pipeline_trace(model) -> None:
 
 
 def select_trainer_components(model_name: str):
+    """Map a model family name onto its trainer and trainer config types."""
     if model_name == "factorvae":
         return FactorVAETrainer, FactorVariationalAutoencoderTrainingConfig
     if model_name == "aae":
@@ -194,6 +197,7 @@ def select_trainer_components(model_name: str):
 
 
 def build_model(configurations, sample_spec: DataSpec):
+    """Build one model instance from the current YAML sections and dataset spec."""
     model_class = get_model_class(configurations.model.name)
     decoder_name = configurations.decoder.name if configurations.decoder else None
     decoder_config = configurations.decoder.config() if configurations.decoder and configurations.decoder.config else None
@@ -209,6 +213,7 @@ def build_model(configurations, sample_spec: DataSpec):
 
 
 def build_trainer(configurations, model):
+    """Build the trainer that matches the selected model family."""
     trainer_class, trainer_config_class = select_trainer_components(configurations.model.name)
     trainer_args = trainer_config_class(**configurations.trainer())
     return trainer_class(model=model, args=trainer_args)
@@ -230,6 +235,8 @@ def main() -> None:
         config=dataset_class.config_class(**_mapping_or_empty(configurations.dataset.config)),
     )
 
+    # The dataset owns the canonical sample spec. Models derive their backbone
+    # structure and trace output from it rather than from hand-passed dimensions.
     dataloaders = dataset.get_dataloaders(
         batch_size=configurations.trainer.batch_size,
         validation_ratio=configurations.trainer.validation_ratio,

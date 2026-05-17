@@ -272,6 +272,8 @@ class CNNModule(BaseAutoencoderModule):
         super().__init__(**kwargs)
         self._require_image_spec()
 
+        # Build the forward plan once from the reference HWC sample spec, then
+        # reverse the same plan in-place when the module is reused as a decoder.
         builders = self._construct_forward_builders()
         self.output_spec = builders.builders[-1].layer_spec.output_spec
         self.builder_list = builders
@@ -284,6 +286,8 @@ class CNNModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         if inputs.ndim != 4:
             raise ValueError(f"{self.__class__.__name__} expects batched image tensors with rank 4, got {tuple(inputs.shape)}.")
+        # Public specs stay HWC because they are easier to reason about beside
+        # dataset specs, while the actual convolution stack still runs in NCHW.
         nchw_inputs = inputs.movedim(-1, 1).contiguous()
         nchw_outputs = self.network(nchw_inputs)
         return nchw_outputs.movedim(1, -1).contiguous()

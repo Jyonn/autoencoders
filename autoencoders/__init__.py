@@ -1,5 +1,7 @@
 """Top-level package for the autoencoders library."""
 
+__version__ = "0.2.0"
+
 from .models.aae.configuration_aae import AdversarialAutoencoderConfig
 from .configuration_utils import PretrainedConfig
 from .modules import (
@@ -67,6 +69,7 @@ from .models.wae.configuration_wae import WassersteinAutoencoderConfig
 from .models.vqvae.configuration_vqvae import VectorQuantizedAutoencoderConfig
 
 __all__ = [
+    "__version__",
     "AdversarialAutoencoderConfig",
     "AdversarialAutoencoderOutput",
     "AutoencoderConfig",

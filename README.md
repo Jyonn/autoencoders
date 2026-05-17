@@ -7,8 +7,8 @@
 <p>
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/framework-PyTorch-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch" />
-  <img src="https://img.shields.io/badge/model_families-16%2B-111827" alt="16+ model families" />
-  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch%20%7C%20snli%20%7C%20multinli%20%7C%20flickr30k-0F766E" alt="Datasets" />
+  <img src="https://img.shields.io/badge/model_families-20%2B-111827" alt="20+ model families" />
+  <img src="https://img.shields.io/badge/datasets-glove%20%7C%20fasttext%20%7C%20numberbatch%20%7C%20snli%20%7C%20multinli%20%7C%20flickr30k%20%7C%20cifar10-0F766E" alt="Datasets" />
   <img src="https://img.shields.io/badge/checkpoints-save__pretrained%20%2F%20from__pretrained-7C3AED" alt="Checkpoint API" />
 </p>
 
@@ -50,8 +50,8 @@ The project goal is simple: make autoencoders feel composable, serializable, and
 Current model families include:
 
 - Deterministic models: `AE`, `DAE`, `CAE`, `SAE`, `TopKSAE`, `KLSAE`, `WAE`, `AAE`
-- Variational models: `VAE`, `DVAE`, `BetaVAE`, `HVAE`
-- Quantized models: `VQVAE`, `FSQ`, `PQVAE`, `RQVAE`
+- Variational models: `VAE`, `DVAE`, `BetaVAE`, `BetaTCVAE`, `DIPVAE`, `InfoVAE`, `MMDVAE`, `FactorVAE`, `VampPriorVAE`, `HVAE`
+- Quantized models: `VQVAE`, `GumbelVQ`, `FSQ`, `RFSQ`, `PQVAE`, `RQVAE`, `VQVAE2`
 
 Core interfaces include:
 
@@ -125,24 +125,22 @@ pip install "autoencoders[dev]"
 
 ## Quick Start
 
-Create a basic autoencoder:
-
-```python
-from autoencoders import AutoencoderConfig, AutoencoderModel
-
-config = AutoencoderConfig(
-    input_dim=50,
-    latent_dim=16,
-    hidden_dims=[128, 64],
-)
-
-model = AutoencoderModel(config)
-```
-
-Run a forward pass:
+Build a basic `AE + MLP` model explicitly from a sample spec:
 
 ```python
 import torch
+
+from autoencoders import AutoencoderConfig, AutoencoderModel
+from autoencoders.data.base import TensorSpec
+
+model = AutoencoderModel(
+    config=AutoencoderConfig(latent_dim=16),
+    sample_spec=TensorSpec(shape=(50,)),
+    encoder="mlp",
+    encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+    decoder="mlp",
+    decoder_config={"hidden_dims": [64, 50], "activation": "relu", "use_bias": True},
+)
 
 inputs = torch.randn(32, 50)
 outputs = model(inputs)
@@ -159,13 +157,17 @@ model.save_pretrained("artifacts/ae")
 restored = AutoencoderModel.from_pretrained("artifacts/ae")
 ```
 
-Export model artifacts for downstream use:
+Inspect the model pipeline and layer-by-layer shape trace:
 
 ```python
-artifact = model.export(inputs)
+for step in model.get_pipeline_trace():
+    print(step.name, "->", step.output_spec)
+```
 
-print(artifact.latents.shape)
-print(artifact.reconstruction.shape)
+Train from YAML:
+
+```bash
+python examples/trainer.py --config examples/configs/glove/ae.yaml --epoch 5
 ```
 
 ## Product Surface
@@ -174,29 +176,32 @@ Use the package at three different layers:
 
 - `Model layer`: build or load latent models with typed configs
 - `Training layer`: train deterministic, variational, or quantized families with dedicated trainers
-- `Experiment layer`: run curated shell scripts with model-specific defaults on real datasets
+- `Experiment layer`: run reusable YAML configs with one trainer entrypoint on real datasets
 
 ## Model Loading
 
-Load a model dynamically by name:
+Load a model dynamically by name while still keeping backbone selection explicit:
 
 ```python
 from autoencoders import load_model
+from autoencoders.data.base import TensorSpec
 
 model = load_model(
     "vae",
-    input_dim=50,
+    sample_spec=TensorSpec(shape=(50,)),
     latent_dim=16,
-    hidden_dims=[128, 64],
     kl_weight=0.1,
     free_bits=0.02,
-    kl_warmup_epochs=20,
+    encoder="mlp",
+    encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+    decoder="mlp",
+    decoder_config={"hidden_dims": [64, 50], "activation": "relu", "use_bias": True},
 )
 ```
 
 ## Datasets
 
-The library currently ships with embedding-first datasets:
+The library currently ships with embedding-first datasets plus one image dataset for CNN-backed experiments:
 
 - `glove`
 - `fasttext`
@@ -204,6 +209,7 @@ The library currently ships with embedding-first datasets:
 - `snli`
 - `multinli`
 - `flickr30k`
+- `cifar10`
 
 Load a dataset directly:
 
@@ -238,6 +244,13 @@ dataset = load_dataset(
 loaders = dataset.get_dataloaders(batch_size=256)
 ```
 
+Image data uses `H x W x C` specs end to end:
+
+```python
+dataset = load_dataset("cifar10", max_examples=10000)
+print(dataset.get_sample_spec())  # TensorSpec(shape=(32, 32, 3))
+```
+
 Downloaded datasets use a global cache:
 
 - default: `~/.cache/autoencoders`
@@ -253,11 +266,11 @@ This makes the package useful both as:
 Deterministic training:
 
 ```python
-from autoencoders import AETrainer, TrainingArguments
+from autoencoders import AETrainer, TrainingConfig
 
 trainer = AETrainer(
     model=model,
-    args=TrainingArguments(
+    args=TrainingConfig(
         output_dir="artifacts/ae-run",
         epochs=5,
         batch_size=256,
@@ -270,66 +283,75 @@ trainer.fit(loaders, metadata={"dataset": "glove", "model": "ae"})
 Variational training:
 
 ```python
-from autoencoders import VAETrainer
+from autoencoders import VAETrainer, VariationalAutoencoderConfig, VariationalAutoencoderModel
+from autoencoders.data.base import TensorSpec
 
 trainer = VAETrainer(
-    model=load_model(
-        "vae",
-        input_dim=50,
-        latent_dim=16,
-        hidden_dims=[128, 64],
-        kl_weight=0.1,
-        free_bits=0.02,
-        kl_warmup_epochs=20,
+    model=VariationalAutoencoderModel(
+        config=VariationalAutoencoderConfig(
+            latent_dim=16,
+            kl_weight=0.1,
+            free_bits=0.02,
+            kl_warmup_epochs=20,
+        ),
+        sample_spec=TensorSpec(shape=(50,)),
+        encoder="mlp",
+        encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+        decoder="mlp",
+        decoder_config={"hidden_dims": [64, 50], "activation": "relu", "use_bias": True},
     ),
-    args=TrainingArguments(output_dir="artifacts/vae-run", epochs=10),
+    args=TrainingConfig(output_dir="artifacts/vae-run", epochs=10),
 )
 ```
 
 Quantized training:
 
 ```python
-from autoencoders import VQTrainer
+from autoencoders import VQTrainer, TrainingConfig, load_model
+from autoencoders.data.base import TensorSpec
 
 trainer = VQTrainer(
     model=load_model(
         "rqvae",
-        input_dim=50,
+        sample_spec=TensorSpec(shape=(None, 50)),
         latent_dim=16,
-        hidden_dims=[128, 64],
         codebook_size=256,
         num_quantizers=4,
         use_ema_codebook=True,
         dead_code_reset=True,
+        encoder="mlp",
+        encoder_config={"hidden_dims": [64, 32], "activation": "relu", "use_bias": True},
+        decoder="mlp",
+        decoder_config={"hidden_dims": [64, 50], "activation": "relu", "use_bias": True},
     ),
-    args=TrainingArguments(output_dir="artifacts/rqvae-run", epochs=10),
+    args=TrainingConfig(output_dir="artifacts/rqvae-run", epochs=10),
 )
 ```
 
-## Training Scripts
+## Training Entry Point
 
-From a source checkout, there are family-specific entrypoints:
+Source checkouts now use one unified YAML-driven entrypoint:
 
-- `examples/train_ae.py`
-- `examples/train_vae.py`
-- `examples/train_vq.py`
+- `examples/trainer.py`
 
-There are also convenience shell wrappers for common dataset/model combinations:
+The legacy `examples/train_ae.py` wrapper still forwards into the same code path for basic AE runs.
 
-- `scripts/train_glove_*.sh`
-- `scripts/train_fasttext_ae.sh`
-- `scripts/train_numberbatch_ae.sh`
-
-Examples:
+Useful examples:
 
 ```bash
-bash scripts/train_glove_ae.sh
-bash scripts/train_glove_vae.sh
-bash scripts/train_glove_rqvae.sh
-bash scripts/train_fasttext_ae.sh
+python examples/trainer.py --config examples/configs/glove/ae.yaml --epoch 5
+python examples/trainer.py --config examples/configs/glove/vae.yaml --epoch 5
+python examples/trainer.py --config examples/configs/glove/vqvae.yaml --epoch 5
+python examples/trainer.py --config examples/configs/cifar10/vqvae.yaml --epoch 5
 ```
 
-Each wrapper includes model-specific defaults and still accepts extra CLI overrides.
+Each config is organized into five sections:
+
+- `dataset`
+- `model`
+- `encoder`
+- `decoder`
+- `trainer`
 
 ## Launch-Ready Features
 
@@ -357,7 +379,7 @@ This keeps the shared API stable without flattening away meaningful model differ
 
 ## Current Scope
 
-`autoencoders` is intentionally embedding-first right now. The current core is aimed at:
+`autoencoders` is intentionally embedding-first, with a growing image path for CNN-backed quantized models. The current core is aimed at:
 
 - representation learning on embedding matrices
 - latent compression

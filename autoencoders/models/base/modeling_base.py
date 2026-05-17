@@ -94,6 +94,9 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         if self.config.latent_dim is not None and self.core_spec is not None:
             assert isinstance(self.core_spec, TensorSpec)
             assert self.core_spec.shape[-1] is not None
+            # The core space is always defined by the model family, not the
+            # backbone. When latent_dim is set, we adapt the backbone output into
+            # that shared space and symmetrically adapt it back for the decoder.
             self.encoder_to_core_projection = self._build_projection(self.core_spec.shape[-1], self.config.latent_dim)
             self.core_to_decoder_projection = self._build_projection(self.config.latent_dim, self.core_spec.shape[-1])
             self.core_spec = self._build_projection_output_spec(self.core_spec, self.config.latent_dim)
@@ -139,6 +142,8 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                     if isinstance(encoder_config, decoder_config_class)
                     else decoder_config_class(**encoder_config)
                 )
+                # Reverse decoding is derived from the encoder reference spec so
+                # the builder can reconstruct the original layer plan exactly.
                 self.decoder = decoder_class(config=self.decoder_config, input_spec=self.sample_spec, reverse=True)
                 self._decoder_module_type = encoder
                 self._decoder_module_config = self.decoder_config

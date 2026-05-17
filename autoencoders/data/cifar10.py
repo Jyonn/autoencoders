@@ -107,6 +107,8 @@ class CIFAR10Dataset(CachedDataset):
         for attempt in range(1, 4):
             for url in self.base_urls:
                 try:
+                    # CIFAR-10 mirrors can terminate gzip streams early, so we
+                    # validate the archive after every attempt and retry cleanly.
                     self.download_to_cache(
                         url=url,
                         destination=self.archive_path,
@@ -205,6 +207,8 @@ class CIFAR10Dataset(CachedDataset):
                 if extracted is None:
                     raise ValueError(f"Failed to extract {member_name} from {self.archive_path}.")
                 batch = pickle.load(extracted, encoding="bytes")
+                # Persist tensors in HWC form so dataset specs and CNN module
+                # specs can share the same shape convention end to end.
                 raw_images = torch.tensor(batch[b"data"], dtype=torch.float32).reshape(-1, 3, 32, 32)
                 images = raw_images.permute(0, 2, 3, 1).contiguous() / 255.0
                 labels = torch.tensor(batch[b"labels"], dtype=torch.long)
