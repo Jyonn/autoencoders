@@ -60,7 +60,7 @@ class MLPModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
-    def infer_output_spec(self) -> DataSpec:
+    def infer_output_spec(self) -> TensorSpec:
         spec = self.input_spec
         if not isinstance(spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
