@@ -13,6 +13,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency gate
 if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import VectorQuantizedAutoencoderConfig, VectorQuantizedAutoencoderModel
+    from autoencoders.data import TensorSpec
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -74,7 +75,7 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
 
         self.assertEqual(artifact.model_type, "vector_quantized_autoencoder")
         self.assertEqual(tuple(artifact.latents.shape), (4, 5, 4))
-        self.assertEqual(tuple(artifact.encoded.shape), (4, 5, 4))
+        self.assertEqual(tuple(artifact.encoded.shape), (4, 5, 8))
         self.assertEqual(tuple(artifact.reconstruction.shape), (4, 5, 16))
         self.assertEqual(tuple(artifact.quantized_latents.shape), (4, 5, 4))
         self.assertEqual(tuple(artifact.codebook_indices.shape), (4, 5))
@@ -159,6 +160,36 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
 
         self.assertGreater(model.consume_dead_code_reset_count(), 0)
         self.assertEqual(model.consume_dead_code_reset_count(), 0)
+
+    def test_forward_supports_cnn_backbone_on_image_inputs(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            latent_dim=64,
+            codebook_size=32,
+            commitment_weight=0.25,
+            codebook_weight=1.0,
+        )
+        model = VectorQuantizedAutoencoderModel(
+            config=config,
+            sample_spec=TensorSpec(shape=(32, 32, 3)),
+            encoder="cnn",
+            encoder_config={
+                "channels": [64, 128],
+                "kernel_sizes": [4, 4],
+                "strides": [2, 2],
+                "paddings": [1, 1],
+                "activation": "relu",
+                "use_bias": True,
+            },
+        )
+        image_inputs = torch.rand(2, 32, 32, 3)
+
+        outputs = model(inputs=image_inputs)
+
+        self.assertEqual(tuple(outputs.reconstruction.shape), (2, 32, 32, 3))
+        self.assertEqual(tuple(outputs.encoded.shape), (2, 8, 8, 128))
+        self.assertEqual(tuple(outputs.latents.shape), (2, 8, 8, 64))
+        self.assertEqual(tuple(outputs.quantized_latents.shape), (2, 8, 8, 64))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (2, 8, 8))
 
 
 if __name__ == "__main__":

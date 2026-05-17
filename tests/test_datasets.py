@@ -6,14 +6,18 @@ import io
 import tempfile
 import unittest
 from unittest import mock
+import pickle
 import zipfile
 import gzip
 import json
 from pathlib import Path
+import tarfile
 
 import torch
 
 from autoencoders.data import (
+    CIFAR10Dataset,
+    CIFAR10DatasetConfig,
     ConceptNetNumberbatchDatasetConfig,
     ConceptNetNumberbatchDataset,
     DictSpec,
@@ -220,6 +224,38 @@ class DatasetUtilitiesTest(unittest.TestCase):
         self.assertEqual(dataset.dim, 50)
         self.assertEqual(dataset.max_vectors, 10)
         self.assertEqual(dataset.get_sample_spec(), TensorSpec(shape=(50,)))
+
+    def test_cifar10_dataset_prepare_and_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": str(root)}, clear=False):
+                dataset = CIFAR10Dataset(config=CIFAR10DatasetConfig(max_examples=2))
+                dataset.raw_dir.mkdir(parents=True, exist_ok=True)
+
+                payload = io.BytesIO()
+                with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+                    batch = {
+                        b"data": [
+                            [0] * 3072,
+                            [255] * 3072,
+                        ],
+                        b"labels": [1, 2],
+                    }
+                    batch_bytes = pickle.dumps(batch, protocol=pickle.HIGHEST_PROTOCOL)
+                    info = tarfile.TarInfo(name="cifar-10-batches-py/data_batch_1")
+                    info.size = len(batch_bytes)
+                    archive.addfile(info, io.BytesIO(batch_bytes))
+                dataset.archive_path.write_bytes(payload.getvalue())
+
+                artifact_dir = dataset.ensure_prepared(download=False)
+                self.assertTrue(artifact_dir.exists())
+
+                images, labels = dataset.load_tensors(download=False)
+                self.assertEqual(tuple(images.shape), (2, 32, 32, 3))
+                self.assertEqual(tuple(labels.shape), (2,))
+                self.assertEqual(dataset.get_sample_spec(), TensorSpec(shape=(32, 32, 3)))
+                self.assertTrue(torch.all(images >= 0.0))
+                self.assertTrue(torch.all(images <= 1.0))
 
     def test_fasttext_dataset_prepare_and_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

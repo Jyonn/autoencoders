@@ -13,6 +13,7 @@ from .base import (
     create_dataloaders,
     split_dataset,
 )
+from .cifar10 import CIFAR10Dataset, CIFAR10DatasetConfig, CIFAR10TensorDataset
 from .clip import (
     CLIPBackedDataset,
     CLIPBackedDatasetConfig,
@@ -47,6 +48,9 @@ __all__ = [
     "AutoencoderDataset",
     "BaseDatasetConfig",
     "CachedDataset",
+    "CIFAR10Dataset",
+    "CIFAR10DatasetConfig",
+    "CIFAR10TensorDataset",
     "CLIPBackedDataset",
     "CLIPBackedDatasetConfig",
     "CLIPEmbeddingEncoder",

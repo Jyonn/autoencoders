@@ -18,7 +18,7 @@ if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import AutoencoderConfig, AutoencoderModel
     from autoencoders.data import DictSpec, TensorSpec
-    from autoencoders.modules import MLPModule, MLPModuleConfig
+    from autoencoders.modules import CNNModule, CNNModuleConfig, MLPModule, MLPModuleConfig
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -229,6 +229,72 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(trace[5].output_spec, TensorSpec(shape=(16,)))
         self.assertIsNotNone(trace[1].children)
         self.assertIsNotNone(trace[5].children)
+
+    def test_cnn_module_infers_spatial_output_spec(self) -> None:
+        module = CNNModule(
+            config=CNNModuleConfig(
+                channels=[64, 128],
+                kernel_sizes=[4, 4],
+                strides=[2, 2],
+                paddings=[1, 1],
+                activation="relu",
+                use_bias=True,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        outputs = module(torch.randn(2, 32, 32, 3))
+
+        self.assertEqual(module.output_spec, TensorSpec(shape=(8, 8, 128)))
+        self.assertEqual(tuple(outputs.shape), (2, 8, 8, 128))
+
+    def test_cnn_module_build_reversed_restores_image_shape(self) -> None:
+        encoder = CNNModule(
+            config=CNNModuleConfig(
+                channels=[64, 128],
+                kernel_sizes=[4, 4],
+                strides=[2, 2],
+                paddings=[1, 1],
+                activation="relu",
+                use_bias=True,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        decoder = encoder.build_reversed()
+        outputs = decoder(torch.randn(2, 8, 8, 128))
+
+        self.assertEqual(decoder.input_spec, TensorSpec(shape=(8, 8, 128)))
+        self.assertEqual(decoder.output_spec, TensorSpec(shape=(32, 32, 3)))
+        self.assertEqual(tuple(outputs.shape), (2, 32, 32, 3))
+
+    def test_cnn_module_trace_reports_conv_and_activation_shapes(self) -> None:
+        module = CNNModule(
+            config=CNNModuleConfig(
+                channels=[64, 128],
+                kernel_sizes=[4, 4],
+                strides=[2, 2],
+                paddings=[1, 1],
+                activation="relu",
+                use_bias=True,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        trace = module.get_trace()
+
+        self.assertEqual(
+            [step.name for step in trace],
+            [
+                "conv2d(3->64, k=(4, 4), s=(2, 2), p=(1, 1))",
+                "activation(ReLU)",
+                "conv2d(64->128, k=(4, 4), s=(2, 2), p=(1, 1))",
+            ],
+        )
+        self.assertEqual(trace[0].input_spec, TensorSpec(shape=(32, 32, 3)))
+        self.assertEqual(trace[0].output_spec, TensorSpec(shape=(16, 16, 64)))
+        self.assertEqual(trace[1].output_spec, TensorSpec(shape=(16, 16, 64)))
+        self.assertEqual(trace[2].output_spec, TensorSpec(shape=(8, 8, 128)))
 
 
 if __name__ == "__main__":

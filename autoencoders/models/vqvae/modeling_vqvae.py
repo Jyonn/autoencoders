@@ -18,7 +18,7 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     min_input_rank = 3
 
     def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
-        if codebook_indices.ndim == 2:
+        if codebook_indices.ndim in {2, 3}:
             return [codebook_indices.reshape(-1)]
         return super().iter_codebook_index_sets(codebook_indices)
 

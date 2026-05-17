@@ -137,23 +137,25 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
     ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         self.validate_inputs(inputs)
         encoded = self.encode(inputs)
-        quantized_latents, codebook_indices = self.quantize(encoded)
+        core_inputs = self.project_to_core(encoded)
+        quantized_latents, codebook_indices = self.quantize(core_inputs)
         self._maybe_reset_dead_codes(
-            encoded=encoded,
+            encoded=core_inputs,
             codebook_indices=codebook_indices,
             is_last_train_step=is_last_train_step,
         )
-        latents = encoded + (quantized_latents - encoded).detach()
-        reconstruction = self.decode(latents)
+        latents = core_inputs + (quantized_latents - core_inputs).detach()
+        decoder_inputs = self.project_from_core(latents)
+        reconstruction = self.decode(decoder_inputs)
 
         reconstruction_loss = self.compute_loss(reconstruction, inputs)
-        commitment_loss = self.compute_commitment_loss(encoded, quantized_latents)
+        commitment_loss = self.compute_commitment_loss(core_inputs, quantized_latents)
         if self.training and self.config.use_ema_codebook:
-            self.on_quantizer_training_step(encoded.detach(), codebook_indices.detach())
+            self.on_quantizer_training_step(core_inputs.detach(), codebook_indices.detach())
             codebook_loss = torch.zeros_like(commitment_loss)
             loss = reconstruction_loss + self.config.commitment_weight * commitment_loss
         else:
-            codebook_loss = self.compute_codebook_loss(encoded, quantized_latents)
+            codebook_loss = self.compute_codebook_loss(core_inputs, quantized_latents)
             loss = self.compute_total_loss(reconstruction_loss, commitment_loss, codebook_loss)
         use_return_dict = self.config.return_dict if return_dict is None else return_dict
 
