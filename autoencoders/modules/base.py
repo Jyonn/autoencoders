@@ -21,6 +21,7 @@ class BaseAutoencoderModule(nn.Module, ABC):
 
     config_class = BaseAutoencoderModuleConfig
     config: BaseAutoencoderModuleConfig
+    reference_input_spec: DataSpec
 
     def __init__(
         self,
@@ -30,17 +31,21 @@ class BaseAutoencoderModule(nn.Module, ABC):
     ) -> None:
         super().__init__()
         self.config = config
-        self.input_spec = input_spec
+        self.reference_input_spec = input_spec
         self.reverse = bool(reverse)
+        self.input_spec = self.infer_input_spec()
         self.output_spec = self.infer_output_spec()
 
     @abstractmethod
     def forward(self, inputs):  # type: ignore[override]
         """Run the backbone module."""
 
+    def infer_input_spec(self) -> DataSpec:
+        return self.reference_input_spec
+
     @abstractmethod
     def infer_output_spec(self) -> DataSpec:
         """Validate an input spec and infer the structural output spec produced by this module."""
 
-    def build_reversed(self, input_spec: DataSpec) -> "BaseAutoencoderModule":
-        return self.__class__(config=self.config, input_spec=input_spec, reverse=True)
+    def build_reversed(self) -> "BaseAutoencoderModule":
+        return self.__class__(config=self.config, input_spec=self.reference_input_spec, reverse=True)

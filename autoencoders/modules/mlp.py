@@ -133,8 +133,8 @@ class MLPModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        input_dim = self._resolve_input_dim()
-        dims = [input_dim, *self.config.hidden_dims]
+        reference_input_dim = self._resolve_reference_input_dim()
+        dims = [reference_input_dim, *self.config.hidden_dims]
         self.builder_list = _MLPBuilderList.from_dims(
             dims,
             activation=self.config.activation,
@@ -147,8 +147,21 @@ class MLPModule(BaseAutoencoderModule):
     def forward(self, inputs):  # type: ignore[override]
         return self.network(inputs)
 
+    def infer_input_spec(self) -> TensorSpec:
+        spec = self._require_tensor_spec(self.reference_input_spec)
+        if not self.reverse:
+            return spec
+        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_forward_output_feature_dim(spec)))
+
     def infer_output_spec(self) -> TensorSpec:
         spec = self.input_spec
+        self._require_tensor_spec(spec)
+        reference_spec = self._require_tensor_spec(self.reference_input_spec)
+        if self.reverse:
+            return TensorSpec(shape=reference_spec.shape)
+        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim()))
+
+    def _require_tensor_spec(self, spec: DataSpec) -> TensorSpec:
         if not isinstance(spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} expects a TensorSpec input.")
         if not spec.shape:
@@ -157,24 +170,23 @@ class MLPModule(BaseAutoencoderModule):
             raise ValueError(
                 f"{self.__class__.__name__} requires a concrete final feature dimension to build the MLP."
             )
-        return TensorSpec(shape=(*spec.shape[:-1], self._resolve_output_feature_dim()))
+        return spec
 
-    def build_reversed(self, input_spec: DataSpec) -> "MLPModule":
-        reversed_module = MLPModule(
-            config=self.config,
-            input_spec=input_spec,
-        )
-        reversed_module.builder_list = self.builder_list.reverse()
-        reversed_module.network = reversed_module.builder_list.build()
-        reversed_output_dim = reversed_module.builder_list.output_dim
-        if reversed_output_dim is None:
-            reversed_output_dim = reversed_module._resolve_input_dim()
-        reversed_module.output_spec = TensorSpec(shape=(*reversed_module.input_spec.shape[:-1], reversed_output_dim))
-        return reversed_module
+    def _resolve_reference_input_dim(self) -> int:
+        spec = self._require_tensor_spec(self.reference_input_spec)
+        feature_dim = spec.shape[-1]
+        assert feature_dim is not None
+        return int(feature_dim)
 
     def _resolve_input_dim(self) -> int:
-        spec = self.input_spec
-        assert isinstance(spec, TensorSpec)
+        spec = self._require_tensor_spec(self.input_spec)
+        feature_dim = spec.shape[-1]
+        assert feature_dim is not None
+        return int(feature_dim)
+
+    def _resolve_forward_output_feature_dim(self, spec: TensorSpec) -> int:
+        if self.config.hidden_dims:
+            return self.config.hidden_dims[-1]
         feature_dim = spec.shape[-1]
         assert feature_dim is not None
         return int(feature_dim)

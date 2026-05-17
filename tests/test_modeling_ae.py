@@ -166,9 +166,10 @@ class AutoencoderModelTest(unittest.TestCase):
             input_spec=TensorSpec(shape=(16,)),
         )
 
-        decoder = encoder.build_reversed(TensorSpec(shape=(8,)))
+        decoder = encoder.build_reversed()
         outputs = decoder(torch.randn(2, 8))
 
+        self.assertEqual(decoder.input_spec, TensorSpec(shape=(8,)))
         self.assertEqual(decoder.output_spec, TensorSpec(shape=(16,)))
         self.assertEqual(tuple(outputs.shape), (2, 16))
 

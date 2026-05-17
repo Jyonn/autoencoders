@@ -188,7 +188,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             self.core_output_spec,
             name="encoder-to-core projection",
         )
-        self.decoder_input_spec = self.get_decoder_input_spec()
+        requested_decoder_input_spec = self.get_decoder_input_spec()
         (
             self.decoder,
             self._decoder_module_type,
@@ -200,12 +200,14 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             encoder_module_config=self._encoder_module_config,
             module=decoder,
             module_config=decoder_config,
-            input_spec=self.decoder_input_spec,
+            input_spec=requested_decoder_input_spec,
             name="decoder",
         )
         if isinstance(self.decoder, BaseAutoencoderModule):
+            self.decoder_input_spec = self.decoder.input_spec
             self.decoder_output_spec = self.decoder.output_spec
         else:
+            self.decoder_input_spec = requested_decoder_input_spec
             self.decoder_output_spec = None
         self.core_to_decoder_projection = self._build_linear_projection(
             self.get_latent_output_spec(),
@@ -262,7 +264,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                 f"When `{name}=None`, the encoder must be a built-in or custom `{BaseAutoencoderModule.__name__}`."
             )
 
-        derived_module = encoder_module.build_reversed(input_spec)
+        derived_module = encoder_module.build_reversed()
         if encoder_module_type in {None, "external"}:
             return derived_module, None, None, True
         return derived_module, encoder_module_type, encoder_module_config, True
