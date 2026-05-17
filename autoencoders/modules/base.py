@@ -21,9 +21,6 @@ class BaseAutoencoderModule(nn.Module, ABC):
 
     config_class = BaseAutoencoderModuleConfig
     config: BaseAutoencoderModuleConfig
-    input_spec: DataSpec
-    output_spec: DataSpec
-    reverse: bool
 
     def __init__(
         self,
