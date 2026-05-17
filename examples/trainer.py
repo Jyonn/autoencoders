@@ -195,14 +195,16 @@ def select_trainer_components(model_name: str):
 
 def build_model(configurations, sample_spec: DataSpec):
     model_class = get_model_class(configurations.model.name)
+    decoder_name = configurations.decoder.name if configurations.decoder else None
+    decoder_config = configurations.decoder.config() if configurations.decoder and configurations.decoder.config else None
     model_config = model_class.config_class(**configurations.model.config())
     return model_class(
         config=model_config,
         sample_spec=sample_spec,
         encoder=configurations.encoder.name or None,
         encoder_config=configurations.encoder.config() if configurations.encoder.config else None,
-        decoder=configurations.decoder.name or None,
-        decoder_config=configurations.decoder.config() if configurations.decoder.config else None,
+        decoder=decoder_name,
+        decoder_config=decoder_config,
     )
 
 
