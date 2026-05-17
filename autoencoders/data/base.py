@@ -298,7 +298,21 @@ class CachedDataset(ABC):
             self._cleanup_temp_file(temp_path)
             raise
 
-        if validator is not None and not validator(temp_path):
+        if total_bytes is not None and temp_path.stat().st_size < total_bytes:
+            downloaded_bytes = temp_path.stat().st_size
+            self._cleanup_temp_file(temp_path)
+            raise IOError(
+                f"Download for {destination.name} ended early: received {downloaded_bytes} bytes "
+                f"but expected {total_bytes} bytes."
+            )
+
+        try:
+            is_valid = True if validator is None else validator(temp_path)
+        except Exception as exc:
+            self._cleanup_temp_file(temp_path)
+            raise ValueError(f"Downloaded file {temp_path} failed validation.") from exc
+
+        if not is_valid:
             self._cleanup_temp_file(temp_path)
             raise ValueError(f"Downloaded file {temp_path} failed validation.")
 

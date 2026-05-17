@@ -65,7 +65,10 @@ class CIFAR10Dataset(CachedDataset):
     """Download and cache CIFAR-10 as normalized HWC tensors."""
 
     dataset_name = "cifar10"
-    base_url = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
+    base_urls = (
+        "https://mirrors.bfsu.edu.cn/osdn/datasets/74526/cifar-10-python.tar.gz",
+        "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz",
+    )
     archive_member_prefix = _CIFAR10_ARCHIVE_MEMBER_PREFIX
     batch_members = _CIFAR10_BATCH_MEMBERS
     config_class = CIFAR10DatasetConfig
@@ -73,7 +76,7 @@ class CIFAR10Dataset(CachedDataset):
 
     @property
     def archive_name(self) -> str:
-        return Path(self.base_url).name
+        return Path(self.base_urls[0]).name
 
     @property
     def archive_path(self) -> Path:
@@ -100,13 +103,25 @@ class CIFAR10Dataset(CachedDataset):
         return self.archive_path.exists()
 
     def download(self, *, force: bool = False) -> None:
-        self.download_to_cache(
-            url=self.base_url,
-            destination=self.archive_path,
-            validator=self._is_valid_archive,
-            description=f"Downloading {self.archive_name}",
-            force=force,
-        )
+        last_error: Exception | None = None
+        for attempt in range(1, 4):
+            for url in self.base_urls:
+                try:
+                    self.download_to_cache(
+                        url=url,
+                        destination=self.archive_path,
+                        validator=self._is_valid_archive,
+                        description=f"Downloading {self.archive_name} (attempt {attempt}, {Path(url).parent.name})",
+                        force=force or attempt > 1,
+                    )
+                    return
+                except Exception as exc:
+                    last_error = exc
+                    if self.archive_path.exists():
+                        self.archive_path.unlink()
+        raise RuntimeError(
+            f"Failed to download CIFAR-10 after trying {len(self.base_urls)} mirrors for 3 attempts."
+        ) from last_error
 
     def prepare(self) -> None:
         images, labels = self._load_images_and_labels_from_archive()
@@ -210,5 +225,5 @@ class CIFAR10Dataset(CachedDataset):
             with tarfile.open(path, "r:gz") as archive:
                 member_names = {member.name for member in archive.getmembers()}
             return any(member_name in member_names for member_name in self.batch_members)
-        except tarfile.TarError:
+        except (tarfile.TarError, EOFError, OSError):
             return False
