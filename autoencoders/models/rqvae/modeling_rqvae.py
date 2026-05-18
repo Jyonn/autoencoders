@@ -52,7 +52,7 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         residual = encoded.reshape(-1, self.config.latent_dim)
         initialized_codebooks: list[torch.Tensor] = []
 
-        for codebook in self.codebooks:
+        for codebook_index, codebook in enumerate(self.codebooks):
             centers = kmeans_cluster_centers(
                 residual,
                 self.config.codebook_size,
@@ -66,7 +66,7 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
                 - 2 * residual @ centers.t()
                 + centers.pow(2).sum(dim=-1)
             )
-            indices = self.assign_codebook_indices(distances)
+            indices = self.assign_codebook_indices_for_slot(distances, slot=codebook_index)
             residual = residual - centers[indices]
 
         self.ema_cluster_size.fill_(1.0)
@@ -77,13 +77,13 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         quantized_sum = torch.zeros_like(encoded)
         index_steps: list[torch.Tensor] = []
 
-        for codebook in self.codebooks:
+        for codebook_index, codebook in enumerate(self.codebooks):
             distances = (
                 residual.pow(2).sum(dim=-1, keepdim=True)
                 - 2 * residual @ codebook.weight.t()
                 + codebook.weight.pow(2).sum(dim=-1)
             )
-            indices = self.assign_codebook_indices(distances)
+            indices = self.assign_codebook_indices_for_slot(distances, slot=codebook_index)
             quantized = codebook(indices)
             quantized_sum = quantized_sum + quantized
             residual = residual - quantized

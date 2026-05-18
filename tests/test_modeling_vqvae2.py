@@ -115,7 +115,7 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
             hidden_dims=[12, 8],
             codebook_size=8,
             assignment_strategy="sinkhorn",
-            sinkhorn_epsilon=0.01,
+            sinkhorn_epsilon=[0.0, 0.01],
             sinkhorn_iters=10,
         )
         model = HierarchicalVectorQuantizedAutoencoderModel(
@@ -128,6 +128,17 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.top_quantized_latents.shape), (4, 5, 3))
         self.assertEqual(tuple(outputs.bottom_quantized_latents.shape), (4, 5, 4))
         self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 5, 2))
+
+    def test_sinkhorn_assignment_validates_hierarchical_epsilon_count(self) -> None:
+        with self.assertRaisesRegex(ValueError, "2 values"):
+            HierarchicalVectorQuantizedAutoencoderConfig(
+                latent_dim=4,
+                top_latent_dim=3,
+                hidden_dims=[12, 8],
+                codebook_size=8,
+                assignment_strategy="sinkhorn",
+                sinkhorn_epsilon=[0.01, 0.02, 0.03],
+            )
 
 
 if __name__ == "__main__":

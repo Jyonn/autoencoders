@@ -73,14 +73,28 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
     def assign_codebook_indices(self, distances: torch.Tensor) -> torch.Tensor:
         """Convert final-axis distances into discrete codebook indices."""
 
+        return self.assign_codebook_indices_for_slot(distances, slot=0)
+
+    def get_sinkhorn_epsilon_for_slot(self, slot: int) -> float:
+        epsilon = self.config.sinkhorn_epsilon
+        if isinstance(epsilon, list):
+            if len(epsilon) == 1:
+                return float(epsilon[0])
+            return float(epsilon[slot])
+        return float(epsilon)
+
+    def assign_codebook_indices_for_slot(self, distances: torch.Tensor, slot: int) -> torch.Tensor:
+        """Convert final-axis distances into discrete codebook indices for one codebook slot."""
+
         flattened_distances = distances.reshape(-1, distances.shape[-1])
-        if self.config.assignment_strategy == "nearest":
+        sinkhorn_epsilon = self.get_sinkhorn_epsilon_for_slot(slot)
+        if self.config.assignment_strategy == "nearest" or sinkhorn_epsilon <= 0:
             indices = flattened_distances.argmin(dim=-1)
         else:
             centered_distances = center_distances_for_sinkhorn(flattened_distances).double()
             assignment_weights = sinkhorn_assignment_weights(
                 centered_distances,
-                epsilon=self.config.sinkhorn_epsilon,
+                epsilon=sinkhorn_epsilon,
                 num_iters=self.config.sinkhorn_iters,
             )
             if torch.isnan(assignment_weights).any() or torch.isinf(assignment_weights).any():

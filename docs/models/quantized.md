@@ -53,6 +53,6 @@ HierarchicalVectorQuantizedAutoencoderConfig
 
 - Quantized models depend heavily on codebook initialization, usage balance, and reconstruction-vs-quantization weighting.
 - `kmeans_init: true` initializes learned codebooks from the first training batch of encoder latents instead of uniform random weights.
-- `assignment_strategy: sinkhorn` switches learned vector-codebook quantizers from nearest-neighbor assignment to balanced Sinkhorn assignment. `sinkhorn_epsilon` and `sinkhorn_iters` control the entropy regularization and normalization passes.
+- `assignment_strategy: sinkhorn` switches learned vector-codebook quantizers from nearest-neighbor assignment to balanced Sinkhorn assignment. `sinkhorn_epsilon` may be a single value or a per-codebook list. Any slot set to `0.0` falls back to nearest-neighbor assignment for that codebook, which matches the original `RQ-VAE` semantics.
 - Hierarchical models such as `VQVAE2` have decoder spaces that differ from encoder output spaces, so they should use explicit decoders.
 - `FSQ` and `RFSQ` use fixed scalar levels rather than learned vector codebooks, so their dead-code handling semantics differ from `VQVAE`, `PQVAE`, and `RQVAE`.

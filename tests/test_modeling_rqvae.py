@@ -94,7 +94,7 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
             codebook_size=8,
             num_quantizers=3,
             assignment_strategy="sinkhorn",
-            sinkhorn_epsilon=0.01,
+            sinkhorn_epsilon=[0.0, 0.01, 0.02],
             sinkhorn_iters=10,
         )
         model = ResidualQuantizedAutoencoderModel(
@@ -106,6 +106,17 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
 
         self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 4))
         self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 3))
+
+    def test_sinkhorn_assignment_validates_per_quantizer_epsilon_count(self) -> None:
+        with self.assertRaisesRegex(ValueError, "3 values"):
+            ResidualQuantizedAutoencoderConfig(
+                latent_dim=4,
+                hidden_dims=[12, 8],
+                codebook_size=8,
+                num_quantizers=3,
+                assignment_strategy="sinkhorn",
+                sinkhorn_epsilon=[0.01, 0.02],
+            )
 
 
 if __name__ == "__main__":

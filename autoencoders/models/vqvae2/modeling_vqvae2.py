@@ -75,7 +75,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         )
         self.top_codebook.weight.data.copy_(top_centers)
 
-        top_quantized, _ = self._quantize_with_codebook(top_encoded, self.top_codebook)
+        top_quantized, _ = self._quantize_with_codebook(top_encoded, self.top_codebook, slot=0)
         bottom_context = encoded + self.top_decoder(top_quantized)
         bottom_centers = kmeans_cluster_centers(
             bottom_context.reshape(-1, self.config.latent_dim),
@@ -89,21 +89,21 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         self.ema_weight_sum[0, :, : self.config.top_latent_dim] = top_centers
         self.ema_weight_sum[1, :, : self.config.latent_dim] = bottom_centers
 
-    def _quantize_with_codebook(self, encoded: torch.Tensor, codebook: nn.Embedding) -> tuple[torch.Tensor, torch.Tensor]:
+    def _quantize_with_codebook(self, encoded: torch.Tensor, codebook: nn.Embedding, slot: int) -> tuple[torch.Tensor, torch.Tensor]:
         distances = (
             encoded.pow(2).sum(dim=-1, keepdim=True)
             - 2 * encoded @ codebook.weight.t()
             + codebook.weight.pow(2).sum(dim=-1)
         )
-        indices = self.assign_codebook_indices(distances)
+        indices = self.assign_codebook_indices_for_slot(distances, slot=slot)
         quantized = codebook(indices)
         return quantized, indices
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         top_encoded = self.top_encoder(encoded)
-        top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook)
+        top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook, slot=0)
         bottom_context = encoded + self.top_decoder(top_quantized)
-        bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook)
+        bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook, slot=1)
         hierarchical_latents = torch.cat([top_quantized, bottom_quantized], dim=-1)
         codebook_indices = torch.stack([top_indices, bottom_indices], dim=-1)
         return hierarchical_latents, codebook_indices
@@ -211,9 +211,9 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         core_inputs = self.project_to_core(encoded)
         self.maybe_initialize_codebooks(core_inputs)
         top_encoded = self.top_encoder(core_inputs)
-        top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook)
+        top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook, slot=0)
         bottom_context = core_inputs + self.top_decoder(top_quantized)
-        bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook)
+        bottom_quantized, bottom_indices = self._quantize_with_codebook(bottom_context, self.bottom_codebook, slot=1)
         codebook_indices = torch.stack([top_indices, bottom_indices], dim=-1)
         self._maybe_reset_dead_codes(
             encoded=core_inputs,

@@ -24,3 +24,4 @@ class HierarchicalVectorQuantizedAutoencoderConfig(BaseVectorQuantizedAutoencode
             raise ValueError("top_latent_dim must be positive.")
         self.top_latent_dim = top_latent_dim
         super().__init__(**kwargs)
+        self.validate_sinkhorn_slot_count(2, "HierarchicalVectorQuantizedAutoencoderConfig")

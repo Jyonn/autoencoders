@@ -19,3 +19,4 @@ class ResidualQuantizedAutoencoderConfig(VectorQuantizedAutoencoderConfig):
             raise ValueError("num_quantizers must be a positive integer.")
         self.num_quantizers = num_quantizers
         super().__init__(**kwargs)
+        self.validate_sinkhorn_slot_count(self.num_quantizers, "ResidualQuantizedAutoencoderConfig")

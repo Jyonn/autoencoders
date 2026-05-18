@@ -76,7 +76,7 @@ class ProductQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
                 - 2 * encoded_group @ codebook.weight.t()
                 + codebook.weight.pow(2).sum(dim=-1)
             )
-            indices = self.assign_codebook_indices(distances)
+            indices = self.assign_codebook_indices_for_slot(distances, slot=codebook_index)
             quantized_groups.append(codebook(indices))
             index_groups.append(indices)
 

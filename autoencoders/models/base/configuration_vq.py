@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ..ae.configuration_ae import AutoencoderConfig
 
 
@@ -35,10 +37,6 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("codebook_weight must be non-negative.")
         if assignment_strategy not in {"nearest", "sinkhorn"}:
             raise ValueError("assignment_strategy must be either 'nearest' or 'sinkhorn'.")
-        if sinkhorn_epsilon < 0:
-            raise ValueError("sinkhorn_epsilon must be non-negative.")
-        if assignment_strategy == "sinkhorn" and sinkhorn_epsilon <= 0:
-            raise ValueError("sinkhorn_epsilon must be positive when assignment_strategy='sinkhorn'.")
         if sinkhorn_iters <= 0:
             raise ValueError("sinkhorn_iters must be a positive integer.")
         if kmeans_iters <= 0:
@@ -55,7 +53,7 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         self.commitment_weight = commitment_weight
         self.codebook_weight = codebook_weight
         self.assignment_strategy = assignment_strategy
-        self.sinkhorn_epsilon = sinkhorn_epsilon
+        self.sinkhorn_epsilon = self._validate_sinkhorn_epsilon(sinkhorn_epsilon)
         self.sinkhorn_iters = sinkhorn_iters
         self.kmeans_init = kmeans_init
         self.kmeans_iters = kmeans_iters
@@ -65,3 +63,24 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         self.dead_code_reset = dead_code_reset
         self.dead_code_threshold = dead_code_threshold
         super().__init__(**kwargs)
+
+    @staticmethod
+    def _validate_sinkhorn_epsilon(sinkhorn_epsilon: float | Sequence[float]) -> float | list[float]:
+        if isinstance(sinkhorn_epsilon, Sequence) and not isinstance(sinkhorn_epsilon, (str, bytes)):
+            epsilon_values = [float(epsilon) for epsilon in sinkhorn_epsilon]
+            if any(epsilon < 0 for epsilon in epsilon_values):
+                raise ValueError("sinkhorn_epsilon values must be non-negative.")
+            return epsilon_values
+        epsilon_value = float(sinkhorn_epsilon)
+        if epsilon_value < 0:
+            raise ValueError("sinkhorn_epsilon must be non-negative.")
+        return epsilon_value
+
+    def validate_sinkhorn_slot_count(self, expected_count: int, label: str) -> None:
+        if not isinstance(self.sinkhorn_epsilon, list):
+            return
+        if len(self.sinkhorn_epsilon) not in {1, expected_count}:
+            raise ValueError(
+                f"{label} expects sinkhorn_epsilon to provide either 1 value or {expected_count} values, "
+                f"got {len(self.sinkhorn_epsilon)}."
+            )

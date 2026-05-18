@@ -13,7 +13,7 @@ model:
     commitment_weight: 0.25
     codebook_weight: 1.0
     assignment_strategy: sinkhorn
-    sinkhorn_epsilon: 0.01
+    sinkhorn_epsilon: [0.0, 0.0, 0.0, 0.003]
     sinkhorn_iters: 50
     kmeans_init: true
     kmeans_iters: 20

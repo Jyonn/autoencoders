@@ -24,3 +24,4 @@ class ProductQuantizedAutoencoderConfig(VectorQuantizedAutoencoderConfig):
             raise ValueError("latent_dim must be divisible by num_codebooks.")
         self.num_codebooks = num_codebooks
         super().__init__(**kwargs)
+        self.validate_sinkhorn_slot_count(self.num_codebooks, "ProductQuantizedAutoencoderConfig")
