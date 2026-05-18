@@ -28,9 +28,9 @@ trainer:
   validation_ratio: 0.1
   test_ratio: 0.1
   seed: 42
-  epochs: ${epoch}$
+  epochs: ${epoch:5}$
   batch_size: 32
-  learning_rate: 0.001
+  learning_rate: ${lr:0.001}$
   device: auto
   show_only_best_epochs: true
   advice: false
