@@ -13,7 +13,7 @@ The repository now ships with a dataset layer that mirrors the model/module arch
 - [autoencoders/data/multinli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/multinli.py): MultiNLI embeddings
 - [autoencoders/data/clip.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/clip.py): shared CLIP-backed multimodal infrastructure
 - [autoencoders/data/flickr30k.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/flickr30k.py): Flickr30k CLIP embeddings
-- [autoencoders/data/cifar10.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/cifar10.py): CIFAR-10 image tensors for CNN-backed experiments
+- [autoencoders/data/cifar10.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/cifar10.py): CIFAR-10 image tensors for CNN- and ViT-backed experiments
 
 ## Recommended Starting Points
 
@@ -22,7 +22,7 @@ The repository now ships with a dataset layer that mirrors the model/module arch
 - For semantically enriched embeddings: `numberbatch`
 - For sentence-level latent experiments: `snli` or `multinli`
 - For image-text representation experiments: `flickr30k`
-- For CNN-backed quantized models: `cifar10`
+- For image-backed quantized or transformer experiments: `cifar10`
 
 ## Python Usage
 
@@ -63,6 +63,7 @@ python examples/trainer.py --config examples/configs/glove/ae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/glove/vae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/glove/vqvae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/cifar10/vqvae.yaml --epoch 5
+python examples/trainer.py --config examples/configs/cifar10/vqvae_vit.yaml --epoch 5
 ```
 
 Each config is structured as:
@@ -76,6 +77,8 @@ Each config is structured as:
 - `decoder.name`
 - `decoder.config`
 - `trainer`
+
+`decoder` may be `null`, but only when reversing the encoder yields a decoder whose runtime input spec matches the model's decoder input spec. Hierarchical and latent-shape-changing models should declare an explicit decoder.
 
 ## Caching
 
@@ -98,3 +101,4 @@ The first preparation step downloads raw assets, converts them into torch-friend
 - Keep `max_vectors` or `max_examples` modest for quick smoke tests.
 - Encoder-backed text datasets usually take longer on the first run because they materialize embeddings before training starts.
 - `cifar10` now retries mirrored downloads and validates cached archives before extraction, which makes interrupted downloads easier to recover from.
+- Explicit image decoders should set `transpose: true` when they are intended to upsample back to image space.

@@ -201,7 +201,7 @@ model = load_model(
 
 ## Datasets
 
-The library currently ships with embedding-first datasets plus one image dataset for CNN-backed experiments:
+The library currently ships with embedding-first datasets plus one image dataset for CNN- and ViT-backed experiments:
 
 - `glove`
 - `fasttext`
@@ -249,6 +249,34 @@ Image data uses `H x W x C` specs end to end:
 ```python
 dataset = load_dataset("cifar10", max_examples=10000)
 print(dataset.get_sample_spec())  # TensorSpec(shape=(32, 32, 3))
+```
+
+## Backbone Semantics
+
+Backbones are configured explicitly and built from the dataset-driven `sample_spec`.
+
+- `MLPModule` consumes tensor specs whose last dimension is the feature width.
+- `CNNModule` consumes image-like `TensorSpec(shape=(H, W, C))` values and handles `HWC <-> NCHW` conversion internally.
+- `VisionTransformerModule` also consumes image-like `TensorSpec(shape=(H, W, C))`, patchifies them internally, and exposes sequence-shaped latent specs.
+
+Auto-inferred decoders are intentionally strict:
+
+- `decoder: null` is supported only when reversing the encoder produces a decoder whose runtime input spec matches the model's decoder input spec.
+- Models whose decoder space differs from encoder output space, such as hierarchical or latent-shape-changing variants, must provide an explicit decoder config.
+
+For explicit image decoders, use `transpose: true` when you want an upsampling transposed-convolution stack:
+
+```yaml
+decoder:
+  name: cnn
+  config:
+    channels: [64, 3]
+    kernel_sizes: [4, 4]
+    strides: [2, 2]
+    paddings: [1, 1]
+    activation: relu
+    use_bias: true
+    transpose: true
 ```
 
 Downloaded datasets use a global cache:
@@ -343,6 +371,7 @@ python examples/trainer.py --config examples/configs/glove/ae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/glove/vae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/glove/vqvae.yaml --epoch 5
 python examples/trainer.py --config examples/configs/cifar10/vqvae.yaml --epoch 5
+python examples/trainer.py --config examples/configs/cifar10/vqvae_vit.yaml --epoch 5
 ```
 
 Each config is organized into five sections:
@@ -352,6 +381,8 @@ Each config is organized into five sections:
 - `encoder`
 - `decoder`
 - `trainer`
+
+Each section uses `name + config` form except `trainer`, which is a flat config block. Runtime overrides such as `--epoch 5`, `--lr 0.001`, or `--max_vectors 5000` resolve into `${...:default}$` placeholders inside the YAML files before training starts.
 
 ## Launch-Ready Features
 
