@@ -58,8 +58,7 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
             loaded = HierarchicalVectorQuantizedAutoencoderModel.from_pretrained(tmpdir)
         self.assertEqual(loaded.config.top_latent_dim, 3)
 
-    def test_auto_decoder_from_cnn_encoder_supports_hierarchical_decoder_inputs(self) -> None:
-        image_inputs = torch.randn(2, 32, 32, 3)
+    def test_auto_decoder_from_cnn_encoder_is_rejected_for_hierarchical_latents(self) -> None:
         image_config = HierarchicalVectorQuantizedAutoencoderConfig(
             latent_dim=64,
             top_latent_dim=32,
@@ -67,24 +66,21 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
             commitment_weight=0.25,
             reconstruction_loss="mse",
         )
-        model = HierarchicalVectorQuantizedAutoencoderModel(
-            config=image_config,
-            sample_spec=TensorSpec(shape=(32, 32, 3)),
-            encoder="cnn",
-            decoder=None,
-            encoder_config=CNNModuleConfig(
-                channels=[64, 128],
-                kernel_sizes=[4, 4],
-                strides=[2, 2],
-                paddings=[1, 1],
-                activation="relu",
-                use_bias=True,
-            ),
-        )
-
-        outputs = model(inputs=image_inputs)
-
-        self.assertEqual(tuple(outputs.reconstruction.shape), (2, 32, 32, 3))
+        with self.assertRaisesRegex(ValueError, "Provide an explicit decoder"):
+            HierarchicalVectorQuantizedAutoencoderModel(
+                config=image_config,
+                sample_spec=TensorSpec(shape=(32, 32, 3)),
+                encoder="cnn",
+                decoder=None,
+                encoder_config=CNNModuleConfig(
+                    channels=[64, 128],
+                    kernel_sizes=[4, 4],
+                    strides=[2, 2],
+                    paddings=[1, 1],
+                    activation="relu",
+                    use_bias=True,
+                ),
+            )
 
 
 if __name__ == "__main__":

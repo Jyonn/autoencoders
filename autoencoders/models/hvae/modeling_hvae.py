@@ -50,11 +50,11 @@ class HierarchicalVariationalAutoencoderModel(BaseVariationalAutoencoderModel):
     def get_decoder_input_dim(self) -> int:
         return int(self.config.top_latent_dim + self.config.latent_dim)
 
-    def get_latent_output_spec(self):
+    def get_decoder_input_spec(self):
         return TensorSpec(shape=(self.get_decoder_input_dim(),))
 
-    def get_decoder_input_spec(self):
-        return self.get_latent_output_spec()
+    def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
+        return latents
 
     def encode(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         encoded = self._require_backbone_module(self.encoder, "encoder")(inputs)

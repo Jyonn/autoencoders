@@ -62,18 +62,14 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "current_epoch"):
             model(inputs=self.inputs)
 
-    def test_decoder_is_inferred_from_builtin_encoder_when_omitted(self) -> None:
-        model = VariationalAutoencoderModel(
-            config=self.config,
-            encoder="mlp",
-            encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
-        )
-        model.eval()
-
-        outputs = model(inputs=self.inputs)
-
-        self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
-        self.assertEqual(tuple(outputs.latents.shape), (4, 4))
+    def test_auto_decoder_is_rejected_when_decoder_input_spec_differs_from_encoder_output(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Provide an explicit decoder"):
+            VariationalAutoencoderModel(
+                config=self.config,
+                encoder="mlp",
+                decoder=None,
+                encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
+            )
 
     def test_training_forward_uses_warmup_weight_when_current_epoch_is_provided(self) -> None:
         config = VariationalAutoencoderConfig(

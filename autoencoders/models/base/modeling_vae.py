@@ -28,7 +28,7 @@ class BaseVariationalAutoencoderModel(BaseAutoencoderModel):
         return super().get_decoder_input_spec()
 
     def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
-        return super().prepare_decoder_inputs(latents)
+        return latents
 
     def reparameterize(self, posterior_mean: torch.Tensor, posterior_logvar: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * posterior_logvar)

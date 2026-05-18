@@ -170,10 +170,8 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
             return super().get_decoder_input_spec()
         return TensorSpec(shape=(*self.core_spec.shape[:-1], self.get_decoder_input_dim()))
 
-    def get_latent_output_spec(self):
-        if not isinstance(self.core_spec, TensorSpec):
-            return TensorSpec(shape=(self.get_decoder_input_dim(),))
-        return TensorSpec(shape=(*self.core_spec.shape[:-1], self.get_decoder_input_dim()))
+    def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
+        return latents
 
     def forward(
         self,

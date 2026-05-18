@@ -91,7 +91,6 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
         self.core_spec = self.encoder_output_spec
         self.encoder_to_core_projection = None
         self.core_to_decoder_projection = None
-        self.decoder_input_adapter = None
         if self.config.latent_dim is not None and self.core_spec is not None:
             assert isinstance(self.core_spec, TensorSpec)
             assert self.core_spec.shape[-1] is not None
@@ -143,6 +142,7 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                     if isinstance(encoder_config, decoder_config_class)
                     else decoder_config_class(**encoder_config)
                 )
+                self.validate_auto_inferred_decoder()
                 # Reverse decoding is derived from the encoder reference spec so
                 # the builder can reconstruct the original layer plan exactly.
                 self.decoder = decoder_class(config=self.decoder_config, input_spec=self.sample_spec, reverse=True)
@@ -153,7 +153,6 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
                     f"{self.__class__.__name__} cannot infer decoder from encoder={encoder.__class__.__name__}. "
                     f"When `decoder=None`, the encoder must be a built-in or custom `{BaseAutoencoderModule.__name__}`."
                 )
-        self._configure_decoder_input_adapter()
 
     def get_serializable_module_specs(self) -> dict[str, dict[str, object]]:
         module_specs: dict[str, dict[str, object]] = {}
@@ -178,39 +177,10 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     ) -> nn.Linear:
         return nn.Linear(input_dim, output_dim, bias=True)
 
-    def _build_spec_adapter(self, input_spec: DataSpec, output_spec: DataSpec) -> nn.Module:
-        if not isinstance(input_spec, TensorSpec) or not isinstance(output_spec, TensorSpec):
-            raise ValueError(
-                f"{self.__class__.__name__} currently only supports TensorSpec adapters between runtime "
-                f"and decoder module inputs."
-            )
-        if input_spec.shape[:-1] != output_spec.shape[:-1]:
-            raise ValueError(
-                f"{self.__class__.__name__} cannot adapt decoder inputs with mismatched non-feature dimensions: "
-                f"{input_spec.shape!r} -> {output_spec.shape!r}."
-            )
-        input_dim = input_spec.shape[-1]
-        output_dim = output_spec.shape[-1]
-        if input_dim is None or output_dim is None:
-            raise ValueError(
-                f"{self.__class__.__name__} requires concrete feature dimensions to build a decoder adapter, "
-                f"got {input_spec.shape!r} -> {output_spec.shape!r}."
-            )
-        return self._build_projection(int(input_dim), int(output_dim))
-
     def _build_projection_output_spec(self, input_spec: DataSpec, output_dim: int) -> TensorSpec:
         if not isinstance(input_spec, TensorSpec):
             raise ValueError(f"{self.__class__.__name__} currently only supports TensorSpec projections.")
         return TensorSpec(shape=(*input_spec.shape[:-1], output_dim))
-
-    def _configure_decoder_input_adapter(self) -> None:
-        if not isinstance(self.decoder, BaseAutoencoderModule):
-            return
-        runtime_input_spec = self.get_decoder_input_spec()
-        module_input_spec = self.decoder.input_spec
-        if module_input_spec.matches(runtime_input_spec):
-            return
-        self.decoder_input_adapter = self._build_spec_adapter(runtime_input_spec, module_input_spec)
 
     def _require_backbone_module(self, module: nn.Module | None, name: str) -> nn.Module:
         if module is None:
@@ -240,22 +210,20 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
             return latents
         return self.core_to_decoder_projection(latents)
 
-    def get_latent_output_spec(self) -> DataSpec:
-        if self.core_spec is not None:
-            return self.core_spec
-        if self.encoder_output_spec is not None:
-            return self.encoder_output_spec
-        return self.sample_spec
+    def validate_auto_inferred_decoder(self) -> None:
+        if self.encoder_output_spec is None:
+            return
+        decoder_input_spec = self.get_decoder_input_spec()
+        if decoder_input_spec.matches(self.encoder_output_spec):
+            return
+        raise ValueError(
+            f"{self.__class__.__name__} cannot infer decoder from the encoder because the decoder input spec "
+            f"{decoder_input_spec!r} does not match the encoder output spec {self.encoder_output_spec!r}. "
+            "Provide an explicit decoder when the model decoder expects a different runtime input spec."
+        )
 
     def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
-        decoder_inputs = latents
-        latent_output_spec = self.get_latent_output_spec()
-        runtime_input_spec = self.get_decoder_input_spec()
-        if not latent_output_spec.matches(runtime_input_spec):
-            decoder_inputs = self.project_from_core(decoder_inputs)
-        if self.decoder_input_adapter is not None:
-            decoder_inputs = self.decoder_input_adapter(decoder_inputs)
-        return decoder_inputs
+        return self.project_from_core(latents)
 
     def decode(self, latents: torch.Tensor) -> torch.Tensor:
         """Decode latent representations back into feature space."""
