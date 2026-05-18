@@ -15,6 +15,9 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         codebook_size: int = 256,
         commitment_weight: float = 0.25,
         codebook_weight: float = 1.0,
+        assignment_strategy: str = "nearest",
+        sinkhorn_epsilon: float = 0.0,
+        sinkhorn_iters: int = 100,
         kmeans_init: bool = False,
         kmeans_iters: int = 10,
         use_ema_codebook: bool = False,
@@ -30,6 +33,14 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("commitment_weight must be non-negative.")
         if codebook_weight < 0:
             raise ValueError("codebook_weight must be non-negative.")
+        if assignment_strategy not in {"nearest", "sinkhorn"}:
+            raise ValueError("assignment_strategy must be either 'nearest' or 'sinkhorn'.")
+        if sinkhorn_epsilon < 0:
+            raise ValueError("sinkhorn_epsilon must be non-negative.")
+        if assignment_strategy == "sinkhorn" and sinkhorn_epsilon <= 0:
+            raise ValueError("sinkhorn_epsilon must be positive when assignment_strategy='sinkhorn'.")
+        if sinkhorn_iters <= 0:
+            raise ValueError("sinkhorn_iters must be a positive integer.")
         if kmeans_iters <= 0:
             raise ValueError("kmeans_iters must be a positive integer.")
         if not 0 <= ema_decay < 1:
@@ -43,6 +54,9 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         self.codebook_size = codebook_size
         self.commitment_weight = commitment_weight
         self.codebook_weight = codebook_weight
+        self.assignment_strategy = assignment_strategy
+        self.sinkhorn_epsilon = sinkhorn_epsilon
+        self.sinkhorn_iters = sinkhorn_iters
         self.kmeans_init = kmeans_init
         self.kmeans_iters = kmeans_iters
         self.use_ema_codebook = use_ema_codebook

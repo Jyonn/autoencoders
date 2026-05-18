@@ -184,6 +184,25 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertTrue(model.codebooks_initialized)
         self.assertFalse(torch.equal(model.codebook.weight, torch.zeros_like(model.codebook.weight)))
 
+    def test_sinkhorn_assignment_runs_for_multi_vector_inputs(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            assignment_strategy="sinkhorn",
+            sinkhorn_epsilon=0.01,
+            sinkhorn_iters=10,
+        )
+        model = VectorQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        outputs = model(inputs=self.inputs)
+
+        self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 5))
+
     def test_forward_supports_cnn_backbone_on_image_inputs(self) -> None:
         config = VectorQuantizedAutoencoderConfig(
             latent_dim=64,

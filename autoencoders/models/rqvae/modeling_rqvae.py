@@ -66,7 +66,7 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
                 - 2 * residual @ centers.t()
                 + centers.pow(2).sum(dim=-1)
             )
-            indices = distances.argmin(dim=-1)
+            indices = self.assign_codebook_indices(distances)
             residual = residual - centers[indices]
 
         self.ema_cluster_size.fill_(1.0)
@@ -75,7 +75,6 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         residual = encoded
         quantized_sum = torch.zeros_like(encoded)
-        quantized_steps: list[torch.Tensor] = []
         index_steps: list[torch.Tensor] = []
 
         for codebook in self.codebooks:
@@ -84,11 +83,10 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
                 - 2 * residual @ codebook.weight.t()
                 + codebook.weight.pow(2).sum(dim=-1)
             )
-            indices = distances.argmin(dim=-1)
+            indices = self.assign_codebook_indices(distances)
             quantized = codebook(indices)
             quantized_sum = quantized_sum + quantized
             residual = residual - quantized
-            quantized_steps.append(quantized)
             index_steps.append(indices)
 
         return quantized_sum, torch.stack(index_steps, dim=1)

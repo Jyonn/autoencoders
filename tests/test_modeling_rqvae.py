@@ -87,6 +87,26 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertFalse(torch.equal(model.codebooks[0].weight, torch.zeros_like(model.codebooks[0].weight)))
         self.assertFalse(torch.equal(model.ema_weight_sum[0], torch.zeros_like(model.ema_weight_sum[0])))
 
+    def test_sinkhorn_assignment_runs_for_residual_quantizers(self) -> None:
+        config = ResidualQuantizedAutoencoderConfig(
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            num_quantizers=3,
+            assignment_strategy="sinkhorn",
+            sinkhorn_epsilon=0.01,
+            sinkhorn_iters=10,
+        )
+        model = ResidualQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        outputs = model(inputs=self.inputs)
+
+        self.assertEqual(tuple(outputs.quantized_latents.shape), (4, 4))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 3))
+
 
 if __name__ == "__main__":
     unittest.main()

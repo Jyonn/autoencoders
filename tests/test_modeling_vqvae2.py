@@ -108,6 +108,27 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertFalse(torch.equal(model.top_codebook.weight, torch.zeros_like(model.top_codebook.weight)))
         self.assertFalse(torch.equal(model.bottom_codebook.weight, torch.zeros_like(model.bottom_codebook.weight)))
 
+    def test_sinkhorn_assignment_runs_for_hierarchical_codebooks(self) -> None:
+        config = HierarchicalVectorQuantizedAutoencoderConfig(
+            latent_dim=4,
+            top_latent_dim=3,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            assignment_strategy="sinkhorn",
+            sinkhorn_epsilon=0.01,
+            sinkhorn_iters=10,
+        )
+        model = HierarchicalVectorQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        outputs = model(inputs=self.inputs)
+
+        self.assertEqual(tuple(outputs.top_quantized_latents.shape), (4, 5, 3))
+        self.assertEqual(tuple(outputs.bottom_quantized_latents.shape), (4, 5, 4))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 5, 2))
+
 
 if __name__ == "__main__":
     unittest.main()

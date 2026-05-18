@@ -121,7 +121,7 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             - 2 * encoded @ self.codebook.weight.t()
             + self.codebook.weight.pow(2).sum(dim=-1)
         )
-        codebook_indices = distances.argmin(dim=-1)
+        codebook_indices = self.assign_codebook_indices(distances)
         quantized_latents = self.codebook(codebook_indices)
         return quantized_latents, codebook_indices
 

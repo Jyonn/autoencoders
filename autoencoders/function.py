@@ -93,6 +93,52 @@ def kmeans_cluster_centers(
     return centers.to(device=device, dtype=dtype)
 
 
+@torch.no_grad()
+def center_distances_for_sinkhorn(distances: torch.Tensor) -> torch.Tensor:
+    """Normalize distances into a centered range before Sinkhorn assignment."""
+
+    if distances.ndim != 2:
+        raise ValueError("center_distances_for_sinkhorn expects a 2D tensor of shape (num_vectors, codebook_size).")
+    max_distance = distances.max()
+    min_distance = distances.min()
+    midpoint = (max_distance + min_distance) / 2
+    amplitude = max_distance - midpoint + 1e-5
+    if torch.any(amplitude <= 0):
+        raise ValueError("Sinkhorn centering requires a positive distance amplitude.")
+    return (distances - midpoint) / amplitude
+
+
+@torch.no_grad()
+def sinkhorn_assignment_weights(
+    distances: torch.Tensor,
+    epsilon: float,
+    num_iters: int,
+) -> torch.Tensor:
+    """Compute approximately balanced assignment weights from pairwise distances."""
+
+    if distances.ndim != 2:
+        raise ValueError("sinkhorn_assignment_weights expects a 2D tensor of shape (num_vectors, codebook_size).")
+    if epsilon <= 0:
+        raise ValueError("epsilon must be positive for Sinkhorn assignment.")
+    if num_iters <= 0:
+        raise ValueError("num_iters must be positive for Sinkhorn assignment.")
+
+    weights = torch.exp(-distances / epsilon)
+    num_vectors = weights.shape[0]
+    codebook_size = weights.shape[1]
+
+    total_weight = weights.sum(dim=-1, keepdim=True).sum(dim=-2, keepdim=True)
+    weights = weights / total_weight
+    for _ in range(num_iters):
+        weights = weights / weights.sum(dim=1, keepdim=True)
+        weights = weights / num_vectors
+        weights = weights / weights.sum(dim=0, keepdim=True)
+        weights = weights / codebook_size
+
+    weights = weights * num_vectors
+    return weights
+
+
 def set_seed(seed: int) -> None:
     """Set the global torch seed used by training."""
 

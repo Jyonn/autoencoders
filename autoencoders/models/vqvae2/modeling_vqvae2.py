@@ -95,7 +95,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
             - 2 * encoded @ codebook.weight.t()
             + codebook.weight.pow(2).sum(dim=-1)
         )
-        indices = distances.argmin(dim=-1)
+        indices = self.assign_codebook_indices(distances)
         quantized = codebook(indices)
         return quantized, indices
 

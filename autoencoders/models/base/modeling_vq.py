@@ -7,6 +7,7 @@ from abc import abstractmethod
 import torch
 import torch.nn.functional as F
 
+from ...function import center_distances_for_sinkhorn, sinkhorn_assignment_weights
 from ...modeling_outputs import AutoencoderExport, BaseAutoencoderOutput, QuantizedAutoencoderOutput
 from ..ae.modeling_ae import AutoencoderModel
 from .configuration_vq import BaseVectorQuantizedAutoencoderConfig
@@ -69,9 +70,30 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
             + self.config.codebook_weight * codebook_loss
         )
 
+    def assign_codebook_indices(self, distances: torch.Tensor) -> torch.Tensor:
+        """Convert final-axis distances into discrete codebook indices."""
+
+        flattened_distances = distances.reshape(-1, distances.shape[-1])
+        if self.config.assignment_strategy == "nearest":
+            indices = flattened_distances.argmin(dim=-1)
+        else:
+            centered_distances = center_distances_for_sinkhorn(flattened_distances).double()
+            assignment_weights = sinkhorn_assignment_weights(
+                centered_distances,
+                epsilon=self.config.sinkhorn_epsilon,
+                num_iters=self.config.sinkhorn_iters,
+            )
+            if torch.isnan(assignment_weights).any() or torch.isinf(assignment_weights).any():
+                raise ValueError("Sinkhorn assignment produced NaN or Inf values.")
+            indices = assignment_weights.argmax(dim=-1).to(device=flattened_distances.device)
+        return indices.reshape(distances.shape[:-1])
+
     def get_quantized_export_extras(self) -> dict[str, object]:
         return {
             "codebook_size": self.config.codebook_size,
+            "assignment_strategy": self.config.assignment_strategy,
+            "sinkhorn_epsilon": self.config.sinkhorn_epsilon,
+            "sinkhorn_iters": self.config.sinkhorn_iters,
             "kmeans_init": self.config.kmeans_init,
             "kmeans_iters": self.config.kmeans_iters,
             "use_ema_codebook": self.config.use_ema_codebook,
