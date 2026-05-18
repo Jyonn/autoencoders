@@ -8,7 +8,6 @@ from torch import nn
 
 from ...data.base import TensorSpec
 from ...modeling_outputs import HierarchicalQuantizedAutoencoderOutput
-from ...modules import BaseAutoencoderModule
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae2 import HierarchicalVectorQuantizedAutoencoderConfig
 
@@ -24,28 +23,6 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
             kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
         super().__init__(**kwargs)
-        self.decoder_input_projection = None
-        if isinstance(self.decoder, BaseAutoencoderModule):
-            requested_decoder_input_spec = self.get_decoder_input_spec()
-            actual_decoder_input_spec = self.decoder.input_spec
-            if not actual_decoder_input_spec.matches(requested_decoder_input_spec):
-                if (
-                    isinstance(requested_decoder_input_spec, TensorSpec)
-                    and isinstance(actual_decoder_input_spec, TensorSpec)
-                    and requested_decoder_input_spec.shape[:-1] == actual_decoder_input_spec.shape[:-1]
-                    and requested_decoder_input_spec.shape[-1] is not None
-                    and actual_decoder_input_spec.shape[-1] is not None
-                ):
-                    self.decoder_input_projection = nn.Linear(
-                        int(requested_decoder_input_spec.shape[-1]),
-                        int(actual_decoder_input_spec.shape[-1]),
-                        bias=True,
-                    )
-                else:
-                    raise ValueError(
-                        f"{self.__class__.__name__} cannot adapt decoder inputs from "
-                        f"{requested_decoder_input_spec!r} to {actual_decoder_input_spec!r}."
-                    )
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)
         self.top_codebook = nn.Embedding(self.config.codebook_size, self.config.top_latent_dim)
@@ -194,12 +171,9 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         return TensorSpec(shape=(*self.core_spec.shape[:-1], self.get_decoder_input_dim()))
 
     def get_latent_output_spec(self):
-        return TensorSpec(shape=(self.get_decoder_input_dim(),))
-
-    def prepare_decoder_inputs(self, latents: torch.Tensor) -> torch.Tensor:
-        if self.decoder_input_projection is None:
-            return latents
-        return self.decoder_input_projection(latents)
+        if not isinstance(self.core_spec, TensorSpec):
+            return TensorSpec(shape=(self.get_decoder_input_dim(),))
+        return TensorSpec(shape=(*self.core_spec.shape[:-1], self.get_decoder_input_dim()))
 
     def forward(
         self,
