@@ -7,6 +7,7 @@ import math
 import torch
 from torch import nn
 
+from ...data.base import TensorSpec
 from ...modeling_outputs import VampPriorVariationalAutoencoderOutput
 from ..vae.modeling_vae import VariationalAutoencoderModel
 from .configuration_vamppriorvae import VampPriorVariationalAutoencoderConfig
@@ -20,11 +21,25 @@ class VampPriorVariationalAutoencoderModel(VariationalAutoencoderModel):
 
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
+        input_dim = self.get_input_feature_dim()
         pseudo_inputs = (
-            torch.randn(self.config.num_pseudo_inputs, self.config.input_dim)
+            torch.randn(self.config.num_pseudo_inputs, input_dim)
             * self.config.pseudo_input_std
         )
         self.pseudo_inputs = nn.Parameter(pseudo_inputs)
+
+    def get_input_feature_dim(self) -> int:
+        if not isinstance(self.sample_spec, TensorSpec):
+            raise ValueError(
+                f"{self.__class__.__name__} currently only supports TensorSpec pseudo-inputs, "
+                f"got {self.sample_spec.__class__.__name__}."
+            )
+        if len(self.sample_spec.shape) != 1 or self.sample_spec.shape[-1] is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires a vector sample spec with a concrete feature dimension, "
+                f"got {self.sample_spec.shape!r}."
+            )
+        return int(self.sample_spec.shape[-1])
 
     @staticmethod
     def _gaussian_log_prob(samples: torch.Tensor, mean: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
