@@ -94,6 +94,7 @@ class CNNModuleConfig(BaseAutoencoderModuleConfig):
     paddings: list[tuple[int, int]]
     activation: str
     use_bias: bool
+    transpose: bool
 
     def __init__(
         self,
@@ -103,6 +104,7 @@ class CNNModuleConfig(BaseAutoencoderModuleConfig):
         paddings: int | Sequence[int] | Sequence[Sequence[int]] = 1,
         activation: str = "relu",
         use_bias: bool = True,
+        transpose: bool = False,
         **kwargs,
     ) -> None:
         channels = [] if channels is None else [int(channel) for channel in channels]
@@ -117,6 +119,7 @@ class CNNModuleConfig(BaseAutoencoderModuleConfig):
         self.paddings = _normalize_spatial_parameter(paddings, count=len(channels), name="paddings")
         self.activation = activation
         self.use_bias = use_bias
+        self.transpose = bool(transpose)
         super().__init__(**kwargs)
 
 
@@ -273,9 +276,10 @@ class CNNModule(BaseAutoencoderModule):
         reverse_requested = self.consume_reverse_flag()
         self._require_image_spec()
 
-        # Build the forward plan once from the reference HWC sample spec, then
-        # reverse the same plan in-place when the module is reused as a decoder.
-        builders = self._construct_forward_builders()
+        # Build the reference plan from the provided HWC sample spec. The
+        # config can explicitly request transposed layers, while `reverse=True`
+        # still flips the whole plan when deriving a decoder from an encoder.
+        builders = self._construct_builders()
         self.output_spec = builders.builders[-1].layer_spec.output_spec
         self.builder_list = builders
         if reverse_requested:
@@ -296,7 +300,7 @@ class CNNModule(BaseAutoencoderModule):
     def get_trace(self) -> list[ModuleTraceStep]:
         return self.builder_list.get_trace(self.input_spec)
 
-    def _construct_forward_builders(self) -> LayerBuilderList:
+    def _construct_builders(self) -> LayerBuilderList:
         input_height, input_width, input_channels = self.input_spec.shape
         assert input_height is not None and input_width is not None and input_channels is not None
 
@@ -311,8 +315,12 @@ class CNNModule(BaseAutoencoderModule):
             kernel_size = self.config.kernel_sizes[index]
             stride = self.config.strides[index]
             padding = self.config.paddings[index]
-            next_height = _infer_conv_output_size(current_height, kernel_size[0], stride[0], padding[0])
-            next_width = _infer_conv_output_size(current_width, kernel_size[1], stride[1], padding[1])
+            if self.config.transpose:
+                next_height = (current_height - 1) * stride[0] - (2 * padding[0]) + kernel_size[0]
+                next_width = (current_width - 1) * stride[1] - (2 * padding[1]) + kernel_size[1]
+            else:
+                next_height = _infer_conv_output_size(current_height, kernel_size[0], stride[0], padding[0])
+                next_width = _infer_conv_output_size(current_width, kernel_size[1], stride[1], padding[1])
             next_spec = TensorSpec(shape=(next_height, next_width, out_channels))
             builders.append(
                 CNNLayerBuilder(
@@ -324,6 +332,7 @@ class CNNModule(BaseAutoencoderModule):
                         kernel_size=kernel_size,
                         stride=stride,
                         padding=padding,
+                        transpose=self.config.transpose,
                         last=index == len(self.config.channels) - 1,
                     ),
                     activation=activation,

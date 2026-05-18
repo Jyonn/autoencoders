@@ -275,6 +275,25 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(decoder.output_spec, TensorSpec(shape=(32, 32, 3)))
         self.assertEqual(tuple(outputs.shape), (2, 32, 32, 3))
 
+    def test_cnn_module_supports_explicit_transposed_decoder_config(self) -> None:
+        decoder = CNNModule(
+            config=CNNModuleConfig(
+                channels=[64, 3],
+                kernel_sizes=[4, 4],
+                strides=[2, 2],
+                paddings=[1, 1],
+                activation="relu",
+                use_bias=True,
+                transpose=True,
+            ),
+            input_spec=TensorSpec(shape=(8, 8, 128)),
+        )
+
+        outputs = decoder(torch.randn(2, 8, 8, 128))
+
+        self.assertEqual(decoder.output_spec, TensorSpec(shape=(32, 32, 3)))
+        self.assertEqual(tuple(outputs.shape), (2, 32, 32, 3))
+
     def test_cnn_module_trace_reports_conv_and_activation_shapes(self) -> None:
         module = CNNModule(
             config=CNNModuleConfig(

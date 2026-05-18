@@ -49,6 +49,11 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
                 f"{self.__class__.__name__} requires a concrete final feature dimension in the core TensorSpec."
             )
 
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
+        if codebook_indices.ndim >= 2:
+            return [codebook_indices[..., codebook_index].reshape(-1) for codebook_index in range(codebook_indices.shape[-1])]
+        return super().iter_codebook_index_sets(codebook_indices)
+
     def _reset_codebooks(self) -> None:
         for codebook in (self.top_codebook, self.bottom_codebook):
             nn.init.uniform_(codebook.weight, -1.0 / self.config.codebook_size, 1.0 / self.config.codebook_size)

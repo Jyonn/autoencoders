@@ -1,0 +1,48 @@
+dataset:
+  name: cifar10
+  config:
+    max_examples: ${max_examples:512}$
+
+model:
+  name: gumbelvq
+  config:
+    latent_dim: 64
+    codebook_size: 128
+    commitment_weight: 0.25
+    codebook_weight: 0.0
+    temperature: 1.0
+    straight_through: true
+    reconstruction_loss: mse
+
+encoder:
+  name: cnn
+  config:
+    channels: [64, 128]
+    kernel_sizes: [4, 4]
+    strides: [2, 2]
+    paddings: [1, 1]
+    activation: relu
+    use_bias: true
+
+decoder:
+  name: cnn
+  config:
+    channels: [64, 3]
+    kernel_sizes: [4, 4]
+    strides: [2, 2]
+    paddings: [1, 1]
+    activation: relu
+    use_bias: true
+    transpose: true
+
+trainer:
+  output_dir: artifacts/cifar10/gumbelvq
+  validation_ratio: 0.1
+  test_ratio: 0.1
+  seed: 42
+  epochs: ${epoch:5}$
+  batch_size: 32
+  learning_rate: ${lr:0.001}$
+  device: auto
+  show_only_best_epochs: true
+  advice: false
