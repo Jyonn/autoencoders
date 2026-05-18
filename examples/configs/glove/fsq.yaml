@@ -2,7 +2,7 @@ dataset:
   name: glove
   config:
     dim: 50
-    max_vectors: ${max_vectors:50000}$
+    max_vectors: ${max_vectors:5000}$
 
 model:
   name: fsq
