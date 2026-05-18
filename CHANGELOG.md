@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 - 2026-05-18
+
+- Added trainer-side optimization features inspired by `RQ-VAE`, including `AdamW`, weight decay, schedulers, warmup, and gradient clipping through YAML-configurable training settings.
+- Extended `MLPModule` with dropout, optional normalization (`layernorm` and `batchnorm`), and configurable Xavier initialization for stronger embedding autoencoder experiments.
+- Added k-means codebook initialization for learned vector-codebook quantizers across `VQVAE`, `PQVAE`, `RQVAE`, `GumbelVQ`, and `VQVAE2`.
+- Added Sinkhorn assignment as a learned-codebook quantization strategy, including per-codebook epsilon lists with `0.0` slots falling back to nearest-neighbor assignment.
+- Expanded model documentation and MkDocs coverage for backbone, training, and quantized-model configuration trees.
+- Refreshed stronger example YAMLs for `glove` experiments to exercise the new MLP regularization and quantizer assignment features.
+
 ## 0.3.0 - 2026-05-18
 
 - Added `VisionTransformerModule` for image-to-sequence latent backbones on `H x W x C` image specs.
