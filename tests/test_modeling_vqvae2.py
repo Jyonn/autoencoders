@@ -14,6 +14,7 @@ if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import HierarchicalVectorQuantizedAutoencoderConfig, HierarchicalVectorQuantizedAutoencoderModel
     from autoencoders.data import TensorSpec
+    from autoencoders.modules import CNNModuleConfig
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -56,6 +57,34 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
             model.save_pretrained(tmpdir)
             loaded = HierarchicalVectorQuantizedAutoencoderModel.from_pretrained(tmpdir)
         self.assertEqual(loaded.config.top_latent_dim, 3)
+
+    def test_auto_decoder_from_cnn_encoder_supports_hierarchical_decoder_inputs(self) -> None:
+        image_inputs = torch.randn(2, 32, 32, 3)
+        image_config = HierarchicalVectorQuantizedAutoencoderConfig(
+            latent_dim=64,
+            top_latent_dim=32,
+            codebook_size=16,
+            commitment_weight=0.25,
+            reconstruction_loss="mse",
+        )
+        model = HierarchicalVectorQuantizedAutoencoderModel(
+            config=image_config,
+            sample_spec=TensorSpec(shape=(32, 32, 3)),
+            encoder="cnn",
+            decoder=None,
+            encoder_config=CNNModuleConfig(
+                channels=[64, 128],
+                kernel_sizes=[4, 4],
+                strides=[2, 2],
+                paddings=[1, 1],
+                activation="relu",
+                use_bias=True,
+            ),
+        )
+
+        outputs = model(inputs=image_inputs)
+
+        self.assertEqual(tuple(outputs.reconstruction.shape), (2, 32, 32, 3))
 
 
 if __name__ == "__main__":
