@@ -39,6 +39,20 @@ class ResidualFiniteScalarQuantizedAutoencoderModel(AutoencoderModel):
         codebook_indices = torch.stack(index_steps, dim=1).reshape(encoded.shape[0], -1)
         return quantized_sum, codebook_indices
 
+    def iter_codebook_index_sets(self, codebook_indices: torch.Tensor) -> list[torch.Tensor]:
+        reshaped_indices = codebook_indices.reshape(
+            codebook_indices.shape[0],
+            self.config.num_quantizers,
+            -1,
+        )
+        return [
+            reshaped_indices[:, quantizer_index].reshape(-1)
+            for quantizer_index in range(self.config.num_quantizers)
+        ]
+
+    def reset_dead_codes(self, dead_code_mask: torch.Tensor, reference_latents: torch.Tensor | None = None) -> int:
+        return 0
+
     def forward(
         self,
         inputs: torch.Tensor,
