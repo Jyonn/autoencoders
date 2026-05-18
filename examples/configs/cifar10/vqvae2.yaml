@@ -42,6 +42,11 @@ trainer:
   epochs: ${epoch:5}$
   batch_size: 32
   learning_rate: ${lr:0.001}$
+  optimizer_name: ${optimizer:adamw}$
+  weight_decay: ${wd:0.01}$
+  lr_scheduler_type: ${schedule:linear}$
+  warmup_epochs: ${warmup:1}$
+  grad_clip_norm: ${clip:1.0}$
   device: auto
   show_only_best_epochs: true
   advice: false
