@@ -24,6 +24,51 @@ class DataSpec(ABC):
         """Return whether this spec is structurally compatible with another spec."""
 
 
+def data_spec_to_dict(spec: DataSpec) -> dict[str, object]:
+    """Serialize a DataSpec into a JSON-friendly payload."""
+
+    if isinstance(spec, TensorSpec):
+        return {"kind": "tensor", "shape": list(spec.shape)}
+    if isinstance(spec, ListSpec):
+        return {
+            "kind": "list",
+            "num_elements": spec.num_elements,
+            "element_spec": data_spec_to_dict(spec.element_spec),
+        }
+    if isinstance(spec, DictSpec):
+        return {
+            "kind": "dict",
+            "restrict_keys": spec.restrict_keys,
+            "elements": {key: data_spec_to_dict(value) for key, value in spec.elements.items()},
+        }
+    raise TypeError(f"Unsupported DataSpec type: {spec.__class__.__name__}")
+
+
+def data_spec_from_dict(payload: dict[str, object]) -> DataSpec:
+    """Deserialize a DataSpec payload created by data_spec_to_dict()."""
+
+    kind = payload["kind"]
+    if kind == "tensor":
+        shape = payload["shape"]
+        assert isinstance(shape, list)
+        return TensorSpec(shape=tuple(shape))
+    if kind == "list":
+        element_payload = payload["element_spec"]
+        assert isinstance(element_payload, dict)
+        return ListSpec(
+            element_spec=data_spec_from_dict(element_payload),
+            num_elements=payload["num_elements"],  # type: ignore[arg-type]
+        )
+    if kind == "dict":
+        elements = payload["elements"]
+        assert isinstance(elements, dict)
+        return DictSpec(
+            elements={key: data_spec_from_dict(value) for key, value in elements.items() if isinstance(value, dict)},
+            restrict_keys=bool(payload.get("restrict_keys", True)),
+        )
+    raise ValueError(f"Unsupported DataSpec payload kind: {kind!r}")
+
+
 @dataclass(frozen=True)
 class TensorSpec(DataSpec):
     """Description of a tensor-valued sample without a batch dimension."""

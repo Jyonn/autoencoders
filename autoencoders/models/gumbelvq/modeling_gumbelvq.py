@@ -21,9 +21,6 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
     config: GumbelQuantizedAutoencoderConfig
 
     def __init__(self, **kwargs: object) -> None:
-        config = kwargs.get("config")
-        if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
-            kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
         super().__init__(**kwargs)
         self.codebook = nn.Embedding(self.config.codebook_size, self.config.latent_dim)
         self._reset_codebook()

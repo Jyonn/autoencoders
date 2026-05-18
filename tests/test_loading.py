@@ -99,7 +99,7 @@ class LoadingHelpersTest(unittest.TestCase):
             **self.mlp_backbone_kwargs,
         )
         self.assertIsInstance(model, AutoencoderModel)
-        self.assertEqual(model.config.input_dim, 16)
+        self.assertEqual(model.sample_spec, TensorSpec(shape=(16,)))
 
     def test_load_model_returns_denoising_autoencoder(self) -> None:
         model = load_model(

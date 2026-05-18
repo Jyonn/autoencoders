@@ -60,6 +60,7 @@ class AutoencoderModelTest(unittest.TestCase):
     def test_decoder_is_inferred_from_builtin_encoder_when_omitted(self) -> None:
         model = AutoencoderModel(
             config=self.config,
+            sample_spec=TensorSpec(shape=(16,)),
             encoder="mlp",
             encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
         )
@@ -107,7 +108,7 @@ class AutoencoderModelTest(unittest.TestCase):
             model.save_pretrained(tmpdir)
             loaded = AutoencoderModel.from_pretrained(tmpdir)
 
-        self.assertEqual(loaded.config.input_dim, 16)
+        self.assertEqual(loaded.sample_spec, TensorSpec(shape=(16,)))
         self.assertEqual(loaded.config.latent_dim, 4)
 
         original_state = model.state_dict()
@@ -126,7 +127,7 @@ class AutoencoderModelTest(unittest.TestCase):
     def test_external_modules_require_reinjection_on_load(self) -> None:
         encoder = nn.Linear(16, 4)
         decoder = nn.Linear(4, 16)
-        model = AutoencoderModel(config=self.config, encoder=encoder, decoder=decoder)
+        model = AutoencoderModel(config=self.config, sample_spec=TensorSpec(shape=(16,)), encoder=encoder, decoder=decoder)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
@@ -138,12 +139,12 @@ class AutoencoderModelTest(unittest.TestCase):
 
     def test_decoder_none_with_non_backbone_encoder_raises_error(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot infer decoder"):
-            AutoencoderModel(config=self.config, encoder=nn.Linear(16, 4))
+            AutoencoderModel(config=self.config, sample_spec=TensorSpec(shape=(16,)), encoder=nn.Linear(16, 4))
 
     def test_missing_backbones_warn_and_fail_on_forward(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            model = AutoencoderModel(config=self.config)
+            model = AutoencoderModel(config=self.config, sample_spec=TensorSpec(shape=(16,)))
 
         self.assertTrue(any("without an explicit encoder backbone" in str(warning.message) for warning in caught))
         with self.assertRaisesRegex(RuntimeError, "does not have an encoder backbone"):
@@ -211,6 +212,7 @@ class AutoencoderModelTest(unittest.TestCase):
     def test_autoencoder_pipeline_trace_reports_backbone_and_projection_shapes(self) -> None:
         model = AutoencoderModel(
             config=self.config,
+            sample_spec=TensorSpec(shape=(16,)),
             encoder="mlp",
             encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
         )

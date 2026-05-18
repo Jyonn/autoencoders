@@ -5,7 +5,6 @@
 ```text
 BaseVariationalAutoencoderConfig
 ├── BaseAutoencoderConfig
-│   ├── input_dim
 │   ├── latent_dim
 │   └── reconstruction_loss
 ├── kl_weight

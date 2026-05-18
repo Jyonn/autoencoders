@@ -144,7 +144,10 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
             VectorQuantizedAutoencoderModel(
                 config=self.config,
                 sample_spec=TensorSpec(shape=(16,)),
-                **build_mlp_backbone_kwargs_from_model_config(self.config),
+                encoder="mlp",
+                decoder="mlp",
+                encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
+                decoder_config={"hidden_dims": [12, 16], "activation": "relu", "use_bias": True},
             )
 
     def test_dead_code_reset_count_is_recorded_on_last_train_step(self) -> None:

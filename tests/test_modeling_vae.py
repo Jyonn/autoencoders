@@ -14,6 +14,7 @@ if torch is not None:
     from pathlib import Path
     from torch import nn
 
+    from autoencoders.data import TensorSpec
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import VariationalAutoencoderConfig, VariationalAutoencoderModel
 
@@ -66,6 +67,7 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Provide an explicit decoder"):
             VariationalAutoencoderModel(
                 config=self.config,
+                sample_spec=TensorSpec(shape=(16,)),
                 encoder="mlp",
                 decoder=None,
                 encoder_config={"hidden_dims": [12, 8], "activation": "relu", "use_bias": True},
@@ -152,7 +154,12 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
     def test_external_modules_require_reinjection_on_load(self) -> None:
         encoder = nn.Linear(16, 8)
         decoder = nn.Linear(4, 16)
-        model = VariationalAutoencoderModel(config=self.config, encoder=encoder, decoder=decoder)
+        model = VariationalAutoencoderModel(
+            config=self.config,
+            sample_spec=TensorSpec(shape=(16,)),
+            encoder=encoder,
+            decoder=decoder,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
@@ -168,7 +175,11 @@ class VariationalAutoencoderModelTest(unittest.TestCase):
 
     def test_decoder_none_with_non_backbone_encoder_raises_error(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot infer decoder"):
-            VariationalAutoencoderModel(config=self.config, encoder=nn.Linear(16, 8))
+            VariationalAutoencoderModel(
+                config=self.config,
+                sample_spec=TensorSpec(shape=(16,)),
+                encoder=nn.Linear(16, 8),
+            )
 
 
 if __name__ == "__main__":

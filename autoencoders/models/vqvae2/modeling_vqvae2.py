@@ -19,9 +19,6 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     config: HierarchicalVectorQuantizedAutoencoderConfig
 
     def __init__(self, **kwargs: object) -> None:
-        config = kwargs.get("config")
-        if kwargs.get("sample_spec") is None and config is not None and getattr(config, "input_dim", None) is not None:
-            kwargs["sample_spec"] = TensorSpec(shape=(None, int(config.input_dim)))
         super().__init__(**kwargs)
         self.top_encoder = nn.Linear(self.config.latent_dim, self.config.top_latent_dim, bias=True)
         self.top_decoder = nn.Linear(self.config.top_latent_dim, self.config.latent_dim, bias=True)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from autoencoders.data import TensorSpec
+
 
 def build_mlp_backbone_kwargs(
     hidden_dims: list[int],
@@ -36,7 +38,7 @@ def build_mlp_backbone_kwargs(
 
 
 def build_mlp_backbone_kwargs_from_model_config(config) -> dict[str, object]:
-    return build_mlp_backbone_kwargs(
+    kwargs = build_mlp_backbone_kwargs(
         hidden_dims=list(config.hidden_dims),
         input_dim=config.input_dim,
         activation=getattr(config, "activation", "relu"),
@@ -47,3 +49,11 @@ def build_mlp_backbone_kwargs_from_model_config(config) -> dict[str, object]:
             else list(config.decoder_hidden_dims)
         ),
     )
+    quantized_markers = ("codebook_size", "num_levels", "num_codebooks", "num_quantizers")
+    sample_shape = (
+        (None, int(config.input_dim))
+        if any(getattr(config, marker, None) is not None for marker in quantized_markers)
+        else (int(config.input_dim),)
+    )
+    kwargs["sample_spec"] = TensorSpec(shape=sample_shape)
+    return kwargs

@@ -5,7 +5,6 @@
 ```text
 BaseVectorQuantizedAutoencoderConfig
 ├── BaseAutoencoderConfig
-│   ├── input_dim
 │   ├── latent_dim
 │   └── reconstruction_loss
 ├── codebook_size

@@ -9,6 +9,8 @@ from typing import Any
 import torch
 from torch import nn
 
+from .data.base import DataSpec, data_spec_from_dict, data_spec_to_dict
+
 
 class PreTrainedAutoencoderModel(nn.Module):
     """Minimal pretrained model mixin for autoencoder-family models."""
@@ -37,10 +39,20 @@ class PreTrainedAutoencoderModel(nn.Module):
                 module_specs[name] = json.loads(spec_path.read_text(encoding="utf-8"))
         return module_specs
 
+    def get_serializable_sample_spec(self) -> DataSpec | None:
+        sample_spec = getattr(self, "sample_spec", None)
+        return sample_spec if isinstance(sample_spec, DataSpec) else None
+
     def save_pretrained(self, save_directory: str | Path) -> Path:
         save_path = Path(save_directory)
         save_path.mkdir(parents=True, exist_ok=True)
         self.config.save_pretrained(save_path)
+        sample_spec = self.get_serializable_sample_spec()
+        if sample_spec is not None:
+            (save_path / "sample_spec.json").write_text(
+                json.dumps(data_spec_to_dict(sample_spec), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
         for name, spec in self.get_serializable_module_specs().items():
             spec_path = save_path / f"{name}_module.json"
             spec_path.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -63,6 +75,10 @@ class PreTrainedAutoencoderModel(nn.Module):
         module_specs = cls._load_serializable_module_specs(load_path) if load_path.is_dir() else {}
 
         init_kwargs = dict(kwargs)
+        sample_spec_path = load_path / "sample_spec.json"
+        if load_path.is_dir() and sample_spec_path.exists() and "sample_spec" not in init_kwargs:
+            payload = json.loads(sample_spec_path.read_text(encoding="utf-8"))
+            init_kwargs["sample_spec"] = data_spec_from_dict(payload)
         for name, spec in module_specs.items():
             module_type = spec["module_type"]
             if module_type == "external":

@@ -48,14 +48,11 @@ class BaseAutoencoderModel(PreTrainedAutoencoderModel, ABC):
     ) -> None:
         super().__init__(config=config)
         self.config = config
-        if sample_spec is not None:
-            self.sample_spec = sample_spec
-        elif self.config.input_dim is not None:
-            self.sample_spec = TensorSpec(shape=(int(self.config.input_dim),))
-        else:
+        if sample_spec is None:
             raise ValueError(
-                f"{self.__class__.__name__} requires `sample_spec` when `config.input_dim` is not provided."
+                f"{self.__class__.__name__} requires `sample_spec`."
             )
+        self.sample_spec = sample_spec
         self._encoder_module_type = None
         self._encoder_module_config = None
         self._decoder_module_type = None

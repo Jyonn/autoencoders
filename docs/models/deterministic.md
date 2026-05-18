@@ -4,7 +4,6 @@
 
 ```text
 BaseAutoencoderConfig
-├── input_dim (legacy fallback; usually derived from sample_spec)
 ├── latent_dim
 └── reconstruction_loss
 ```
