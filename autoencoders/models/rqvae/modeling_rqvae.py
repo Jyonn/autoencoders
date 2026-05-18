@@ -95,6 +95,7 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         residual = encoded
         for codebook_index, codebook in enumerate(self.codebooks):
             indices = codebook_indices[:, codebook_index]
+            quantized = codebook(indices).detach()
             one_hot = F.one_hot(indices, num_classes=self.config.codebook_size).to(encoded.dtype)
             cluster_size_update = one_hot.sum(dim=0)
             embedding_sum_update = one_hot.transpose(0, 1) @ residual
@@ -116,7 +117,10 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             )
             normalized_embeddings = self.ema_weight_sum[codebook_index] / normalized_cluster_size.unsqueeze(-1)
             codebook.weight.data.copy_(normalized_embeddings)
-            residual = residual - codebook(indices).detach()
+            # Keep the residual chain aligned with the forward pass: later
+            # residual quantizers should see the pre-update quantized vectors
+            # that produced the recorded indices, not freshly updated codes.
+            residual = residual - quantized
 
     def reset_dead_codes(self, dead_code_mask: torch.Tensor, reference_latents: torch.Tensor | None = None) -> int:
         dead_code_mask = dead_code_mask.to(device=self.codebooks[0].weight.device, dtype=torch.bool)
