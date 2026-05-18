@@ -1,0 +1,48 @@
+dataset:
+  name: glove
+  config:
+    dim: 50
+    max_vectors: ${max_vectors:5000}$
+
+model:
+  name: ae
+  config:
+    latent_dim: 16
+    reconstruction_loss: mse
+
+encoder:
+  name: mlp
+  config:
+    hidden_dims: [256, 128, 64]
+    activation: relu
+    use_bias: true
+    dropout: ${dropout:0.1}$
+    norm: ${norm:layernorm}$
+    weight_init: ${init:xavier_normal}$
+
+decoder:
+  name: mlp
+  config:
+    hidden_dims: [128, 256, 50]
+    activation: relu
+    use_bias: true
+    dropout: ${dropout:0.1}$
+    norm: ${norm:layernorm}$
+    weight_init: ${init:xavier_normal}$
+
+trainer:
+  output_dir: artifacts/glove/ae-stronger
+  validation_ratio: 0.1
+  test_ratio: 0.1
+  seed: 42
+  epochs: ${epoch:20}$
+  batch_size: 256
+  learning_rate: ${lr:0.0005}$
+  optimizer_name: ${optimizer:adamw}$
+  weight_decay: ${wd:0.02}$
+  lr_scheduler_type: ${schedule:cosine}$
+  warmup_epochs: ${warmup:2}$
+  grad_clip_norm: ${clip:1.0}$
+  device: auto
+  show_only_best_epochs: true
+  advice: false
