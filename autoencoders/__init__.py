@@ -1,6 +1,6 @@
 """Top-level package for the autoencoders library."""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 from .models.aae.configuration_aae import AdversarialAutoencoderConfig
 from .configuration_utils import PretrainedConfig

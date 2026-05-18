@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autoencoders"
-version = "0.4.0"
+version = "0.4.1"
 description = "A unified library for autoencoder-family models across deterministic, variational, and quantized latent spaces."
 readme = "README.md"
 requires-python = ">=3.10"

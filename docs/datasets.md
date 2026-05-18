@@ -1,5 +1,7 @@
 # Datasets
 
+For dataset config parameter meanings, see [Configuration Reference](configuration-reference.md#dataset-configs).
+
 ## Current Dataset Surface
 
 The repository now ships with a dataset layer that mirrors the model/module architecture:

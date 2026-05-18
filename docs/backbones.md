@@ -1,5 +1,7 @@
 # Backbones
 
+For field-by-field meanings, see the full [Configuration Reference](configuration-reference.md).
+
 ## Canonical dataset format
 
 Datasets should expose one canonical raw sample format.

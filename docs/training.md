@@ -1,5 +1,7 @@
 # Training
 
+For field-by-field trainer parameter meanings, see [Configuration Reference](configuration-reference.md#trainer-configs).
+
 ## Unified YAML entrypoint
 
 All example runs go through:

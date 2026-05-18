@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 - 2026-05-19
+
+- Added a dedicated MkDocs configuration reference page that explains the meaning of dataset, model, backbone, and trainer parameters used by the unified YAML entrypoint.
+- Linked the dataset, backbone, training, and model overview pages back to the parameter reference so configuration fields are easier to discover.
+- Fixed the `RQVAE` EMA residual-codebook update path so later residual quantizers continue to use the same forward-pass residual chain that produced the recorded indices.
+
 ## 0.4.0 - 2026-05-18
 
 - Added trainer-side optimization features inspired by `RQ-VAE`, including `AdamW`, weight decay, schedulers, warmup, and gradient clipping through YAML-configurable training settings.
