@@ -88,8 +88,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
     ) -> None:
         super().__init__()
         self.config = config
-        self.reverse = bool(reverse)
         self.input_spec = input_spec
+        self._reverse_requested = bool(reverse)
 
     @abstractmethod
     def forward(self, inputs):  # type: ignore[override]
@@ -100,3 +100,8 @@ class BaseAutoencoderModule(nn.Module, ABC):
 
     def build_reversed(self):
         return self.__class__(config=self.config, input_spec=self.input_spec, reverse=True)
+
+    def consume_reverse_flag(self) -> bool:
+        reverse_requested = self._reverse_requested
+        self._reverse_requested = False
+        return reverse_requested

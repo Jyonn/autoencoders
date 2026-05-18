@@ -270,6 +270,7 @@ class CNNModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        reverse_requested = self.consume_reverse_flag()
         self._require_image_spec()
 
         # Build the forward plan once from the reference HWC sample spec, then
@@ -277,7 +278,7 @@ class CNNModule(BaseAutoencoderModule):
         builders = self._construct_forward_builders()
         self.output_spec = builders.builders[-1].layer_spec.output_spec
         self.builder_list = builders
-        if self.reverse:
+        if reverse_requested:
             self.builder_list.reverse()
             self.input_spec = self.builder_list.builders[0].layer_spec.input_spec
             self.output_spec = self.builder_list.builders[-1].layer_spec.output_spec

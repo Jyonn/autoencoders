@@ -131,13 +131,14 @@ class MLPModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        reverse_requested = self.consume_reverse_flag()
 
         self._require_tensor_spec()
         dims = [self._resolve_input_dim(), *self.config.hidden_dims]
         self.output_spec = TensorSpec(shape=(*self.input_spec.shape[:-1], dims[-1]))
 
         self.builder_list = self._construct_builder_list(dims)
-        if self.reverse:
+        if reverse_requested:
             self.builder_list.reverse()
             self.input_spec, self.output_spec = self.output_spec, self.input_spec
         self.network = self.builder_list.build()

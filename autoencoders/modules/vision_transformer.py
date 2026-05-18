@@ -86,6 +86,7 @@ class VisionTransformerModule(BaseAutoencoderModule):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        reverse_requested = self.consume_reverse_flag()
         self._reference_image_spec = self._require_image_spec(self.input_spec)
         self.patch_height, self.patch_width = self.config.patch_size
         self.image_height, self.image_width, self.image_channels = self._resolve_image_shape(self._reference_image_spec)
@@ -101,7 +102,7 @@ class VisionTransformerModule(BaseAutoencoderModule):
         self.patch_dim = self.patch_height * self.patch_width * self.image_channels
         self.sequence_spec = TensorSpec(shape=(self.num_patches, self.config.hidden_dim))
 
-        if self.reverse:
+        if reverse_requested:
             self.input_spec = self.sequence_spec
             self.output_spec = self._reference_image_spec
         else:
@@ -125,20 +126,20 @@ class VisionTransformerModule(BaseAutoencoderModule):
             ]
         )
         self.output_projection = nn.Linear(self.config.hidden_dim, self.patch_dim, bias=self.config.use_bias)
+        if reverse_requested:
+            self._forward_impl = self._forward_decoder
+            self._trace_steps = self._build_decoder_trace()
+        else:
+            self._forward_impl = self._forward_encoder
+            self._trace_steps = self._build_encoder_trace()
 
     def forward(self, inputs):  # type: ignore[override]
-        if self.reverse:
-            if inputs.ndim != 3:
-                raise ValueError(
-                    f"{self.__class__.__name__} expects latent patch sequences with rank 3 when reverse=True, "
-                    f"got {tuple(inputs.shape)}."
-                )
-            sequence = inputs
-            for layer in self.transformer:
-                sequence = layer(sequence)
-            patch_values = self.output_projection(sequence)
-            return self._unpatchify(patch_values)
+        return self._forward_impl(inputs)
 
+    def get_trace(self) -> list[ModuleTraceStep]:
+        return list(self._trace_steps)
+
+    def _forward_encoder(self, inputs: torch.Tensor) -> torch.Tensor:
         image_spec = self._require_image_spec(self.input_spec)
         self._validate_runtime_image(inputs, image_spec)
         patches = self._patchify(inputs)
@@ -147,38 +148,18 @@ class VisionTransformerModule(BaseAutoencoderModule):
             sequence = layer(sequence)
         return sequence
 
-    def get_trace(self) -> list[ModuleTraceStep]:
-        if self.reverse:
-            patch_spec = TensorSpec(shape=(self.num_patches, self.patch_dim))
-            current_spec: DataSpec = self.input_spec
-            steps: list[ModuleTraceStep] = []
-            for index in range(self.config.num_layers):
-                steps.append(
-                    ModuleTraceStep(
-                        name=(
-                            f"transformer_layer[{index + 1}]"
-                            f"(d={self.config.hidden_dim}, heads={self.config.num_heads})"
-                        ),
-                        input_spec=current_spec,
-                        output_spec=current_spec,
-                    )
-                )
-            steps.append(
-                ModuleTraceStep(
-                    name=f"linear({self.config.hidden_dim}->{self.patch_dim})",
-                    input_spec=current_spec,
-                    output_spec=patch_spec,
-                )
+    def _forward_decoder(self, inputs: torch.Tensor) -> torch.Tensor:
+        if inputs.ndim != 3:
+            raise ValueError(
+                f"{self.__class__.__name__} expects latent patch sequences with rank 3, got {tuple(inputs.shape)}."
             )
-            steps.append(
-                ModuleTraceStep(
-                    name=f"unpatchify(p={self.config.patch_size})",
-                    input_spec=patch_spec,
-                    output_spec=self.output_spec,
-                )
-            )
-            return steps
+        sequence = inputs
+        for layer in self.transformer:
+            sequence = layer(sequence)
+        patch_values = self.output_projection(sequence)
+        return self._unpatchify(patch_values)
 
+    def _build_encoder_trace(self) -> list[ModuleTraceStep]:
         patch_spec = TensorSpec(shape=(self.num_patches, self.patch_dim))
         steps = [
             ModuleTraceStep(
@@ -204,6 +185,37 @@ class VisionTransformerModule(BaseAutoencoderModule):
                     output_spec=current_spec,
                 )
             )
+        return steps
+
+    def _build_decoder_trace(self) -> list[ModuleTraceStep]:
+        patch_spec = TensorSpec(shape=(self.num_patches, self.patch_dim))
+        current_spec: DataSpec = self.input_spec
+        steps: list[ModuleTraceStep] = []
+        for index in range(self.config.num_layers):
+            steps.append(
+                ModuleTraceStep(
+                    name=(
+                        f"transformer_layer[{index + 1}]"
+                        f"(d={self.config.hidden_dim}, heads={self.config.num_heads})"
+                    ),
+                    input_spec=current_spec,
+                    output_spec=current_spec,
+                )
+            )
+        steps.append(
+            ModuleTraceStep(
+                name=f"linear({self.config.hidden_dim}->{self.patch_dim})",
+                input_spec=current_spec,
+                output_spec=patch_spec,
+            )
+        )
+        steps.append(
+            ModuleTraceStep(
+                name=f"unpatchify(p={self.config.patch_size})",
+                input_spec=patch_spec,
+                output_spec=self.output_spec,
+            )
+        )
         return steps
 
     def _patchify(self, inputs: torch.Tensor) -> torch.Tensor:
