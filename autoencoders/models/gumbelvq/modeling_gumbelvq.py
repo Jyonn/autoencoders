@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ...data.base import TensorSpec
+from ...function import kmeans_cluster_centers
 from ...modeling_outputs import GumbelQuantizedAutoencoderOutput
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_gumbelvq import GumbelQuantizedAutoencoderConfig
@@ -44,11 +45,23 @@ class GumbelQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         return super().iter_codebook_index_sets(codebook_indices)
 
     def _reset_codebook(self) -> None:
+        if self.config.kmeans_init:
+            self.codebook.weight.data.zero_()
+            return
         nn.init.uniform_(
             self.codebook.weight,
             -1.0 / self.config.codebook_size,
             1.0 / self.config.codebook_size,
         )
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        flat_encoded = encoded.reshape(-1, encoded.shape[-1])
+        centers = kmeans_cluster_centers(
+            flat_encoded,
+            self.config.codebook_size,
+            self.config.kmeans_iters,
+        )
+        self.codebook.weight.data.copy_(centers)
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         distances = (

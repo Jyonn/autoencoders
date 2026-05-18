@@ -84,6 +84,30 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
                 ),
             )
 
+    def test_kmeans_init_initializes_top_and_bottom_codebooks(self) -> None:
+        config = HierarchicalVectorQuantizedAutoencoderConfig(
+            latent_dim=4,
+            top_latent_dim=3,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            kmeans_init=True,
+            kmeans_iters=3,
+        )
+        model = HierarchicalVectorQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        self.assertFalse(model.codebooks_initialized)
+        self.assertTrue(torch.equal(model.top_codebook.weight, torch.zeros_like(model.top_codebook.weight)))
+        self.assertTrue(torch.equal(model.bottom_codebook.weight, torch.zeros_like(model.bottom_codebook.weight)))
+
+        _ = model(inputs=self.inputs)
+
+        self.assertTrue(model.codebooks_initialized)
+        self.assertFalse(torch.equal(model.top_codebook.weight, torch.zeros_like(model.top_codebook.weight)))
+        self.assertFalse(torch.equal(model.bottom_codebook.weight, torch.zeros_like(model.bottom_codebook.weight)))
+
 
 if __name__ == "__main__":
     unittest.main()

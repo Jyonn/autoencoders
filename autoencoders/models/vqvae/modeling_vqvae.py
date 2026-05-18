@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ...data.base import TensorSpec
+from ...function import kmeans_cluster_centers
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae import VectorQuantizedAutoencoderConfig
 
@@ -44,6 +45,11 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         self._reset_codebook()
 
     def _reset_codebook(self) -> None:
+        if self.config.kmeans_init:
+            self.codebook.weight.data.zero_()
+            self.ema_cluster_size.zero_()
+            self.ema_weight_sum.zero_()
+            return
         nn.init.uniform_(
             self.codebook.weight,
             -1.0 / self.config.codebook_size,
@@ -51,6 +57,17 @@ class VectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         )
         self.ema_cluster_size.fill_(1.0)
         self.ema_weight_sum.copy_(self.codebook.weight.detach())
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        flat_encoded = encoded.reshape(-1, encoded.shape[-1])
+        centers = kmeans_cluster_centers(
+            flat_encoded,
+            self.config.codebook_size,
+            self.config.kmeans_iters,
+        )
+        self.codebook.weight.data.copy_(centers)
+        self.ema_cluster_size.fill_(1.0)
+        self.ema_weight_sum.copy_(centers)
 
     def _update_ema_codebook(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
         flat_encoded = encoded.reshape(-1, encoded.shape[-1])

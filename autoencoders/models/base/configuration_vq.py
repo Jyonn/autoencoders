@@ -15,6 +15,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         codebook_size: int = 256,
         commitment_weight: float = 0.25,
         codebook_weight: float = 1.0,
+        kmeans_init: bool = False,
+        kmeans_iters: int = 10,
         use_ema_codebook: bool = False,
         ema_decay: float = 0.99,
         ema_epsilon: float = 1e-5,
@@ -28,6 +30,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
             raise ValueError("commitment_weight must be non-negative.")
         if codebook_weight < 0:
             raise ValueError("codebook_weight must be non-negative.")
+        if kmeans_iters <= 0:
+            raise ValueError("kmeans_iters must be a positive integer.")
         if not 0 <= ema_decay < 1:
             raise ValueError("ema_decay must be in the range [0, 1).")
         if ema_epsilon <= 0:
@@ -39,6 +43,8 @@ class BaseVectorQuantizedAutoencoderConfig(AutoencoderConfig):
         self.codebook_size = codebook_size
         self.commitment_weight = commitment_weight
         self.codebook_weight = codebook_weight
+        self.kmeans_init = kmeans_init
+        self.kmeans_iters = kmeans_iters
         self.use_ema_codebook = use_ema_codebook
         self.ema_decay = ema_decay
         self.ema_epsilon = ema_epsilon

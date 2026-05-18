@@ -43,6 +43,56 @@ def initialize_linear_weight(linear: nn.Linear, weight_init: str) -> None:
         nn.init.zeros_(linear.bias)
 
 
+@torch.no_grad()
+def kmeans_cluster_centers(
+    samples: torch.Tensor,
+    num_clusters: int,
+    num_iters: int = 10,
+) -> torch.Tensor:
+    if samples.ndim != 2:
+        raise ValueError("kmeans_cluster_centers expects a 2D tensor of shape (num_samples, feature_dim).")
+    if samples.shape[0] == 0:
+        raise ValueError("kmeans_cluster_centers requires at least one sample.")
+    if num_clusters <= 0:
+        raise ValueError("num_clusters must be positive.")
+    if num_iters <= 0:
+        raise ValueError("num_iters must be positive.")
+
+    num_samples, feature_dim = samples.shape
+    device = samples.device
+    dtype = samples.dtype
+
+    if num_samples >= num_clusters:
+        initial_indices = torch.randperm(num_samples, device=device)[:num_clusters]
+    else:
+        initial_indices = torch.randint(0, num_samples, (num_clusters,), device=device)
+    centers = samples[initial_indices].clone()
+
+    for _ in range(num_iters):
+        distances = (
+            samples.pow(2).sum(dim=-1, keepdim=True)
+            - 2 * samples @ centers.t()
+            + centers.pow(2).sum(dim=-1)
+        )
+        assignments = distances.argmin(dim=-1)
+        updated_centers = centers.clone()
+
+        for cluster_index in range(num_clusters):
+            cluster_mask = assignments == cluster_index
+            if cluster_mask.any():
+                updated_centers[cluster_index] = samples[cluster_mask].mean(dim=0)
+            else:
+                fallback_index = torch.randint(0, num_samples, (1,), device=device)
+                updated_centers[cluster_index] = samples[fallback_index].reshape(feature_dim)
+
+        if torch.allclose(updated_centers, centers):
+            centers = updated_centers
+            break
+        centers = updated_centers
+
+    return centers.to(device=device, dtype=dtype)
+
+
 def set_seed(seed: int) -> None:
     """Set the global torch seed used by training."""
 

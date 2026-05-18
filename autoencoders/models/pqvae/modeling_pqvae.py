@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...function import kmeans_cluster_centers
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_pqvae import ProductQuantizedAutoencoderConfig
 
@@ -33,6 +34,12 @@ class ProductQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         self._reset_codebooks()
 
     def _reset_codebooks(self) -> None:
+        if self.config.kmeans_init:
+            for codebook in self.codebooks:
+                codebook.weight.data.zero_()
+            self.ema_cluster_size.zero_()
+            self.ema_weight_sum.zero_()
+            return
         for codebook in self.codebooks:
             nn.init.uniform_(
                 codebook.weight,
@@ -41,6 +48,21 @@ class ProductQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             )
         self.ema_cluster_size.fill_(1.0)
         self.ema_weight_sum.copy_(torch.stack([codebook.weight.detach() for codebook in self.codebooks], dim=0))
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        encoded_groups = encoded.view(encoded.shape[0], self.config.num_codebooks, self.subspace_dim)
+        initialized_codebooks: list[torch.Tensor] = []
+        for codebook_index, codebook in enumerate(self.codebooks):
+            flat_group = encoded_groups[:, codebook_index, :].reshape(-1, self.subspace_dim)
+            centers = kmeans_cluster_centers(
+                flat_group,
+                self.config.codebook_size,
+                self.config.kmeans_iters,
+            )
+            codebook.weight.data.copy_(centers)
+            initialized_codebooks.append(centers)
+        self.ema_cluster_size.fill_(1.0)
+        self.ema_weight_sum.copy_(torch.stack(initialized_codebooks, dim=0))
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         encoded_groups = encoded.view(encoded.shape[0], self.config.num_codebooks, self.subspace_dim)

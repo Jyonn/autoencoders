@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ...data.base import TensorSpec
+from ...function import kmeans_cluster_centers
 from ...modeling_outputs import HierarchicalQuantizedAutoencoderOutput
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_vqvae2 import HierarchicalVectorQuantizedAutoencoderConfig
@@ -52,12 +53,41 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
         return super().iter_codebook_index_sets(codebook_indices)
 
     def _reset_codebooks(self) -> None:
+        if self.config.kmeans_init:
+            self.top_codebook.weight.data.zero_()
+            self.bottom_codebook.weight.data.zero_()
+            self.ema_cluster_size.zero_()
+            self.ema_weight_sum.zero_()
+            return
         for codebook in (self.top_codebook, self.bottom_codebook):
             nn.init.uniform_(codebook.weight, -1.0 / self.config.codebook_size, 1.0 / self.config.codebook_size)
         self.ema_cluster_size.fill_(1.0)
         self.ema_weight_sum.zero_()
         self.ema_weight_sum[0, :, : self.config.top_latent_dim] = self.top_codebook.weight.detach()
         self.ema_weight_sum[1, :, : self.config.latent_dim] = self.bottom_codebook.weight.detach()
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        top_encoded = self.top_encoder(encoded)
+        top_centers = kmeans_cluster_centers(
+            top_encoded.reshape(-1, self.config.top_latent_dim),
+            self.config.codebook_size,
+            self.config.kmeans_iters,
+        )
+        self.top_codebook.weight.data.copy_(top_centers)
+
+        top_quantized, _ = self._quantize_with_codebook(top_encoded, self.top_codebook)
+        bottom_context = encoded + self.top_decoder(top_quantized)
+        bottom_centers = kmeans_cluster_centers(
+            bottom_context.reshape(-1, self.config.latent_dim),
+            self.config.codebook_size,
+            self.config.kmeans_iters,
+        )
+        self.bottom_codebook.weight.data.copy_(bottom_centers)
+
+        self.ema_cluster_size.fill_(1.0)
+        self.ema_weight_sum.zero_()
+        self.ema_weight_sum[0, :, : self.config.top_latent_dim] = top_centers
+        self.ema_weight_sum[1, :, : self.config.latent_dim] = bottom_centers
 
     def _quantize_with_codebook(self, encoded: torch.Tensor, codebook: nn.Embedding) -> tuple[torch.Tensor, torch.Tensor]:
         distances = (
@@ -179,6 +209,7 @@ class HierarchicalVectorQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoder
     ) -> HierarchicalQuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         core_inputs = self.project_to_core(encoded)
+        self.maybe_initialize_codebooks(core_inputs)
         top_encoded = self.top_encoder(core_inputs)
         top_quantized, top_indices = self._quantize_with_codebook(top_encoded, self.top_codebook)
         bottom_context = core_inputs + self.top_decoder(top_quantized)

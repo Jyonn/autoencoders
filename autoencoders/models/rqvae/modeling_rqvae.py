@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from ...function import kmeans_cluster_centers
 from ..base.modeling_vq import BaseVectorQuantizedAutoencoderModel
 from .configuration_rqvae import ResidualQuantizedAutoencoderConfig
 
@@ -32,6 +33,12 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         self._reset_codebooks()
 
     def _reset_codebooks(self) -> None:
+        if self.config.kmeans_init:
+            for codebook in self.codebooks:
+                codebook.weight.data.zero_()
+            self.ema_cluster_size.zero_()
+            self.ema_weight_sum.zero_()
+            return
         for codebook in self.codebooks:
             nn.init.uniform_(
                 codebook.weight,
@@ -40,6 +47,30 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             )
         self.ema_cluster_size.fill_(1.0)
         self.ema_weight_sum.copy_(torch.stack([codebook.weight.detach() for codebook in self.codebooks], dim=0))
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        residual = encoded.reshape(-1, self.config.latent_dim)
+        initialized_codebooks: list[torch.Tensor] = []
+
+        for codebook in self.codebooks:
+            centers = kmeans_cluster_centers(
+                residual,
+                self.config.codebook_size,
+                self.config.kmeans_iters,
+            )
+            codebook.weight.data.copy_(centers)
+            initialized_codebooks.append(centers)
+
+            distances = (
+                residual.pow(2).sum(dim=-1, keepdim=True)
+                - 2 * residual @ centers.t()
+                + centers.pow(2).sum(dim=-1)
+            )
+            indices = distances.argmin(dim=-1)
+            residual = residual - centers[indices]
+
+        self.ema_cluster_size.fill_(1.0)
+        self.ema_weight_sum.copy_(torch.stack(initialized_codebooks, dim=0))
 
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         residual = encoded

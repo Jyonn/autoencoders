@@ -10,6 +10,8 @@ BaseVectorQuantizedAutoencoderConfig
 ├── codebook_size
 ├── commitment_weight
 ├── codebook_weight
+├── kmeans_init
+├── kmeans_iters
 ├── use_ema_codebook
 ├── ema_decay
 ├── ema_epsilon
@@ -47,5 +49,6 @@ HierarchicalVectorQuantizedAutoencoderConfig
 ## Notes
 
 - Quantized models depend heavily on codebook initialization, usage balance, and reconstruction-vs-quantization weighting.
+- `kmeans_init: true` initializes learned codebooks from the first training batch of encoder latents instead of uniform random weights.
 - Hierarchical models such as `VQVAE2` have decoder spaces that differ from encoder output spaces, so they should use explicit decoders.
 - `FSQ` and `RFSQ` use fixed scalar levels rather than learned vector codebooks, so their dead-code handling semantics differ from `VQVAE`, `PQVAE`, and `RQVAE`.

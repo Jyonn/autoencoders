@@ -63,6 +63,30 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
         for name, parameter in model.state_dict().items():
             self.assertTrue(torch.equal(parameter, loaded.state_dict()[name]), msg=name)
 
+    def test_kmeans_init_initializes_all_residual_codebooks(self) -> None:
+        config = ResidualQuantizedAutoencoderConfig(
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            num_quantizers=3,
+            kmeans_init=True,
+            kmeans_iters=3,
+        )
+        model = ResidualQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        self.assertFalse(model.codebooks_initialized)
+        for codebook in model.codebooks:
+            self.assertTrue(torch.equal(codebook.weight, torch.zeros_like(codebook.weight)))
+
+        _ = model(inputs=self.inputs)
+
+        self.assertTrue(model.codebooks_initialized)
+        self.assertFalse(torch.equal(model.codebooks[0].weight, torch.zeros_like(model.codebooks[0].weight)))
+        self.assertFalse(torch.equal(model.ema_weight_sum[0], torch.zeros_like(model.ema_weight_sum[0])))
+
 
 if __name__ == "__main__":
     unittest.main()

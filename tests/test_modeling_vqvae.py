@@ -163,6 +163,27 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertGreater(model.consume_dead_code_reset_count(), 0)
         self.assertEqual(model.consume_dead_code_reset_count(), 0)
 
+    def test_kmeans_init_initializes_codebook_on_first_training_forward(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            latent_dim=4,
+            hidden_dims=[12, 8],
+            codebook_size=8,
+            kmeans_init=True,
+            kmeans_iters=3,
+        )
+        model = VectorQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16),
+        )
+
+        self.assertFalse(model.codebooks_initialized)
+        self.assertTrue(torch.equal(model.codebook.weight, torch.zeros_like(model.codebook.weight)))
+
+        _ = model(inputs=self.inputs)
+
+        self.assertTrue(model.codebooks_initialized)
+        self.assertFalse(torch.equal(model.codebook.weight, torch.zeros_like(model.codebook.weight)))
+
     def test_forward_supports_cnn_backbone_on_image_inputs(self) -> None:
         config = VectorQuantizedAutoencoderConfig(
             latent_dim=64,

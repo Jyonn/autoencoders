@@ -23,6 +23,10 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
         self.register_buffer("_code_usage_counts", torch.zeros(0, dtype=torch.long), persistent=False)
         self._reference_latent_batches: list[torch.Tensor] = []
         self._last_dead_code_reset_count = 0
+        self.register_buffer(
+            "_codebooks_initialized_flag",
+            torch.tensor(not self.config.kmeans_init, dtype=torch.bool),
+        )
 
     @abstractmethod
     def quantize(self, encoded: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -33,6 +37,19 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
 
     def reset_dead_codes(self, dead_code_mask: torch.Tensor, reference_latents: torch.Tensor | None = None) -> int:
         return 0
+
+    def initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        """Optional one-time initialization hook for learned codebooks."""
+
+    def maybe_initialize_codebooks(self, encoded: torch.Tensor) -> None:
+        if self.codebooks_initialized or not self.training:
+            return
+        self.initialize_codebooks(encoded.detach())
+        self._codebooks_initialized_flag.fill_(True)
+
+    @property
+    def codebooks_initialized(self) -> bool:
+        return bool(self._codebooks_initialized_flag.item())
 
     def compute_commitment_loss(self, encoded: torch.Tensor, quantized_latents: torch.Tensor) -> torch.Tensor:
         return F.mse_loss(encoded, quantized_latents.detach())
@@ -55,6 +72,8 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
     def get_quantized_export_extras(self) -> dict[str, object]:
         return {
             "codebook_size": self.config.codebook_size,
+            "kmeans_init": self.config.kmeans_init,
+            "kmeans_iters": self.config.kmeans_iters,
             "use_ema_codebook": self.config.use_ema_codebook,
             "dead_code_reset": self.config.dead_code_reset,
             "dead_code_threshold": self.config.dead_code_threshold,
@@ -137,6 +156,7 @@ class BaseVectorQuantizedAutoencoderModel(AutoencoderModel):
     ) -> QuantizedAutoencoderOutput | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor]:
         encoded = self.encode(inputs)
         core_inputs = self.project_to_core(encoded)
+        self.maybe_initialize_codebooks(core_inputs)
         quantized_latents, codebook_indices = self.quantize(core_inputs)
         self._maybe_reset_dead_codes(
             encoded=core_inputs,
