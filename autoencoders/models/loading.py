@@ -7,8 +7,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Type
 
-from ..data.base import TensorSpec
-
 if TYPE_CHECKING:
     from .base.modeling_base import BaseAutoencoderModel
 
@@ -59,15 +57,7 @@ def load_model(name: str, **kwargs: Any):
         if init_key in kwargs:
             init_kwargs[init_key] = kwargs.pop(init_key)
 
-    sample_spec = init_kwargs.get("sample_spec")
-    if sample_spec is None and "input_dim" in kwargs:
-        input_dim = kwargs.pop("input_dim")
-        if not isinstance(input_dim, int) or input_dim <= 0:
-            raise ValueError("load_model() requires `input_dim` to be a positive integer when used as a fallback.")
-        quantized_models = {"vqvae", "gumbelvq", "fsq", "rfsq", "pqvae", "rqvae", "vqvae2"}
-        sample_spec = TensorSpec(shape=((None, input_dim) if name in quantized_models else (input_dim,)))
-        init_kwargs["sample_spec"] = sample_spec
-    if sample_spec is None:
+    if init_kwargs.get("sample_spec") is None:
         raise ValueError("load_model() requires `sample_spec`.")
 
     model_class = get_model_class(name)

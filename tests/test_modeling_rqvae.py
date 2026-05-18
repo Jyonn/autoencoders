@@ -20,7 +20,6 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = ResidualQuantizedAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             codebook_size=16,
@@ -28,7 +27,7 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_residual_quantizer_indices(self) -> None:
-        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         outputs = model(inputs=self.inputs)
 
@@ -40,7 +39,7 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertIn("codebook_loss", outputs.loss_dict)
 
     def test_export_includes_residual_codebooks(self) -> None:
-        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         artifact = model.export(self.inputs, metadata={"split": "test"})
 
@@ -51,7 +50,7 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(artifact.metadata["split"], "test")
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = ResidualQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.04)

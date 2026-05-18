@@ -14,12 +14,11 @@ from autoencoders import WassersteinAutoencoderConfig, WassersteinAutoencoderMod
 class WassersteinAutoencoderModelTest(unittest.TestCase):
     def test_forward_returns_mmd_loss(self) -> None:
         config = WassersteinAutoencoderConfig(
-            input_dim=6,
             latent_dim=3,
             hidden_dims=[5],
             mmd_weight=5.0,
         )
-        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
         inputs = torch.randn(4, 6)
 
         outputs = model(inputs=inputs)
@@ -31,8 +30,8 @@ class WassersteinAutoencoderModelTest(unittest.TestCase):
         self.assertIn("mmd_loss", outputs.loss_dict)
 
     def test_export_includes_latents_and_reconstruction(self) -> None:
-        config = WassersteinAutoencoderConfig(input_dim=6, latent_dim=3, hidden_dims=[5])
-        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        config = WassersteinAutoencoderConfig(latent_dim=3, hidden_dims=[5])
+        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
         inputs = torch.randn(2, 6)
 
         artifact = model.export(inputs)
@@ -43,13 +42,12 @@ class WassersteinAutoencoderModelTest(unittest.TestCase):
 
     def test_save_and_load_round_trip(self) -> None:
         config = WassersteinAutoencoderConfig(
-            input_dim=6,
             latent_dim=3,
             hidden_dims=[5],
             mmd_weight=7.5,
             mmd_bandwidths=[0.5, 1.0],
         )
-        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = WassersteinAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)

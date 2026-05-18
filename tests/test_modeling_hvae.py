@@ -20,7 +20,6 @@ class HierarchicalVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = HierarchicalVariationalAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             top_latent_dim=3,
             hidden_dims=[12, 8],
@@ -28,7 +27,7 @@ class HierarchicalVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_hierarchical_latents(self) -> None:
-        model = HierarchicalVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = HierarchicalVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.train()
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
@@ -37,7 +36,7 @@ class HierarchicalVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("hierarchical_kl_loss", outputs.loss_dict)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = HierarchicalVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = HierarchicalVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = HierarchicalVariationalAutoencoderModel.from_pretrained(tmpdir)

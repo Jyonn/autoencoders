@@ -22,7 +22,6 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 5, 16)
         self.config = HierarchicalVectorQuantizedAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             top_latent_dim=3,
             hidden_dims=[12, 8],
@@ -30,14 +29,14 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_hierarchical_quantization_fields(self) -> None:
-        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.codebook_indices.shape), (4, 5, 2))
         self.assertEqual(tuple(outputs.top_quantized_latents.shape), (4, 5, 3))
         self.assertEqual(tuple(outputs.bottom_quantized_latents.shape), (4, 5, 4))
 
     def test_export_includes_both_codebooks(self) -> None:
-        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         artifact = model.export(self.inputs)
         self.assertEqual(artifact.model_type, "hierarchical_vector_quantized_autoencoder")
         self.assertEqual(tuple(artifact.extras["top_codebook"].shape), (16, 3))
@@ -55,7 +54,7 @@ class HierarchicalVectorQuantizedAutoencoderModelTest(unittest.TestCase):
             )
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = HierarchicalVectorQuantizedAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = HierarchicalVectorQuantizedAutoencoderModel.from_pretrained(tmpdir)

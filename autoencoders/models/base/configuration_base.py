@@ -16,6 +16,8 @@ class BaseAutoencoderConfig(PretrainedConfig):
         reconstruction_loss: str = "mse",
         **kwargs,
     ) -> None:
+        if "input_dim" in kwargs:
+            raise TypeError("`input_dim` has been removed from autoencoder configs; pass `sample_spec` when constructing models.")
         if latent_dim is not None and latent_dim <= 0:
             raise ValueError("latent_dim must be a positive integer.")
         if reconstruction_loss not in {"mse", "l1"}:

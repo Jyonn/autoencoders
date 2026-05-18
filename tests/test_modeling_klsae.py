@@ -20,7 +20,6 @@ class KLSparseAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = KLSparseAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             sparsity_weight=0.1,
@@ -28,14 +27,14 @@ class KLSparseAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_kl_sparsity_loss(self) -> None:
-        model = KLSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = KLSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         outputs = model(inputs=self.inputs)
         self.assertIn("kl_sparsity_loss", outputs.loss_dict)
         expected_loss = outputs.reconstruction_loss + self.config.sparsity_weight * outputs.kl_sparsity_loss
         self.assertTrue(torch.allclose(outputs.loss, expected_loss))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = KLSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = KLSparseAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = KLSparseAutoencoderModel.from_pretrained(tmpdir)

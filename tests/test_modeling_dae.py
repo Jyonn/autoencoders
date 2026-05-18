@@ -22,13 +22,12 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
 
     def test_forward_uses_noisy_inputs_during_training(self) -> None:
         config = DenoisingAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16))
         model.train()
 
         outputs = model(inputs=self.inputs)
@@ -40,13 +39,12 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
 
     def test_eval_skips_noise_by_default(self) -> None:
         config = DenoisingAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16))
         model.eval()
 
         outputs = model(inputs=self.inputs)
@@ -55,13 +53,12 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
 
     def test_masking_noise_zeros_some_entries(self) -> None:
         config = DenoisingAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             noise_type="masking",
             masking_ratio=0.5,
         )
-        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16))
         model.train()
 
         outputs = model(inputs=torch.ones(4, 16))
@@ -72,13 +69,12 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
 
     def test_explicit_corrupted_inputs_override_noise(self) -> None:
         config = DenoisingAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             noise_type="gaussian",
             noise_std=0.5,
         )
-        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16))
         model.train()
         corrupted = torch.zeros_like(self.inputs)
 
@@ -89,13 +85,12 @@ class DenoisingAutoencoderModelTest(unittest.TestCase):
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
         config = DenoisingAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             noise_type="masking",
             masking_ratio=0.25,
         )
-        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = DenoisingAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=16))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.125)

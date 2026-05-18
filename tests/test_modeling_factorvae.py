@@ -20,7 +20,6 @@ class FactorVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(6, 16)
         self.config = FactorVariationalAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             kl_weight=0.2,
@@ -28,7 +27,7 @@ class FactorVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.train()
 
         outputs = model(inputs=self.inputs, current_epoch=1)
@@ -39,20 +38,20 @@ class FactorVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("discriminator_loss", outputs.loss_dict)
 
     def test_permute_dims_preserves_shape(self) -> None:
-        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         latents = torch.randn(6, 4)
         permuted = model.permute_dims(latents)
         self.assertEqual(tuple(permuted.shape), (6, 4))
 
     def test_export_includes_posterior_statistics(self) -> None:
-        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.eval()
         artifact = model.export(self.inputs)
         self.assertEqual(artifact.model_type, "factor_variational_autoencoder")
         self.assertEqual(tuple(artifact.posterior_mean.shape), (6, 4))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = FactorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = FactorVariationalAutoencoderModel.from_pretrained(tmpdir)

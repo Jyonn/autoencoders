@@ -20,7 +20,6 @@ class VampPriorVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = VampPriorVariationalAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             kl_weight=0.2,
@@ -28,7 +27,7 @@ class VampPriorVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.train()
 
         outputs = model(inputs=self.inputs, current_epoch=1)
@@ -41,7 +40,7 @@ class VampPriorVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("free_bits_kl_loss", outputs.loss_dict)
 
     def test_export_includes_posterior_statistics(self) -> None:
-        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.eval()
 
         artifact = model.export(self.inputs)
@@ -51,14 +50,14 @@ class VampPriorVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(artifact.posterior_logvar.shape), (4, 4))
 
     def test_return_dict_false_returns_tuple(self) -> None:
-        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         outputs = model(inputs=self.inputs, current_epoch=1, return_dict=False)
         self.assertEqual(len(outputs), 3)
         self.assertEqual(tuple(outputs[1].shape), (4, 16))
         self.assertEqual(tuple(outputs[2].shape), (4, 4))
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = VampPriorVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.2)

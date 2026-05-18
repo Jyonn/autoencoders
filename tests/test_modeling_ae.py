@@ -32,7 +32,6 @@ if torch is not None:
 class AutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.config = AutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             activation="relu",
@@ -40,7 +39,7 @@ class AutoencoderModelTest(unittest.TestCase):
         self.inputs = torch.randn(3, 16)
 
     def test_forward_returns_expected_shapes(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         outputs = model(inputs=self.inputs)
 
@@ -50,7 +49,7 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertIn("reconstruction_loss", outputs.loss_dict)
 
     def test_forward_uses_inputs_argument(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         outputs = model(inputs=self.inputs)
 
@@ -71,7 +70,7 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.latents.shape), (3, 4))
 
     def test_return_dict_false_returns_tuple(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         outputs = model(inputs=self.inputs, return_dict=False)
 
@@ -80,14 +79,14 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs[2].shape), (3, 4))
 
     def test_reconstruct_matches_output_shape(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         reconstruction = model.reconstruct(self.inputs)
 
         self.assertEqual(tuple(reconstruction.shape), (3, 16))
 
     def test_export_returns_standard_artifact(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         artifact = model.export(self.inputs, metadata={"split": "test"})
 
@@ -99,7 +98,7 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(artifact.metadata["split"], "test")
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with torch.no_grad():
             for parameter in model.parameters():
                 parameter.fill_(0.25)
@@ -117,7 +116,7 @@ class AutoencoderModelTest(unittest.TestCase):
             self.assertTrue(torch.equal(parameter, loaded_state[name]), msg=name)
 
     def test_save_pretrained_writes_builtin_module_specs(self) -> None:
-        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = AutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)

@@ -19,21 +19,21 @@ if torch is not None:
 class MMDVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
-        self.config = MMDVariationalAutoencoderConfig(input_dim=16, latent_dim=4, hidden_dims=[12, 8], mmd_weight=10.0)
+        self.config = MMDVariationalAutoencoderConfig(latent_dim=4, hidden_dims=[12, 8], mmd_weight=10.0)
 
     def test_forward_returns_mmd_loss(self) -> None:
-        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         outputs = model(inputs=self.inputs, current_epoch=1)
         self.assertIn("mmd_loss", outputs.loss_dict)
         self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
 
     def test_export_includes_posterior_statistics(self) -> None:
-        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         artifact = model.export(self.inputs)
         self.assertEqual(artifact.model_type, "mmd_variational_autoencoder")
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = MMDVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = MMDVariationalAutoencoderModel.from_pretrained(tmpdir)

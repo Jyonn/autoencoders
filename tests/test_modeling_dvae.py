@@ -20,7 +20,6 @@ class DenoisingVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = DenoisingVariationalAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             kl_weight=0.5,
@@ -29,7 +28,7 @@ class DenoisingVariationalAutoencoderModelTest(unittest.TestCase):
         )
 
     def test_forward_returns_expected_fields(self) -> None:
-        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.train()
         outputs = model(inputs=self.inputs)
         self.assertEqual(tuple(outputs.reconstruction.shape), (4, 16))
@@ -37,7 +36,7 @@ class DenoisingVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIn("corrupted_inputs", outputs.hidden_states)
 
     def test_save_and_load_pretrained_round_trip(self) -> None:
-        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = DenoisingVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
             loaded = DenoisingVariationalAutoencoderModel.from_pretrained(tmpdir)

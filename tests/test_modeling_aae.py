@@ -14,13 +14,12 @@ from autoencoders import AdversarialAutoencoderConfig, AdversarialAutoencoderMod
 class AdversarialAutoencoderModelTest(unittest.TestCase):
     def test_forward_returns_adversarial_metrics(self) -> None:
         config = AdversarialAutoencoderConfig(
-            input_dim=6,
             latent_dim=3,
             hidden_dims=[5],
             discriminator_hidden_dims=[4],
             adversarial_weight=0.5,
         )
-        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
         inputs = torch.randn(4, 6)
 
         outputs = model(inputs=inputs)
@@ -33,8 +32,8 @@ class AdversarialAutoencoderModelTest(unittest.TestCase):
         self.assertIn("discriminator_loss", outputs.loss_dict)
 
     def test_export_uses_base_continuous_latent_contract(self) -> None:
-        config = AdversarialAutoencoderConfig(input_dim=6, latent_dim=3, hidden_dims=[5], discriminator_hidden_dims=[4])
-        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        config = AdversarialAutoencoderConfig(latent_dim=3, hidden_dims=[5], discriminator_hidden_dims=[4])
+        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
         inputs = torch.randn(2, 6)
 
         artifact = model.export(inputs, metadata={"split": "validation"})
@@ -45,13 +44,12 @@ class AdversarialAutoencoderModelTest(unittest.TestCase):
 
     def test_save_and_load_round_trip(self) -> None:
         config = AdversarialAutoencoderConfig(
-            input_dim=6,
             latent_dim=3,
             hidden_dims=[5],
             adversarial_weight=0.75,
             discriminator_hidden_dims=[7, 5],
         )
-        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        model = AdversarialAutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=6))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)

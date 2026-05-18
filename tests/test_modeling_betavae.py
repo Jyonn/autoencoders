@@ -20,14 +20,13 @@ class BetaVariationalAutoencoderModelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.inputs = torch.randn(4, 16)
         self.config = BetaVariationalAutoencoderConfig(
-            input_dim=16,
             latent_dim=4,
             hidden_dims=[12, 8],
             beta=4.0,
         )
 
     def test_forward_uses_beta_weighted_kl_loss(self) -> None:
-        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
         model.train()
 
         outputs = model(inputs=self.inputs)
@@ -39,7 +38,7 @@ class BetaVariationalAutoencoderModelTest(unittest.TestCase):
         self.assertIsNotNone(outputs.effective_kl_weight)
 
     def test_beta_is_saved_in_config(self) -> None:
-        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config))
+        model = BetaVariationalAutoencoderModel(config=self.config, **build_mlp_backbone_kwargs_from_model_config(self.config, feature_dim=16))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             model.save_pretrained(tmpdir)
