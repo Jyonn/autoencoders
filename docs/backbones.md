@@ -24,6 +24,9 @@ Key config fields:
 - `hidden_dims`
 - `activation`
 - `use_bias`
+- `dropout`
+- `norm`: `none`, `layernorm`, `batchnorm`
+- `weight_init`: `default`, `xavier_uniform`, `xavier_normal`
 
 ## CNN
 

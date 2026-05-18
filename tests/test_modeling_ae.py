@@ -208,6 +208,62 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(trace[2].input_spec, TensorSpec(shape=(12,)))
         self.assertEqual(trace[2].output_spec, TensorSpec(shape=(8,)))
 
+    def test_mlp_module_trace_reports_norm_and_dropout_when_enabled(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(
+                hidden_dims=[12, 8],
+                activation="relu",
+                use_bias=True,
+                norm="layernorm",
+                dropout=0.1,
+            ),
+            input_spec=TensorSpec(shape=(16,)),
+        )
+
+        trace = module.get_trace()
+
+        self.assertEqual(
+            [step.name for step in trace],
+            [
+                "linear(16->12)",
+                "norm(LayerNorm)",
+                "activation(ReLU)",
+                "dropout(p=0.1)",
+                "linear(12->8)",
+            ],
+        )
+
+    def test_mlp_module_batchnorm_supports_sequence_like_inputs(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(
+                hidden_dims=[12, 8],
+                activation="relu",
+                use_bias=True,
+                norm="batchnorm",
+            ),
+            input_spec=TensorSpec(shape=(5, 16)),
+        )
+
+        outputs = module(torch.randn(2, 5, 16))
+
+        self.assertEqual(module.output_spec, TensorSpec(shape=(5, 8)))
+        self.assertEqual(tuple(outputs.shape), (2, 5, 8))
+
+    def test_mlp_module_supports_xavier_weight_initialization(self) -> None:
+        module = MLPModule(
+            config=MLPModuleConfig(
+                hidden_dims=[12, 8],
+                activation="relu",
+                use_bias=True,
+                weight_init="xavier_normal",
+            ),
+            input_spec=TensorSpec(shape=(16,)),
+        )
+
+        first_layer = module.network[0].linear
+        self.assertTrue(torch.allclose(first_layer.bias, torch.zeros_like(first_layer.bias)))
+        self.assertFalse(torch.equal(first_layer.weight, torch.zeros_like(first_layer.weight)))
+
     def test_autoencoder_pipeline_trace_reports_backbone_and_projection_shapes(self) -> None:
         model = AutoencoderModel(
             config=self.config,

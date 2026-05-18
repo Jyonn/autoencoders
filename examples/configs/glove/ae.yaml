@@ -16,6 +16,9 @@ encoder:
     hidden_dims: [64, 32]
     activation: relu
     use_bias: true
+    dropout: ${dropout:0.0}$
+    norm: ${norm:none}$
+    weight_init: ${init:default}$
 
 decoder:
   name: mlp
@@ -23,6 +26,9 @@ decoder:
     hidden_dims: [64, 50]
     activation: relu
     use_bias: true
+    dropout: ${dropout:0.0}$
+    norm: ${norm:none}$
+    weight_init: ${init:default}$
 
 trainer:
   output_dir: artifacts/glove/ae

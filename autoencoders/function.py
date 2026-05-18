@@ -20,6 +20,29 @@ def get_activation_factory(activation: str) -> Callable[[], nn.Module]:
     return activations[activation]
 
 
+def get_normalization_factory(norm: str, feature_dim: int) -> Callable[[], nn.Module] | None:
+    if norm == "none":
+        return None
+    if norm == "layernorm":
+        return lambda: nn.LayerNorm(feature_dim)
+    if norm == "batchnorm":
+        return lambda: FeatureBatchNorm1d(feature_dim)
+    raise ValueError("norm must be one of: 'none', 'layernorm', 'batchnorm'.")
+
+
+def initialize_linear_weight(linear: nn.Linear, weight_init: str) -> None:
+    if weight_init == "default":
+        return
+    if weight_init == "xavier_uniform":
+        nn.init.xavier_uniform_(linear.weight)
+    elif weight_init == "xavier_normal":
+        nn.init.xavier_normal_(linear.weight)
+    else:
+        raise ValueError("weight_init must be one of: 'default', 'xavier_uniform', 'xavier_normal'.")
+    if linear.bias is not None:
+        nn.init.zeros_(linear.bias)
+
+
 def set_seed(seed: int) -> None:
     """Set the global torch seed used by training."""
 
@@ -59,3 +82,17 @@ def resolve_device(device_name: str) -> torch.device:
             return torch.device("mps")
         return torch.device("cpu")
     return torch.device(device_name)
+
+
+class FeatureBatchNorm1d(nn.Module):
+    """Apply BatchNorm1d to the final feature axis of an arbitrary-rank tensor."""
+
+    def __init__(self, feature_dim: int) -> None:
+        super().__init__()
+        self.feature_dim = feature_dim
+        self.norm = nn.BatchNorm1d(feature_dim)
+
+    def forward(self, inputs):  # type: ignore[override]
+        original_shape = inputs.shape
+        outputs = self.norm(inputs.reshape(-1, self.feature_dim))
+        return outputs.reshape(original_shape)
