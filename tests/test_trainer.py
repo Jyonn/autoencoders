@@ -145,6 +145,40 @@ class AutoencoderTrainerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "patience must be provided"):
             TrainingArguments(output_dir="unused", epochs=0)
 
+    def test_training_arguments_validate_optimizer_scheduler_and_clip_fields(self) -> None:
+        with self.assertRaisesRegex(ValueError, "optimizer_name"):
+            TrainingArguments(output_dir="unused", optimizer_name="bogus")
+        with self.assertRaisesRegex(ValueError, "lr_scheduler_type"):
+            TrainingArguments(output_dir="unused", lr_scheduler_type="bogus")
+        with self.assertRaisesRegex(ValueError, "grad_clip_norm"):
+            TrainingArguments(output_dir="unused", grad_clip_norm=0.0)
+        with self.assertRaisesRegex(ValueError, "epochs must be finite"):
+            TrainingArguments(output_dir="unused", epochs=0, patience=1, lr_scheduler_type="linear")
+
+    def test_trainer_supports_optimizer_scheduler_and_grad_clip(self) -> None:
+        config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = TrainingArguments(
+                output_dir=tmpdir,
+                epochs=2,
+                learning_rate=1e-3,
+                optimizer_name="adamw",
+                weight_decay=0.01,
+                lr_scheduler_type="linear",
+                warmup_epochs=1,
+                grad_clip_norm=1.0,
+                batch_size=6,
+                device="cpu",
+            )
+            trainer = AETrainer(model=model, args=args)
+            trainer.fit(dataloaders)
+
+            self.assertIsInstance(trainer.optimizer, torch.optim.AdamW)
+            self.assertLess(trainer.optimizer.param_groups[0]["lr"], args.learning_rate)
+
     def test_trainer_stops_early_when_patience_is_reached(self) -> None:
         config = AutoencoderConfig(input_dim=8, latent_dim=4, hidden_dims=[6])
         model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config))

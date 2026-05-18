@@ -4,16 +4,16 @@
 
 The repository now ships with a dataset layer that mirrors the model/module architecture:
 
-- [autoencoders/data/base.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/base.py): base contracts, caching, deterministic splits, and `DataSpec`
-- [autoencoders/data/glove.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/glove.py): downloadable GloVe embeddings
-- [autoencoders/data/fasttext.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/fasttext.py): official fastText English vectors
-- [autoencoders/data/numberbatch.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/numberbatch.py): ConceptNet Numberbatch vectors
-- [autoencoders/data/text.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/text.py): shared infrastructure for encoder-backed text datasets
-- [autoencoders/data/snli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/snli.py): SNLI embeddings
-- [autoencoders/data/multinli.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/multinli.py): MultiNLI embeddings
-- [autoencoders/data/clip.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/clip.py): shared CLIP-backed multimodal infrastructure
-- [autoencoders/data/flickr30k.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/flickr30k.py): Flickr30k CLIP embeddings
-- [autoencoders/data/cifar10.py](/Users/jyonn/Projects/Libraries/autoencoders/autoencoders/data/cifar10.py): CIFAR-10 image tensors for CNN- and ViT-backed experiments
+- `autoencoders/data/base.py`: base contracts, caching, deterministic splits, and `DataSpec`
+- `autoencoders/data/glove.py`: downloadable GloVe embeddings
+- `autoencoders/data/fasttext.py`: official fastText English vectors
+- `autoencoders/data/numberbatch.py`: ConceptNet Numberbatch vectors
+- `autoencoders/data/text.py`: shared infrastructure for encoder-backed text datasets
+- `autoencoders/data/snli.py`: SNLI embeddings
+- `autoencoders/data/multinli.py`: MultiNLI embeddings
+- `autoencoders/data/clip.py`: shared CLIP-backed multimodal infrastructure
+- `autoencoders/data/flickr30k.py`: Flickr30k CLIP embeddings
+- `autoencoders/data/cifar10.py`: CIFAR-10 image tensors for CNN- and ViT-backed experiments
 
 ## Recommended Starting Points
 

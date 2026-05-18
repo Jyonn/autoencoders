@@ -123,6 +123,26 @@ If you are working from source and plan to build or publish packages:
 pip install "autoencoders[dev]"
 ```
 
+## Documentation
+
+The repository now ships with an MkDocs site that documents:
+
+- the dataset, backbone, and `DataSpec` surface
+- the unified YAML training entrypoint
+- tree-structured model parameter references for deterministic, variational, and quantized families
+
+Preview the docs locally:
+
+```bash
+mkdocs serve
+```
+
+Build the static site:
+
+```bash
+mkdocs build --strict
+```
+
 ## Quick Start
 
 Build a basic `AE + MLP` model explicitly from a sample spec:

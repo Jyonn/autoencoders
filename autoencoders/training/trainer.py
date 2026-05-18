@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,11 @@ class TrainingConfig:
         epochs: int = 5,
         patience: int | None = None,
         learning_rate: float = 1e-3,
+        optimizer_name: str = "adam",
+        weight_decay: float = 0.0,
+        lr_scheduler_type: str = "none",
+        warmup_epochs: int = 0,
+        grad_clip_norm: float | None = None,
         batch_size: int = 256,
         device: str = "auto",
         seed: int = 42,
@@ -32,6 +38,11 @@ class TrainingConfig:
         self.epochs = epochs
         self.patience = patience
         self.learning_rate = learning_rate
+        self.optimizer_name = optimizer_name
+        self.weight_decay = weight_decay
+        self.lr_scheduler_type = lr_scheduler_type
+        self.warmup_epochs = warmup_epochs
+        self.grad_clip_norm = grad_clip_norm
         self.batch_size = batch_size
         self.device = device
         self.seed = seed
@@ -48,6 +59,20 @@ class TrainingConfig:
             raise ValueError("patience must be greater than 0 when provided.")
         if self.epochs == 0 and self.patience is None:
             raise ValueError("patience must be provided when epochs is set to 0.")
+        if self.learning_rate <= 0:
+            raise ValueError("learning_rate must be greater than 0.")
+        if self.weight_decay < 0:
+            raise ValueError("weight_decay must be greater than or equal to 0.")
+        if self.warmup_epochs < 0:
+            raise ValueError("warmup_epochs must be greater than or equal to 0.")
+        if self.grad_clip_norm is not None and self.grad_clip_norm <= 0:
+            raise ValueError("grad_clip_norm must be greater than 0 when provided.")
+        if self.optimizer_name not in {"adam", "adamw", "sgd", "rmsprop", "adagrad"}:
+            raise ValueError("optimizer_name must be one of: 'adam', 'adamw', 'sgd', 'rmsprop', 'adagrad'.")
+        if self.lr_scheduler_type not in {"none", "constant", "linear", "cosine"}:
+            raise ValueError("lr_scheduler_type must be one of: 'none', 'constant', 'linear', 'cosine'.")
+        if self.epochs == 0 and self.lr_scheduler_type in {"linear", "cosine"}:
+            raise ValueError("epochs must be finite when using a linear or cosine scheduler.")
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -125,7 +150,8 @@ class AETrainer:
         self.max_epochs: int | None = None
         self.device = resolve_device(args.device)
         self.model.to(self.device)
-        self.optimizer = optimizer or torch.optim.Adam(
+        self.schedulers: dict[int, torch.optim.lr_scheduler.LambdaLR] = {}
+        self.optimizer = optimizer or self._create_optimizer(
             self.model.parameters(),
             lr=args.learning_rate,
         )
@@ -155,6 +181,10 @@ class AETrainer:
         epoch = 0
         max_epochs = self.args.epochs if self.args.epochs > 0 else None
         self.max_epochs = max_epochs
+        self.configure_optimizers_for_fit(
+            total_train_batches=len(dataloaders.train),
+            max_epochs=max_epochs,
+        )
 
         self.display.log_run_start(
             model_name=metadata.get("model", self.model.__class__.__name__) if metadata else self.model.__class__.__name__,
@@ -241,6 +271,87 @@ class AETrainer:
     def on_epoch_start(self, epoch: int) -> None:
         self.current_epoch = epoch
 
+    def _create_optimizer(self, parameters, *, lr: float) -> torch.optim.Optimizer:
+        parameter_list = [parameter for parameter in parameters if parameter.requires_grad]
+        optimizer_name = self.args.optimizer_name
+        weight_decay = self.args.weight_decay
+
+        if optimizer_name == "adam":
+            return torch.optim.Adam(parameter_list, lr=lr, weight_decay=weight_decay)
+        if optimizer_name == "adamw":
+            return torch.optim.AdamW(parameter_list, lr=lr, weight_decay=weight_decay)
+        if optimizer_name == "sgd":
+            return torch.optim.SGD(parameter_list, lr=lr, weight_decay=weight_decay)
+        if optimizer_name == "rmsprop":
+            return torch.optim.RMSprop(parameter_list, lr=lr, weight_decay=weight_decay)
+        return torch.optim.Adagrad(parameter_list, lr=lr, weight_decay=weight_decay)
+
+    def configure_optimizers_for_fit(self, *, total_train_batches: int, max_epochs: int | None) -> None:
+        self.schedulers = {}
+        self._register_scheduler(self.optimizer, total_train_batches=total_train_batches, max_epochs=max_epochs)
+
+    def _register_scheduler(
+        self,
+        optimizer: torch.optim.Optimizer,
+        *,
+        total_train_batches: int,
+        max_epochs: int | None,
+    ) -> None:
+        scheduler = self._build_scheduler(
+            optimizer,
+            total_train_batches=total_train_batches,
+            max_epochs=max_epochs,
+        )
+        if scheduler is not None:
+            self.schedulers[id(optimizer)] = scheduler
+
+    def _build_scheduler(
+        self,
+        optimizer: torch.optim.Optimizer,
+        *,
+        total_train_batches: int,
+        max_epochs: int | None,
+    ) -> torch.optim.lr_scheduler.LambdaLR | None:
+        scheduler_type = self.args.lr_scheduler_type
+        warmup_steps = self.args.warmup_epochs * total_train_batches
+        if scheduler_type == "none" and warmup_steps == 0:
+            return None
+
+        total_steps = None if max_epochs is None else max(1, max_epochs * total_train_batches)
+
+        def lr_lambda(step_index: int) -> float:
+            current_step = step_index + 1
+            if warmup_steps > 0 and current_step <= warmup_steps:
+                return current_step / max(warmup_steps, 1)
+            if scheduler_type in {"none", "constant"}:
+                return 1.0
+            assert total_steps is not None
+            decay_steps = max(total_steps - warmup_steps, 1)
+            progress = min(max(current_step - warmup_steps, 0), decay_steps) / decay_steps
+            if scheduler_type == "linear":
+                return max(0.0, 1.0 - progress)
+            if scheduler_type == "cosine":
+                return 0.5 * (1.0 + math.cos(math.pi * progress))
+            return 1.0
+
+        return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    def _step_optimizer(self, optimizer: torch.optim.Optimizer) -> None:
+        grad_clip_norm = self.args.grad_clip_norm
+        if grad_clip_norm is not None:
+            parameters = [
+                parameter
+                for group in optimizer.param_groups
+                for parameter in group["params"]
+                if parameter.grad is not None
+            ]
+            if parameters:
+                torch.nn.utils.clip_grad_norm_(parameters, grad_clip_norm)
+        optimizer.step()
+        scheduler = self.schedulers.get(id(optimizer))
+        if scheduler is not None:
+            scheduler.step()
+
     def get_epoch_metrics(self) -> dict[str, float | int]:
         return self.model.get_epoch_metrics(
             global_step=self.global_step,
@@ -263,7 +374,7 @@ class AETrainer:
             loss = self.compute_batch_loss(outputs, training=training)
             if training:
                 loss.backward()
-                self.optimizer.step()
+                self._step_optimizer(self.optimizer)
                 self.global_step += 1
 
             batch_size = batch.shape[0]
@@ -435,9 +546,9 @@ class FactorVAETrainer(VAETrainer):
         autoencoder_parameters = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
         autoencoder_parameters.extend(self.model.mean_projection.parameters())
         autoencoder_parameters.extend(self.model.logvar_projection.parameters())
-        self.optimizer = optimizer or torch.optim.Adam(autoencoder_parameters, lr=args.learning_rate)
+        self.optimizer = optimizer or self._create_optimizer(autoencoder_parameters, lr=args.learning_rate)
         discriminator_learning_rate = args.discriminator_learning_rate or args.learning_rate
-        self.discriminator_optimizer = torch.optim.Adam(
+        self.discriminator_optimizer = self._create_optimizer(
             self.model.discriminator.parameters(),
             lr=discriminator_learning_rate,
         )
@@ -445,6 +556,15 @@ class FactorVAETrainer(VAETrainer):
     @property
     def factor_args(self) -> FactorVariationalAutoencoderTrainingConfig:
         return self.args
+
+    def configure_optimizers_for_fit(self, *, total_train_batches: int, max_epochs: int | None) -> None:
+        self.schedulers = {}
+        self._register_scheduler(self.optimizer, total_train_batches=total_train_batches, max_epochs=max_epochs)
+        self._register_scheduler(
+            self.discriminator_optimizer,
+            total_train_batches=total_train_batches,
+            max_epochs=max_epochs,
+        )
 
     def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
@@ -459,7 +579,7 @@ class FactorVAETrainer(VAETrainer):
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs=batch, global_step=batch_global_step, current_epoch=self.current_epoch)
                 outputs.loss.backward()
-                self.optimizer.step()
+                self._step_optimizer(self.optimizer)
 
                 for _ in range(self.factor_args.discriminator_steps):
                     self.discriminator_optimizer.zero_grad()
@@ -473,7 +593,7 @@ class FactorVAETrainer(VAETrainer):
                         permuted_latents = self.model.permute_dims(latents)
                     discriminator_loss = self.model.compute_discriminator_loss(latents, permuted_latents)
                     discriminator_loss.backward()
-                    self.discriminator_optimizer.step()
+                    self._step_optimizer(self.discriminator_optimizer)
 
                 self.global_step += 1
 
@@ -649,11 +769,11 @@ class AdversarialAutoencoderTrainer(AETrainer):
     ) -> None:
         super().__init__(model=model, args=args, optimizer=optimizer, display=display)
         autoencoder_parameters = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
-        self.optimizer = optimizer or torch.optim.Adam(autoencoder_parameters, lr=args.learning_rate)
+        self.optimizer = optimizer or self._create_optimizer(autoencoder_parameters, lr=args.learning_rate)
         generator_learning_rate = args.generator_learning_rate or args.learning_rate
         discriminator_learning_rate = args.discriminator_learning_rate or args.learning_rate
-        self.generator_optimizer = torch.optim.Adam(self.model.encoder.parameters(), lr=generator_learning_rate)
-        self.discriminator_optimizer = torch.optim.Adam(
+        self.generator_optimizer = self._create_optimizer(self.model.encoder.parameters(), lr=generator_learning_rate)
+        self.discriminator_optimizer = self._create_optimizer(
             self.model.discriminator.parameters(),
             lr=discriminator_learning_rate,
         )
@@ -661,6 +781,20 @@ class AdversarialAutoencoderTrainer(AETrainer):
     @property
     def adversarial_args(self) -> AdversarialAutoencoderTrainingConfig:
         return self.args
+
+    def configure_optimizers_for_fit(self, *, total_train_batches: int, max_epochs: int | None) -> None:
+        self.schedulers = {}
+        self._register_scheduler(self.optimizer, total_train_batches=total_train_batches, max_epochs=max_epochs)
+        self._register_scheduler(
+            self.generator_optimizer,
+            total_train_batches=total_train_batches,
+            max_epochs=max_epochs,
+        )
+        self._register_scheduler(
+            self.discriminator_optimizer,
+            total_train_batches=total_train_batches,
+            max_epochs=max_epochs,
+        )
 
     def run_epoch(self, dataloader, *, training: bool) -> dict[str, float]:
         totals: dict[str, float] = {}
@@ -678,7 +812,7 @@ class AdversarialAutoencoderTrainer(AETrainer):
                 reconstruction = self.model.decode(self.model.project_from_core(latents))
                 reconstruction_loss = self.model.compute_loss(reconstruction, batch)
                 reconstruction_loss.backward()
-                self.optimizer.step()
+                self._step_optimizer(self.optimizer)
 
                 for _ in range(self.adversarial_args.discriminator_steps):
                     self.discriminator_optimizer.zero_grad()
@@ -691,13 +825,13 @@ class AdversarialAutoencoderTrainer(AETrainer):
                     )
                     discriminator_loss = self.model.compute_discriminator_loss(detached_latents, prior_samples)
                     discriminator_loss.backward()
-                    self.discriminator_optimizer.step()
+                    self._step_optimizer(self.discriminator_optimizer)
 
                 self.generator_optimizer.zero_grad()
                 adversarial_latents = self.model.project_to_core(self.model.encode(batch))
                 adversarial_loss = self.model.compute_adversarial_loss(adversarial_latents)
                 (self.model.config.adversarial_weight * adversarial_loss).backward()
-                self.generator_optimizer.step()
+                self._step_optimizer(self.generator_optimizer)
                 self.global_step += 1
 
             with torch.no_grad():
