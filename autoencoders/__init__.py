@@ -11,6 +11,8 @@ from .modules import (
     CNNModuleConfig,
     MLPModule,
     MLPModuleConfig,
+    VisionTransformerModule,
+    VisionTransformerModuleConfig,
     get_module_class,
     get_module_modules,
 )
@@ -126,6 +128,8 @@ __all__ = [
     "VampPriorVariationalAutoencoderOutput",
     "VariationalAutoencoderConfig",
     "VariationalAutoencoderOutput",
+    "VisionTransformerModule",
+    "VisionTransformerModuleConfig",
     "WassersteinAutoencoderConfig",
     "WassersteinAutoencoderOutput",
     "VectorQuantizedAutoencoderConfig",

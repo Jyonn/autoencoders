@@ -1,0 +1,36 @@
+dataset:
+  name: cifar10
+  config:
+    max_examples: 512
+
+model:
+  name: vqvae
+  config:
+    latent_dim: 64
+    codebook_size: 128
+    commitment_weight: 0.25
+    codebook_weight: 1.0
+    reconstruction_loss: mse
+
+encoder:
+  name: vision_transformer
+  config:
+    patch_size: 4
+    hidden_dim: 128
+    num_layers: 2
+    num_heads: 8
+    mlp_ratio: 2.0
+    dropout: 0.0
+    use_bias: true
+
+trainer:
+  output_dir: artifacts/cifar10/vqvae-vit
+  validation_ratio: 0.1
+  test_ratio: 0.1
+  seed: 42
+  epochs: ${epoch}$
+  batch_size: 32
+  learning_rate: 0.001
+  device: auto
+  show_only_best_epochs: true
+  advice: false

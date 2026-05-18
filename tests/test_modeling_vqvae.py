@@ -194,6 +194,37 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertEqual(tuple(outputs.quantized_latents.shape), (2, 8, 8, 64))
         self.assertEqual(tuple(outputs.codebook_indices.shape), (2, 8, 8))
 
+    def test_forward_supports_vision_transformer_backbone_on_image_inputs(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            latent_dim=64,
+            codebook_size=32,
+            commitment_weight=0.25,
+            codebook_weight=1.0,
+        )
+        model = VectorQuantizedAutoencoderModel(
+            config=config,
+            sample_spec=TensorSpec(shape=(32, 32, 3)),
+            encoder="vision_transformer",
+            encoder_config={
+                "patch_size": 4,
+                "hidden_dim": 128,
+                "num_layers": 2,
+                "num_heads": 8,
+                "mlp_ratio": 2.0,
+                "dropout": 0.0,
+                "use_bias": True,
+            },
+        )
+        image_inputs = torch.rand(2, 32, 32, 3)
+
+        outputs = model(inputs=image_inputs)
+
+        self.assertEqual(tuple(outputs.reconstruction.shape), (2, 32, 32, 3))
+        self.assertEqual(tuple(outputs.encoded.shape), (2, 64, 128))
+        self.assertEqual(tuple(outputs.latents.shape), (2, 64, 64))
+        self.assertEqual(tuple(outputs.quantized_latents.shape), (2, 64, 64))
+        self.assertEqual(tuple(outputs.codebook_indices.shape), (2, 64))
+
 
 if __name__ == "__main__":
     unittest.main()

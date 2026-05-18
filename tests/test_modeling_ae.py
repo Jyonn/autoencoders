@@ -18,7 +18,14 @@ if torch is not None:
     from tests._mlp_helpers import build_mlp_backbone_kwargs_from_model_config
     from autoencoders import AutoencoderConfig, AutoencoderModel
     from autoencoders.data import DictSpec, TensorSpec
-    from autoencoders.modules import CNNModule, CNNModuleConfig, MLPModule, MLPModuleConfig
+    from autoencoders.modules import (
+        CNNModule,
+        CNNModuleConfig,
+        MLPModule,
+        MLPModuleConfig,
+        VisionTransformerModule,
+        VisionTransformerModuleConfig,
+    )
 
 
 @unittest.skipIf(torch is None, "torch is required for model tests")
@@ -295,6 +302,65 @@ class AutoencoderModelTest(unittest.TestCase):
         self.assertEqual(trace[0].output_spec, TensorSpec(shape=(16, 16, 64)))
         self.assertEqual(trace[1].output_spec, TensorSpec(shape=(16, 16, 64)))
         self.assertEqual(trace[2].output_spec, TensorSpec(shape=(8, 8, 128)))
+
+    def test_vision_transformer_module_patchifies_images_into_sequences(self) -> None:
+        module = VisionTransformerModule(
+            config=VisionTransformerModuleConfig(
+                patch_size=4,
+                hidden_dim=64,
+                num_layers=2,
+                num_heads=8,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        outputs = module(torch.randn(2, 32, 32, 3))
+
+        self.assertEqual(module.output_spec, TensorSpec(shape=(64, 64)))
+        self.assertEqual(tuple(outputs.shape), (2, 64, 64))
+
+    def test_vision_transformer_module_build_reversed_restores_image_shape(self) -> None:
+        encoder = VisionTransformerModule(
+            config=VisionTransformerModuleConfig(
+                patch_size=4,
+                hidden_dim=64,
+                num_layers=2,
+                num_heads=8,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        decoder = encoder.build_reversed()
+        outputs = decoder(torch.randn(2, 64, 64))
+
+        self.assertEqual(decoder.input_spec, TensorSpec(shape=(64, 64)))
+        self.assertEqual(decoder.output_spec, TensorSpec(shape=(32, 32, 3)))
+        self.assertEqual(tuple(outputs.shape), (2, 32, 32, 3))
+
+    def test_vision_transformer_module_trace_reports_patch_and_transformer_steps(self) -> None:
+        module = VisionTransformerModule(
+            config=VisionTransformerModuleConfig(
+                patch_size=4,
+                hidden_dim=64,
+                num_layers=2,
+                num_heads=8,
+            ),
+            input_spec=TensorSpec(shape=(32, 32, 3)),
+        )
+
+        trace = module.get_trace()
+
+        self.assertEqual(
+            [step.name for step in trace],
+            [
+                "patchify(p=(4, 4))",
+                "linear(48->64)",
+                "transformer_layer[1](d=64, heads=8)",
+                "transformer_layer[2](d=64, heads=8)",
+            ],
+        )
+        self.assertEqual(trace[0].output_spec, TensorSpec(shape=(64, 48)))
+        self.assertEqual(trace[1].output_spec, TensorSpec(shape=(64, 64)))
 
 
 if __name__ == "__main__":
