@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2 - 2026-05-19
+
+- Added support for evaluating vector-quantized models on full shared splits, so `train`, `validation`, and `test` can all point at the full dataset when desired.
+- Added full-evaluation `collision_rate` reporting for learned-codebook quantized families such as `VQVAE`, `PQVAE`, and `RQVAE`.
+- Restored optional `use_ema_codebook` support for `RQVAE` while preserving the corrected residual-quantizer update path.
+- Disallowed `assignment_strategy='sinkhorn'` together with `dead_code_reset`, because the two mechanisms compete over code usage and can destabilize commitment losses.
+- Added `save_best_by` to the trainer so runs can save multiple best checkpoints by validation metric short name, such as `loss`, `commit`, or `collision_rate`.
+
 ## 0.4.1 - 2026-05-19
 
 - Added a dedicated MkDocs configuration reference page that explains the meaning of dataset, model, backbone, and trainer parameters used by the unified YAML entrypoint.
