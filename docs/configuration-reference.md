@@ -335,8 +335,10 @@ No extra fields beyond the base quantized family.
 | `warmup_epochs` | Number of epochs used for learning-rate warmup before the main scheduler takes over. |
 | `grad_clip_norm` | If set, clip gradient norm to this value after backpropagation. |
 | `batch_size` | Batch size used to build train/validation/test dataloaders. |
+| `full_dataset_as_splits` | If `true`, reuse the full dataset for train, validation, and test instead of splitting it. |
 | `device` | Device target such as `auto`, `cpu`, `cuda`, or `mps`. |
 | `seed` | Global random seed for reproducibility. |
+| `save_best_by` | Validation metric short names used to save best checkpoints. `loss` writes to `best/`; extra names such as `commit` write to `best-commit/`. |
 | `show_only_best_epochs` | If `true`, only emit compact summaries for best-validation epochs instead of every epoch. |
 | `advice` | If `true`, append trainer-generated tuning suggestions after the run. |
 

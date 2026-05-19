@@ -31,6 +31,7 @@ class TrainingConfig:
         full_dataset_as_splits: bool = False,
         device: str = "auto",
         seed: int = 42,
+        save_best_by: str | list[str] = "loss",
         show_only_best_epochs: bool = True,
         advice: bool = False,
         **kwargs,
@@ -48,11 +49,21 @@ class TrainingConfig:
         self.full_dataset_as_splits = full_dataset_as_splits
         self.device = device
         self.seed = seed
+        self.save_best_by = self._normalize_save_best_by(save_best_by)
         self.show_only_best_epochs = show_only_best_epochs
         self.advice = advice
         for key, value in kwargs.items():
             setattr(self, key, value)
         self._validate()
+
+    @staticmethod
+    def _normalize_save_best_by(value: str | list[str]) -> list[str]:
+        metrics = [value] if isinstance(value, str) else list(value)
+        normalized: list[str] = []
+        for metric_name in metrics:
+            if metric_name not in normalized:
+                normalized.append(metric_name)
+        return normalized
 
     def _validate(self) -> None:
         if self.epochs < 0:
@@ -75,6 +86,10 @@ class TrainingConfig:
             raise ValueError("lr_scheduler_type must be one of: 'none', 'constant', 'linear', 'cosine'.")
         if self.epochs == 0 and self.lr_scheduler_type in {"linear", "cosine"}:
             raise ValueError("epochs must be finite when using a linear or cosine scheduler.")
+        if not self.save_best_by:
+            raise ValueError("save_best_by must contain at least one metric name.")
+        if any(not isinstance(metric_name, str) or not metric_name for metric_name in self.save_best_by):
+            raise ValueError("save_best_by must contain non-empty metric names.")
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -174,12 +189,16 @@ class AETrainer:
         dataloaders: DatasetLoaders,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        best_validation_loss = float("inf")
-        best_epoch: int | None = None
+        best_validation_metrics = {metric_name: float("inf") for metric_name in self.args.save_best_by}
+        best_epochs_by_metric: dict[str, int | None] = {metric_name: None for metric_name in self.args.save_best_by}
         epochs_without_improvement = 0
         stopped_early = False
         history: list[dict[str, float | int]] = []
         output_dir = Path(self.args.output_dir)
+        best_output_dirs = {
+            metric_name: output_dir / ("best" if metric_name == "loss" else f"best-{metric_name}")
+            for metric_name in self.args.save_best_by
+        }
         epoch = 0
         max_epochs = self.args.epochs if self.args.epochs > 0 else None
         self.max_epochs = max_epochs
@@ -205,18 +224,31 @@ class AETrainer:
             epoch_metrics.update({f"train_{name}": value for name, value in train_metrics.items()})
             epoch_metrics.update({f"validation_{name}": value for name, value in validation_metrics.items()})
             history.append(epoch_metrics)
-            improved = validation_metrics["loss"] < best_validation_loss
+            improved_metrics: list[str] = []
+            for metric_name in self.args.save_best_by:
+                if metric_name not in validation_metrics:
+                    raise KeyError(
+                        f"Configured save_best_by metric '{metric_name}' was not produced by validation metrics."
+                    )
+                metric_value = validation_metrics[metric_name]
+                if metric_value < best_validation_metrics[metric_name]:
+                    best_validation_metrics[metric_name] = metric_value
+                    best_epochs_by_metric[metric_name] = epoch
+                    self.model.save_pretrained(best_output_dirs[metric_name])
+                    improved_metrics.append(metric_name)
 
-            if improved:
-                best_validation_loss = validation_metrics["loss"]
-                best_epoch = epoch
-                epochs_without_improvement = 0
-                self.model.save_pretrained(output_dir / "best")
+            improved = "loss" in improved_metrics
+
+            if improved_metrics:
+                if improved:
+                    epochs_without_improvement = 0
                 self.display.clear_live_line()
-                self.display.log_best_epoch(
-                    epoch_label=self.format_epoch_label(),
-                    epoch_metrics=epoch_metrics,
-                )
+                for metric_name in improved_metrics:
+                    self.display.log_best_epoch(
+                        epoch_label=self.format_epoch_label(),
+                        epoch_metrics=epoch_metrics,
+                        metric_name=metric_name,
+                    )
             else:
                 if self.args.show_only_best_epochs:
                     self.display.log_epoch_summary(
@@ -239,10 +271,15 @@ class AETrainer:
         test_metrics = self.evaluate(dataloaders.test)
         self.model.save_pretrained(output_dir / "final")
 
+        best_validation_loss = best_validation_metrics.get("loss")
+        best_epoch = best_epochs_by_metric.get("loss")
+
         metrics = {
             "device": str(self.device),
             "best_validation_loss": best_validation_loss,
             "best_epoch": best_epoch,
+            "best_validation_metrics": best_validation_metrics,
+            "best_epochs_by_metric": best_epochs_by_metric,
             "epochs_completed": len(history),
             "final_test_loss": test_metrics["loss"],
             "final_test_metrics": test_metrics,
@@ -265,6 +302,7 @@ class AETrainer:
             stopped_early=stopped_early,
             best_epoch=best_epoch,
             current_epoch=self.current_epoch,
+            best_output_dirs=best_output_dirs,
         )
         if metrics["advice"]:
             self.display.log_advice(metrics["advice"])

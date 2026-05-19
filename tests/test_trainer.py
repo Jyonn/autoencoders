@@ -103,6 +103,8 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             self.assertIn("best_validation_loss", metrics)
             self.assertIn("best_epoch", metrics)
+            self.assertIn("best_validation_metrics", metrics)
+            self.assertIn("best_epochs_by_metric", metrics)
             self.assertIn("epochs_completed", metrics)
             self.assertIn("final_test_loss", metrics)
             self.assertIn("final_test_metrics", metrics)
@@ -154,6 +156,8 @@ class AutoencoderTrainerTest(unittest.TestCase):
             TrainingArguments(output_dir="unused", grad_clip_norm=0.0)
         with self.assertRaisesRegex(ValueError, "epochs must be finite"):
             TrainingArguments(output_dir="unused", epochs=0, patience=1, lr_scheduler_type="linear")
+        with self.assertRaisesRegex(ValueError, "save_best_by must contain at least one metric name"):
+            TrainingArguments(output_dir="unused", save_best_by=[])
 
     def test_trainer_supports_optimizer_scheduler_and_grad_clip(self) -> None:
         config = AutoencoderConfig(latent_dim=4, hidden_dims=[6])
@@ -218,6 +222,67 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertEqual(metrics["epochs_completed"], 4)
             self.assertEqual(len(metrics["history"]), 4)
             self.assertEqual(metrics["final_test_loss"], 3.5)
+
+    def test_trainer_saves_additional_best_checkpoints_by_metric(self) -> None:
+        config = AutoencoderConfig(latent_dim=4, hidden_dims=[6])
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=8))
+        dataloaders = build_dataset_loaders()
+
+        class ScriptedTrainer(AETrainer):
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.validation_metrics_sequence = iter(
+                    [
+                        {"loss": 5.0, "commit": 2.0},
+                        {"loss": 4.5, "commit": 1.5},
+                        {"loss": 4.8, "commit": 1.0},
+                        {"loss": 4.7, "commit": 1.2},
+                    ]
+                )
+                self.test_metrics = {"loss": 3.5, "commit": 0.9}
+
+            def train_epoch(self, dataloader) -> dict[str, float]:
+                return {"loss": 1.0, "commit": 0.5}
+
+            def evaluate(self, dataloader) -> dict[str, float]:
+                try:
+                    return next(self.validation_metrics_sequence)
+                except StopIteration:
+                    return self.test_metrics
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = TrainingArguments(
+                output_dir=tmpdir,
+                epochs=4,
+                learning_rate=1e-3,
+                batch_size=6,
+                device="cpu",
+                seed=123,
+                save_best_by=["loss", "commit"],
+            )
+            trainer = ScriptedTrainer(model=model, args=args)
+            metrics = trainer.fit(dataloaders)
+
+            self.assertEqual(metrics["best_epoch"], 2)
+            self.assertEqual(metrics["best_epochs_by_metric"]["loss"], 2)
+            self.assertEqual(metrics["best_epochs_by_metric"]["commit"], 3)
+            self.assertAlmostEqual(metrics["best_validation_metrics"]["loss"], 4.5)
+            self.assertAlmostEqual(metrics["best_validation_metrics"]["commit"], 1.0)
+            self.assertTrue((Path(tmpdir) / "best" / "config.json").exists())
+            self.assertTrue((Path(tmpdir) / "best-commit" / "config.json").exists())
+
+    def test_trainer_raises_when_save_best_metric_is_missing(self) -> None:
+        config = AutoencoderConfig(latent_dim=4, hidden_dims=[6])
+        model = AutoencoderModel(config=config, **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=8))
+        dataloaders = build_dataset_loaders()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = AETrainer(
+                model=model,
+                args=TrainingArguments(output_dir=tmpdir, epochs=1, device="cpu", save_best_by=["loss", "commit"]),
+            )
+            with self.assertRaisesRegex(KeyError, "Configured save_best_by metric 'commit'"):
+                trainer.fit(dataloaders)
 
     def test_trainer_display_config_validates_progress_width(self) -> None:
         display = TrainerDisplayConfig()

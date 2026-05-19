@@ -219,10 +219,16 @@ class TrainerDisplay:
         else:
             self.write_live_line(line)
 
-    def log_best_epoch(self, *, epoch_label: str, epoch_metrics: dict[str, float | int]) -> None:
+    def log_best_epoch(
+        self,
+        *,
+        epoch_label: str,
+        epoch_metrics: dict[str, float | int],
+        metric_name: str = "loss",
+    ) -> None:
         parts = [
             style(epoch_label, fg=self.config.epoch_index_fg, bold=True),
-            self.format_metric("valid", f"{float(epoch_metrics['validation_loss']):.4f}", value_fg=self.config.metric_value_fg),
+            self.format_metric(metric_name, f"{float(epoch_metrics[f'validation_{metric_name}']):.4f}", value_fg=self.config.metric_value_fg),
         ]
         parts.extend(self._summary_metric_segments(epoch_metrics, train_validation=False))
         self._print_log("BEST", self._join_segments(*parts), fg=self.config.best_label_fg, bg=self.config.best_label_bg)
@@ -236,6 +242,7 @@ class TrainerDisplay:
         stopped_early: bool,
         best_epoch: int | None,
         current_epoch: int,
+        best_output_dirs: dict[str, Path],
     ) -> None:
         summary_parts = [self.format_metric("test", f"{test_metrics['loss']:.4f}", value_fg=self.config.metric_value_fg)]
         summary_parts.extend(self._test_metric_segments(test_metrics))
@@ -244,7 +251,9 @@ class TrainerDisplay:
             summary_parts.append(self.format_metric("stopped", str(current_epoch), value_fg=self.config.meta_value_fg))
         self.clear_live_line()
         self._print_log("FINAL", self._join_segments(*summary_parts), fg=self.config.final_label_fg, bg=self.config.final_label_bg)
-        self._print_log("SAVE", f"best -> {output_dir / 'best'}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
+        for metric_name, path in best_output_dirs.items():
+            label = "best" if metric_name == "loss" else f"best-{metric_name}"
+            self._print_log("SAVE", f"{label} -> {path}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
         self._print_log("SAVE", f"final -> {output_dir / 'final'}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
         self._print_log("SAVE", f"metrics -> {metrics_path}", fg=self.config.save_label_fg, bg=self.config.save_label_bg)
 
