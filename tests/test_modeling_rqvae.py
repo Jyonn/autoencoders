@@ -118,15 +118,32 @@ class ResidualQuantizedAutoencoderModelTest(unittest.TestCase):
                 sinkhorn_epsilon=[0.01, 0.02],
             )
 
-    def test_rqvae_rejects_ema_codebooks(self) -> None:
-        with self.assertRaisesRegex(ValueError, "does not support `use_ema_codebook=True`"):
-            ResidualQuantizedAutoencoderConfig(
-                latent_dim=1,
-                hidden_dims=[2],
-                codebook_size=1,
-                num_quantizers=2,
-                use_ema_codebook=True,
-            )
+    def test_rqvae_ema_updates_use_forward_residual_chain(self) -> None:
+        config = ResidualQuantizedAutoencoderConfig(
+            latent_dim=1,
+            hidden_dims=[2],
+            codebook_size=1,
+            num_quantizers=2,
+            use_ema_codebook=True,
+            ema_decay=0.0,
+            ema_epsilon=1e-5,
+        )
+        model = ResidualQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=1),
+        )
+        model.codebooks[0].weight.data.fill_(1.0)
+        model.codebooks[1].weight.data.fill_(2.0)
+        model.ema_cluster_size.fill_(1.0)
+        model.ema_weight_sum.zero_()
+
+        encoded = torch.tensor([[10.0]])
+        indices = torch.tensor([[0, 0]], dtype=torch.long)
+
+        model._update_ema_codebooks(encoded, indices)
+
+        self.assertAlmostEqual(float(model.codebooks[0].weight.item()), 10.0, places=6)
+        self.assertAlmostEqual(float(model.codebooks[1].weight.item()), 9.0, places=6)
 
     def test_rqvae_uses_mean_per_quantizer_losses(self) -> None:
         config = ResidualQuantizedAutoencoderConfig(
