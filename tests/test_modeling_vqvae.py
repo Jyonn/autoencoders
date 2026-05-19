@@ -163,6 +163,20 @@ class VectorQuantizedAutoencoderModelTest(unittest.TestCase):
         self.assertGreater(model.consume_dead_code_reset_count(), 0)
         self.assertEqual(model.consume_dead_code_reset_count(), 0)
 
+    def test_sinkhorn_and_dead_code_reset_cannot_be_enabled_together(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "dead_code_reset cannot be enabled together with assignment_strategy='sinkhorn'",
+        ):
+            VectorQuantizedAutoencoderConfig(
+                latent_dim=4,
+                hidden_dims=[12, 8],
+                codebook_size=16,
+                assignment_strategy="sinkhorn",
+                sinkhorn_epsilon=0.01,
+                dead_code_reset=True,
+            )
+
     def test_kmeans_init_initializes_codebook_on_first_training_forward(self) -> None:
         config = VectorQuantizedAutoencoderConfig(
             latent_dim=4,
