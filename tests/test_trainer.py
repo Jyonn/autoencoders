@@ -620,7 +620,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
             self.assertIn("train_active_codes", metrics["history"][0])
             self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
 
-    def test_quantized_trainer_computes_collision_rate_from_code_signatures(self) -> None:
+    def test_quantized_trainer_extracts_collision_signatures(self) -> None:
         config = VectorQuantizedAutoencoderConfig(
             latent_dim=4,
             hidden_dims=[6],
@@ -641,10 +641,11 @@ class AutoencoderTrainerTest(unittest.TestCase):
             dtype=torch.long,
         )
 
-        collisions, total = trainer.compute_collision_totals(codebook_indices)
+        signatures = trainer.extract_collision_signatures(codebook_indices)
 
-        self.assertEqual(collisions, 1)
-        self.assertEqual(total, 3)
+        self.assertEqual(len(signatures), 2)
+        self.assertIn((0, 1, 2, 3), signatures)
+        self.assertIn((4, 5, 6, 7), signatures)
 
     def test_vq_config_validates_dead_code_threshold(self) -> None:
         with self.assertRaisesRegex(ValueError, "dead_code_threshold"):

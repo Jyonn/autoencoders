@@ -628,8 +628,7 @@ class VQTrainer(AETrainer):
         total_examples = 0
         total_batches = len(dataloader)
         code_counts = self.initialize_code_counts()
-        total_collisions = 0
-        total_collision_examples = 0
+        collision_signatures: set[tuple[int, ...]] = set()
 
         for batch_index, batch in enumerate(dataloader, start=1):
             batch = batch.to(self.device)
@@ -649,9 +648,7 @@ class VQTrainer(AETrainer):
             batch_size = batch.shape[0]
             total_examples += batch_size
             code_counts = self.accumulate_code_counts(code_counts, outputs.codebook_indices)
-            batch_collisions, batch_collision_examples = self.compute_collision_totals(outputs.codebook_indices)
-            total_collisions += batch_collisions
-            total_collision_examples += batch_collision_examples
+            collision_signatures.update(self.extract_collision_signatures(outputs.codebook_indices))
             batch_metrics = self.extract_batch_metrics(outputs, loss=loss)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
@@ -668,7 +665,7 @@ class VQTrainer(AETrainer):
         metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
         metrics.update(self.compute_codebook_metrics(code_counts))
         metrics["collision_rate"] = (
-            total_collisions / total_collision_examples if total_collision_examples > 0 else 0.0
+            (total_examples - len(collision_signatures)) / total_examples if total_examples > 0 else 0.0
         )
         if training:
             metrics["dead_code_reset_count"] = float(self.model.consume_dead_code_reset_count())
@@ -766,12 +763,9 @@ class VQTrainer(AETrainer):
             "codebook_perplexity": perplexity,
         }
 
-    def compute_collision_totals(self, codebook_indices: torch.Tensor) -> tuple[int, int]:
+    def extract_collision_signatures(self, codebook_indices: torch.Tensor) -> set[tuple[int, ...]]:
         flattened = codebook_indices.detach().reshape(codebook_indices.shape[0], -1).cpu()
-        unique_signatures = {tuple(int(value) for value in row.tolist()) for row in flattened}
-        total_examples = int(flattened.shape[0])
-        total_collisions = total_examples - len(unique_signatures)
-        return total_collisions, total_examples
+        return {tuple(int(value) for value in row.tolist()) for row in flattened}
 
 
 class AdversarialAutoencoderTrainer(AETrainer):
