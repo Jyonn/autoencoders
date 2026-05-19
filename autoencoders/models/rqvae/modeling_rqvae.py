@@ -19,6 +19,9 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
 
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
+        self._reference_residual_batches: list[torch.Tensor] = []
+        self._latest_commitment_loss: torch.Tensor | None = None
+        self._latest_codebook_loss: torch.Tensor | None = None
         self.codebooks = nn.ModuleList(
             [nn.Embedding(self.config.codebook_size, self.config.latent_dim) for _ in range(self.config.num_quantizers)]
         )
@@ -76,6 +79,8 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
         residual = encoded
         quantized_sum = torch.zeros_like(encoded)
         index_steps: list[torch.Tensor] = []
+        commitment_losses: list[torch.Tensor] = []
+        codebook_losses: list[torch.Tensor] = []
 
         for codebook_index, codebook in enumerate(self.codebooks):
             distances = (
@@ -85,11 +90,25 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             )
             indices = self.assign_codebook_indices_for_slot(distances, slot=codebook_index)
             quantized = codebook(indices)
+            commitment_losses.append(F.mse_loss(residual, quantized.detach()))
+            codebook_losses.append(F.mse_loss(quantized, residual.detach()))
             quantized_sum = quantized_sum + quantized
             residual = residual - quantized
             index_steps.append(indices)
 
+        self._latest_commitment_loss = torch.stack(commitment_losses).mean()
+        self._latest_codebook_loss = torch.stack(codebook_losses).mean()
         return quantized_sum, torch.stack(index_steps, dim=1)
+
+    def compute_commitment_loss(self, encoded: torch.Tensor, quantized_latents: torch.Tensor) -> torch.Tensor:
+        if self._latest_commitment_loss is None:
+            return super().compute_commitment_loss(encoded, quantized_latents)
+        return self._latest_commitment_loss
+
+    def compute_codebook_loss(self, encoded: torch.Tensor, quantized_latents: torch.Tensor) -> torch.Tensor:
+        if self._latest_codebook_loss is None:
+            return super().compute_codebook_loss(encoded, quantized_latents)
+        return self._latest_codebook_loss
 
     def _update_ema_codebooks(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
         residual = encoded
@@ -135,8 +154,12 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
             if count == 0:
                 continue
             if reference_latents is not None and reference_latents.numel() > 0:
-                sample_indices = torch.randint(0, reference_latents.shape[0], (count,), device=codebook.weight.device)
-                replacements = reference_latents[sample_indices]
+                if reference_latents.ndim == 3:
+                    candidates = reference_latents[:, codebook_index, :]
+                else:
+                    candidates = reference_latents
+                sample_indices = torch.randint(0, candidates.shape[0], (count,), device=codebook.weight.device)
+                replacements = candidates[sample_indices]
             else:
                 replacements = torch.empty(count, self.config.latent_dim, device=codebook.weight.device)
                 replacements.uniform_(-1.0 / self.config.codebook_size, 1.0 / self.config.codebook_size)
@@ -150,6 +173,44 @@ class ResidualQuantizedAutoencoderModel(BaseVectorQuantizedAutoencoderModel):
 
     def on_quantizer_training_step(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> None:
         self._update_ema_codebooks(encoded, codebook_indices)
+
+    def _compute_reference_residuals(self, encoded: torch.Tensor, codebook_indices: torch.Tensor) -> torch.Tensor:
+        residual = encoded
+        residual_steps: list[torch.Tensor] = []
+        for codebook_index, codebook in enumerate(self.codebooks):
+            residual_steps.append(residual.detach())
+            indices = codebook_indices[:, codebook_index]
+            quantized = codebook(indices).detach()
+            residual = residual - quantized
+        return torch.stack(residual_steps, dim=1)
+
+    def _maybe_reset_dead_codes(
+        self,
+        *,
+        encoded: torch.Tensor,
+        codebook_indices: torch.Tensor,
+        is_last_train_step: bool | None,
+    ) -> None:
+        self._last_dead_code_reset_count = 0
+        if not self.training or not self.config.dead_code_reset:
+            return
+        if is_last_train_step is None:
+            raise ValueError("is_last_train_step must be provided when dead_code_reset is enabled during training.")
+
+        self._accumulate_code_usage(codebook_indices.detach())
+        self._reference_residual_batches.append(self._compute_reference_residuals(encoded.detach(), codebook_indices.detach()))
+        if not is_last_train_step:
+            return
+
+        dead_code_mask = self._code_usage_counts <= self.config.dead_code_threshold
+        reference_latents = (
+            torch.cat(self._reference_residual_batches, dim=0)
+            if self._reference_residual_batches
+            else None
+        )
+        self._last_dead_code_reset_count = int(self.reset_dead_codes(dead_code_mask, reference_latents))
+        self._code_usage_counts.zero_()
+        self._reference_residual_batches.clear()
 
     def get_quantized_export_extras(self) -> dict[str, object]:
         extras = super().get_quantized_export_extras()

@@ -28,6 +28,7 @@ class TrainingConfig:
         warmup_epochs: int = 0,
         grad_clip_norm: float | None = None,
         batch_size: int = 256,
+        full_dataset_as_splits: bool = False,
         device: str = "auto",
         seed: int = 42,
         show_only_best_epochs: bool = True,
@@ -44,6 +45,7 @@ class TrainingConfig:
         self.warmup_epochs = warmup_epochs
         self.grad_clip_norm = grad_clip_norm
         self.batch_size = batch_size
+        self.full_dataset_as_splits = full_dataset_as_splits
         self.device = device
         self.seed = seed
         self.show_only_best_epochs = show_only_best_epochs
@@ -626,6 +628,8 @@ class VQTrainer(AETrainer):
         total_examples = 0
         total_batches = len(dataloader)
         code_counts = self.initialize_code_counts()
+        total_collisions = 0
+        total_collision_examples = 0
 
         for batch_index, batch in enumerate(dataloader, start=1):
             batch = batch.to(self.device)
@@ -639,12 +643,15 @@ class VQTrainer(AETrainer):
             loss = self.compute_batch_loss(outputs, training=training)
             if training:
                 loss.backward()
-                self.optimizer.step()
+                self._step_optimizer(self.optimizer)
                 self.global_step += 1
 
             batch_size = batch.shape[0]
             total_examples += batch_size
             code_counts = self.accumulate_code_counts(code_counts, outputs.codebook_indices)
+            batch_collisions, batch_collision_examples = self.compute_collision_totals(outputs.codebook_indices)
+            total_collisions += batch_collisions
+            total_collision_examples += batch_collision_examples
             batch_metrics = self.extract_batch_metrics(outputs, loss=loss)
             for name, value in batch_metrics.items():
                 totals[name] = totals.get(name, 0.0) + value * batch_size
@@ -660,6 +667,9 @@ class VQTrainer(AETrainer):
 
         metrics = {name: total / max(total_examples, 1) for name, total in totals.items()}
         metrics.update(self.compute_codebook_metrics(code_counts))
+        metrics["collision_rate"] = (
+            total_collisions / total_collision_examples if total_collision_examples > 0 else 0.0
+        )
         if training:
             metrics["dead_code_reset_count"] = float(self.model.consume_dead_code_reset_count())
         return metrics
@@ -755,6 +765,13 @@ class VQTrainer(AETrainer):
             "dead_code_ratio": dead_code_ratio,
             "codebook_perplexity": perplexity,
         }
+
+    def compute_collision_totals(self, codebook_indices: torch.Tensor) -> tuple[int, int]:
+        flattened = codebook_indices.detach().reshape(codebook_indices.shape[0], -1).cpu()
+        unique_signatures = {tuple(int(value) for value in row.tolist()) for row in flattened}
+        total_examples = int(flattened.shape[0])
+        total_collisions = total_examples - len(unique_signatures)
+        return total_collisions, total_examples
 
 
 class AdversarialAutoencoderTrainer(AETrainer):

@@ -412,8 +412,16 @@ def split_dataset(
     validation_ratio: float = 0.1,
     test_ratio: float = 0.1,
     seed: int = 42,
+    full_dataset_as_splits: bool = False,
 ) -> DatasetSplits:
     """Split a dataset into train, validation, and test subsets."""
+
+    if full_dataset_as_splits:
+        return DatasetSplits(
+            train=dataset,
+            validation=dataset,
+            test=dataset,
+        )
 
     if validation_ratio < 0 or test_ratio < 0:
         raise ValueError("validation_ratio and test_ratio must be non-negative.")

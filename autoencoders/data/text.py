@@ -167,6 +167,7 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
         validation_ratio: float = 0.1,
         test_ratio: float = 0.1,
         seed: int = 42,
+        full_dataset_as_splits: bool = False,
     ) -> DatasetSplits:
         dataset = self.as_dataset(download=download)
         return split_dataset(
@@ -174,6 +175,7 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
             validation_ratio=validation_ratio,
             test_ratio=test_ratio,
             seed=seed,
+            full_dataset_as_splits=full_dataset_as_splits,
         )
 
     def get_dataloaders(
@@ -183,6 +185,7 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
         validation_ratio: float = 0.1,
         test_ratio: float = 0.1,
         seed: int = 42,
+        full_dataset_as_splits: bool = False,
         batch_size: int = 256,
         num_workers: int = 0,
     ) -> DatasetLoaders:
@@ -191,6 +194,7 @@ class EncoderBackedTextDataset(CachedDataset, ABC):
             validation_ratio=validation_ratio,
             test_ratio=test_ratio,
             seed=seed,
+            full_dataset_as_splits=full_dataset_as_splits,
         )
         return create_dataloaders(
             splits,

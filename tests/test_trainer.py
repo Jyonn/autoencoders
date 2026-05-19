@@ -455,6 +455,7 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             self.assertIn("train_active_codes", metrics["history"][0])
             self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
+            self.assertLessEqual(metrics["history"][0]["validation_codebook_usage_ratio"], 1.0)
 
     def test_adversarial_training_arguments_validate_fields(self) -> None:
         defaults = AdversarialAutoencoderTrainingArguments(output_dir="unused")
@@ -618,7 +619,32 @@ class AutoencoderTrainerTest(unittest.TestCase):
 
             self.assertIn("train_active_codes", metrics["history"][0])
             self.assertIn("validation_codebook_usage_ratio", metrics["history"][0])
-            self.assertLessEqual(metrics["history"][0]["validation_codebook_usage_ratio"], 1.0)
+
+    def test_quantized_trainer_computes_collision_rate_from_code_signatures(self) -> None:
+        config = VectorQuantizedAutoencoderConfig(
+            latent_dim=4,
+            hidden_dims=[6],
+            codebook_size=16,
+        )
+        model = VectorQuantizedAutoencoderModel(
+            config=config,
+            **build_mlp_backbone_kwargs_from_model_config(config, feature_dim=8),
+        )
+        trainer = VQTrainer(model=model, args=TrainingArguments(output_dir="unused", device="cpu"))
+
+        codebook_indices = torch.tensor(
+            [
+                [[0, 1], [2, 3]],
+                [[0, 1], [2, 3]],
+                [[4, 5], [6, 7]],
+            ],
+            dtype=torch.long,
+        )
+
+        collisions, total = trainer.compute_collision_totals(codebook_indices)
+
+        self.assertEqual(collisions, 1)
+        self.assertEqual(total, 3)
 
     def test_vq_config_validates_dead_code_threshold(self) -> None:
         with self.assertRaisesRegex(ValueError, "dead_code_threshold"):

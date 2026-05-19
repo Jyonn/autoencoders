@@ -136,6 +136,16 @@ class DatasetUtilitiesTest(unittest.TestCase):
         with mock.patch.dict("os.environ", {"AUTOENCODERS_CACHE": "/tmp/autoencoders-cache"}, clear=False):
             self.assertEqual(default_cache_dir(), Path("/tmp/autoencoders-cache"))
 
+    def test_split_dataset_can_share_full_dataset_across_all_splits(self) -> None:
+        tensor = torch.randn(10, 4)
+        dataset = torch.utils.data.TensorDataset(tensor)
+
+        splits = split_dataset(dataset, full_dataset_as_splits=True)
+
+        self.assertIs(splits.train, dataset)
+        self.assertIs(splits.validation, dataset)
+        self.assertIs(splits.test, dataset)
+
     def test_glove_dataset_prepare_and_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

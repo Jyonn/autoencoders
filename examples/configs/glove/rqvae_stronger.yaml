@@ -17,11 +17,8 @@ model:
     sinkhorn_iters: 50
     kmeans_init: true
     kmeans_iters: 20
-    use_ema_codebook: true
-    ema_decay: 0.99
-    ema_epsilon: 0.00001
-    dead_code_reset: true
-    dead_code_threshold: 0
+    use_ema_codebook: false
+    dead_code_reset: false
     num_quantizers: 4
 
 encoder:
@@ -57,6 +54,6 @@ trainer:
   lr_scheduler_type: ${schedule:cosine}$
   warmup_epochs: ${warmup:2}$
   grad_clip_norm: ${clip:1.0}$
-  device: auto
+  device: cpu
   show_only_best_epochs: true
   advice: false

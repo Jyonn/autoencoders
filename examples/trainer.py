@@ -242,6 +242,7 @@ def main() -> None:
         validation_ratio=configurations.trainer.validation_ratio,
         test_ratio=configurations.trainer.test_ratio,
         seed=configurations.trainer.seed,
+        full_dataset_as_splits=bool(configurations.trainer.full_dataset_as_splits),
     )
 
     sample_spec = dataset.get_sample_spec()
